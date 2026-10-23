@@ -1,0 +1,62 @@
+[
+  {
+    "id": "lekki-canopy",
+    "file": "Canopy_Walkway_LCC.jpg",
+    "title": "Canopy walkway, Lekki Conservation Centre, Lagos",
+    "author": "Liesel81",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": ["nature", "recreation"],
+    "src": "/assets/photos/lekki-canopy.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Canopy_Walkway_LCC.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/4/43/Canopy_Walkway_LCC.jpg",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 903
+  },
+  {
+    "id": "lagos-beach",
+    "file": "Bar_beach_lagos.jpg",
+    "title": "Bar Beach, Lagos, Nigeria",
+    "author": "ABORISADEADETONA",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": ["waterfront"],
+    "src": "/assets/photos/lagos-beach.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Bar_beach_lagos.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Bar_beach_lagos.jpg",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 780,
+    "height": 458
+  },
+  {
+    "id": "lagos-theatre",
+    "file": "National_Arts_Theatre,_Lagos.jpg",
+    "title": "National Arts Theatre, Lagos, Nigeria",
+    "author": "Juganutt",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": ["culture", "nightlife", "shopping"],
+    "src": "/assets/photos/lagos-theatre.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:National_Arts_Theatre,_Lagos.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/3/3b/National_Arts_Theatre%2C_Lagos.jpg",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 1199
+  },
+  {
+    "id": "nigeria-suya",
+    "file": "Waina_and_Suya.jpg",
+    "title": "Waina and suya, Nigerian cuisine",
+    "author": "Halima Waziri",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": ["food", "local-life"],
+    "src": "/assets/photos/nigeria-suya.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Waina_and_Suya.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/8/82/Waina_and_Suya.jpg",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 675,
+    "height": 1200
+  }
+]

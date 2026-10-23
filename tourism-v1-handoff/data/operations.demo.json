@@ -1,0 +1,50 @@
+{
+  "isDemo": true,
+  "people": [
+    {
+      "id": "demo-driver",
+      "displayName": "Demo driver — fictional",
+      "role": "DRIVER",
+      "phone": null,
+      "photo": null,
+      "identityStatus": "DEMO_ONLY"
+    },
+    {
+      "id": "demo-guide",
+      "displayName": "Demo host — fictional",
+      "role": "GUIDE",
+      "phone": null,
+      "photo": null,
+      "identityStatus": "DEMO_ONLY"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "demo-vehicle",
+      "label": "Demo vehicle",
+      "plate": null,
+      "passengerCapacity": 4,
+      "luggageCapacity": 2
+    }
+  ],
+  "support": {
+    "phone": null,
+    "hours": null,
+    "emergencyContacts": []
+  },
+  "resourcePools": [
+    {
+      "id": "demo-vehicle-pool",
+      "type": "VEHICLE",
+      "zone": "LEKKI",
+      "units": 1
+    },
+    {
+      "id": "demo-guide-pool",
+      "type": "GUIDE",
+      "zone": "LEKKI",
+      "units": 1
+    }
+  ],
+  "warning": "No real identities, capacity agreements or callable contacts. Inventory pools are test fixtures only."
+}

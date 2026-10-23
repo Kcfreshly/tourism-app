@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tourism-v1:planner-output",
+  "title": "Planner proposal, not a booking",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items",
+    "assumptions",
+    "questions"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 240,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "localDate",
+          "startTime",
+          "endTime",
+          "kind",
+          "offerId",
+          "title",
+          "reason"
+        ],
+        "properties": {
+          "localDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "startTime": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "endTime": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          },
+          "kind": {
+            "enum": [
+              "EXPERIENCE",
+              "CUSTOM",
+              "BREAK",
+              "TRAVEL"
+            ]
+          },
+          "offerId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 500
+      },
+      "maxItems": 20
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      },
+      "maxItems": 5
+    }
+  },
+  "$comment": "Server additionally enforces valid offered IDs, null offer for non-experience blocks, dates, end after start, duration, slots, locks, routes, party and availability. JSON Schema alone cannot enforce business constraints."
+}

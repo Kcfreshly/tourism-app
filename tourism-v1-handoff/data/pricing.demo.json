@@ -1,0 +1,76 @@
+{
+  "isDemo": true,
+  "version": "demo-v1",
+  "currency": "NGN",
+  "minorUnitsPerMajor": 100,
+  "feeBps": 1000,
+  "rounding": "HALF_UP",
+  "taxConfiguredForLive": false,
+  "demoTaxMinor": 0,
+  "holdMinutes": 15,
+  "vehiclePassengerCapacity": 4,
+  "vehicleBlocks": [
+    {
+      "hours": 4,
+      "rateMinor": 3000000
+    },
+    {
+      "hours": 8,
+      "rateMinor": 4500000
+    }
+  ],
+  "guideDayBlock": {
+    "hours": 8,
+    "rateMinor": 2500000,
+    "maxParty": 8
+  },
+  "activityGuideBlock": {
+    "hours": 3,
+    "rateMinor": 1200000,
+    "maxParty": 8
+  },
+  "crossZoneSurchargePerVehicleMinor": 1000000,
+  "airportTransferPerVehicleMinor": 3000000,
+  "airportWelcomePerPartyMinor": 1000000,
+  "connectivityEnabled": false,
+  "travelEstimatesAreFictional": true,
+  "travelMatrixMinutes": [
+    {
+      "from": "LEKKI",
+      "to": "LEKKI",
+      "offPeak": 30,
+      "peak": 45
+    },
+    {
+      "from": "LEKKI",
+      "to": "VI",
+      "offPeak": 45,
+      "peak": 75
+    },
+    {
+      "from": "LEKKI",
+      "to": "MAINLAND",
+      "offPeak": 90,
+      "peak": 150
+    },
+    {
+      "from": "VI",
+      "to": "MAINLAND",
+      "offPeak": 75,
+      "peak": 120
+    },
+    {
+      "from": "VI",
+      "to": "VI",
+      "offPeak": 25,
+      "peak": 40
+    },
+    {
+      "from": "MAINLAND",
+      "to": "MAINLAND",
+      "offPeak": 45,
+      "peak": 75
+    }
+  ],
+  "matrixRules": "Symmetric for demo only. Peak bands 07:00–10:00 and 16:00–20:00 local. Unknown pair blocks checkout. Do not use these values for real trips."
+}

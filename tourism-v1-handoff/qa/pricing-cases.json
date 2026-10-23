@@ -1,0 +1,110 @@
+[
+  {
+    "id": "base-two-adults",
+    "inputs": {
+      "adults": 2,
+      "activities": [
+        {
+          "rateMinor": 1200000,
+          "basis": "PER_ADULT"
+        },
+        {
+          "rateMinor": 800000,
+          "basis": "PER_ADULT"
+        }
+      ],
+      "vehicleRateMinor": 4500000,
+      "vehicleCount": 1,
+      "guideMinor": 0,
+      "feeBps": 1000
+    },
+    "expected": {
+      "activitiesMinor": 4000000,
+      "transportMinor": 4500000,
+      "hostingMinor": 0,
+      "subtotalMinor": 8500000,
+      "feeMinor": 850000,
+      "taxMinor": 0,
+      "totalMinor": 9350000
+    }
+  },
+  {
+    "id": "with-guide",
+    "inputs": {
+      "adults": 2,
+      "activities": [
+        {
+          "rateMinor": 1200000,
+          "basis": "PER_ADULT"
+        },
+        {
+          "rateMinor": 800000,
+          "basis": "PER_ADULT"
+        }
+      ],
+      "vehicleRateMinor": 4500000,
+      "vehicleCount": 1,
+      "guideMinor": 2500000,
+      "feeBps": 1000
+    },
+    "expected": {
+      "activitiesMinor": 4000000,
+      "transportMinor": 4500000,
+      "hostingMinor": 2500000,
+      "subtotalMinor": 11000000,
+      "feeMinor": 1100000,
+      "taxMinor": 0,
+      "totalMinor": 12100000
+    }
+  },
+  {
+    "id": "group-five-two-vehicles",
+    "inputs": {
+      "adults": 5,
+      "activities": [
+        {
+          "rateMinor": 3500000,
+          "basis": "PER_GROUP"
+        }
+      ],
+      "vehicleRateMinor": 4500000,
+      "vehicleCount": 2,
+      "guideMinor": 0,
+      "feeBps": 1000
+    },
+    "expected": {
+      "activitiesMinor": 3500000,
+      "transportMinor": 9000000,
+      "hostingMinor": 0,
+      "subtotalMinor": 12500000,
+      "feeMinor": 1250000,
+      "taxMinor": 0,
+      "totalMinor": 13750000
+    }
+  },
+  {
+    "id": "half-up-minor-unit",
+    "inputs": {
+      "adults": 1,
+      "activities": [
+        {
+          "rateMinor": 105,
+          "basis": "PER_ADULT"
+        }
+      ],
+      "vehicleRateMinor": 0,
+      "vehicleCount": 0,
+      "guideMinor": 0,
+      "feeBps": 1000
+    },
+    "expected": {
+      "activitiesMinor": 105,
+      "transportMinor": 0,
+      "hostingMinor": 0,
+      "subtotalMinor": 105,
+      "feeMinor": 11,
+      "taxMinor": 0,
+      "totalMinor": 116
+    }
+  }
+]

@@ -1,0 +1,55 @@
+/* Original working visual system. Verify contrast in implemented UI. */
+:root {
+  --color-bg: #f7f5ef;
+  --color-surface: #ffffff;
+  --color-ink: #18392f;
+  --color-muted: #52655e;
+  --color-brand: #205442;
+  --color-brand-hover: #163c2f;
+  --color-accent: #a3472d;
+  --color-accent-soft: #f4e3d9;
+  --color-line: #d9dfd8;
+  --color-success: #246244;
+  --color-warning: #805400;
+  --color-danger: #ad3030;
+  --color-focus: #285bc5;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --shadow-card: 0 8px 28px rgb(24 57 47 / 7%);
+  --content-max: 1280px;
+  --touch-min: 44px;
+  --button-height: 48px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

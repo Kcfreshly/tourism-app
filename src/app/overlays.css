@@ -1,0 +1,307 @@
+:root {
+  --site-header-height: 130px;
+  scrollbar-gutter: stable;
+  scroll-padding-top: calc(var(--site-header-height) + 12px);
+}
+:root:has(.planner-refined) {
+  --site-header-height: 102px;
+}
+body {
+  padding-top: var(--site-header-height);
+}
+.site-chrome {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100;
+  background: var(--color-bg);
+  box-shadow: 0 2px 8px #18392f0a;
+}
+.site-chrome header {
+  background: var(--color-bg);
+}
+.skip {
+  z-index: 110;
+}
+main :where([id], a, button, input, select, textarea, [tabindex]) {
+  scroll-margin-top: 12px;
+}
+.reading-overlay[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(1040px, calc(100vw - 48px));
+  height: min(760px, calc(100dvh - 40px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  background: white;
+  color: var(--color-ink);
+  box-shadow: 0 24px 80px #071c2866;
+}
+.reading-overlay::backdrop {
+  background: #102c26a6;
+}
+.reading-overlay .overlay-header {
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: white;
+}
+.reading-overlay .overlay-header .eyebrow {
+  font-size: 10px;
+  margin: 0 0 6px;
+}
+.reading-overlay .overlay-header h2 {
+  font: 650 23px/1.25 var(--font-body);
+  letter-spacing: -0.4px;
+  margin: 0;
+}
+.reading-overlay .overlay-header > button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 8px 14px;
+  font-size: 12px;
+}
+.overlay-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+.experience-gallery {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px;
+  background: #eef2e9;
+  border-right: 1px solid var(--color-line);
+}
+.gallery-image-frame {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  min-width: 0;
+}
+.experience-gallery .gallery-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  object-fit: contain;
+  border-radius: 10px;
+}
+.gallery-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 12px;
+}
+.gallery-controls button {
+  min-height: 32px;
+  font-size: 11px;
+  padding: 6px 10px;
+}
+.gallery-controls span {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.experience-information {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 18px 24px 24px;
+  scroll-padding-block: 12px;
+}
+.experience-information p,
+.experience-information li {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.experience-information > p:first-child {
+  margin-top: 0;
+}
+.experience-information h3 {
+  font-size: 16px;
+  margin: 24px 0 8px;
+}
+.experience-information ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+.experience-information video {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  border-radius: 10px;
+}
+.experience-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  border-block: 1px solid var(--color-line);
+  padding: 16px 0;
+  margin: 20px 0;
+}
+.experience-facts dt {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-bottom: 6px;
+}
+.experience-facts dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.reading-overlay .overlay-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--color-line);
+  background: white;
+}
+.overlay-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.overlay-actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+  font-size: 12px;
+}
+.overlay-actions a {
+  margin-left: auto;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+}
+@media (max-width: 650px) {
+  :root {
+    --site-header-height: 160px;
+  }
+  :root:has(.planner-refined) {
+    --site-header-height: 138px;
+  }
+  .site-chrome header {
+    min-height: 0;
+    padding: 10px 16px;
+    flex-direction: column;
+    align-items: start;
+    gap: 8px;
+  }
+  .site-chrome .brand {
+    font-size: 21px;
+  }
+  .site-chrome .brand small {
+    display: none;
+  }
+  .site-chrome nav {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: start;
+    gap: 6px 16px;
+    font-size: 11px;
+  }
+  .site-chrome nav a {
+    min-height: 28px;
+  }
+  .reading-overlay[open] {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
+  .reading-overlay .overlay-header {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .reading-overlay .overlay-header h2 {
+    font-size: 18px;
+  }
+  .reading-overlay .overlay-header .eyebrow {
+    font-size: 9px;
+    margin-bottom: 4px;
+  }
+  .overlay-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 120px minmax(0, 1fr);
+  }
+  .experience-gallery {
+    padding: 8px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .gallery-controls {
+    gap: 8px;
+    padding-top: 5px;
+  }
+  .gallery-controls button {
+    min-height: 26px;
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  .experience-information {
+    padding: 14px 16px 18px;
+  }
+  .experience-information p,
+  .experience-information li {
+    font-size: 13px;
+  }
+  .reading-overlay .overlay-footer {
+    padding: 10px 14px;
+  }
+  .overlay-actions {
+    gap: 6px 10px;
+  }
+  .overlay-actions button {
+    flex: 1 1 140px;
+    min-height: 38px;
+    font-size: 11px;
+    padding: 8px;
+  }
+  .overlay-actions a {
+    flex: 1 1 110px;
+    justify-content: center;
+    min-height: 28px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 650px) and (max-height: 520px) {
+  .overlay-body {
+    grid-template-rows: 64px minmax(0, 1fr);
+  }
+  .experience-gallery {
+    padding: 4px 14px;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .gallery-controls {
+    padding: 0;
+  }
+  .reading-overlay .overlay-header {
+    padding-block: 8px;
+  }
+  .reading-overlay .overlay-header h2 {
+    font-size: 16px;
+  }
+  .reading-overlay .overlay-footer {
+    padding-block: 6px;
+  }
+  .overlay-actions button {
+    min-height: 30px;
+    padding: 5px;
+  }
+  .overlay-actions a {
+    min-height: 24px;
+  }
+}

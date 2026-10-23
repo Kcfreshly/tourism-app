@@ -1,0 +1,42 @@
+[
+  {
+    "id": "nature",
+    "label": "Nature & outdoors",
+    "illustration": "/assets/illustrations/category-nature.svg"
+  },
+  {
+    "id": "waterfront",
+    "label": "Beaches & waterfront",
+    "illustration": "/assets/illustrations/category-waterfront.svg"
+  },
+  {
+    "id": "local-life",
+    "label": "Lagos Life",
+    "illustration": "/assets/illustrations/category-local-life.svg"
+  },
+  {
+    "id": "food",
+    "label": "Food & drink",
+    "illustration": "/assets/illustrations/category-food.svg"
+  },
+  {
+    "id": "culture",
+    "label": "Arts, culture & history",
+    "illustration": "/assets/illustrations/category-culture.svg"
+  },
+  {
+    "id": "nightlife",
+    "label": "Nightlife & entertainment",
+    "illustration": "/assets/illustrations/category-nightlife.svg"
+  },
+  {
+    "id": "recreation",
+    "label": "Adventure & recreation",
+    "illustration": "/assets/illustrations/category-recreation.svg"
+  },
+  {
+    "id": "shopping",
+    "label": "Shopping & style",
+    "illustration": "/assets/illustrations/category-shopping.svg"
+  }
+]

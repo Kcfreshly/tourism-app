@@ -1,0 +1,722 @@
+{
+  "warning": "FICTIONAL FIXTURES. Demo availability windows are not production slots. Generate explicit dated slots from these only in demo seed mode. Never sell these records live.",
+  "experiences": [
+    {
+      "id": "nature-walk",
+      "isDemo": true,
+      "name": "Conservation-style morning — DEMO",
+      "cityId": "lagos",
+      "categoryId": "nature",
+      "tags": [],
+      "zoneId": "LEKKI",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-nature-walk",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 120,
+      "durationMaxMinutes": 180,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-nature-walk",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 1200000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-nature.svg",
+      "inclusions": [
+        "Demo admission"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "gallery",
+      "isDemo": true,
+      "name": "Contemporary art visit — DEMO",
+      "cityId": "lagos",
+      "categoryId": "culture",
+      "tags": [],
+      "zoneId": "LEKKI",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-gallery",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 90,
+      "durationMaxMinutes": 120,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-gallery",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 800000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-culture.svg",
+      "inclusions": [
+        "Demo admission"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "local-market",
+      "isDemo": true,
+      "name": "Market life with a local host — DEMO",
+      "cityId": "lagos",
+      "categoryId": "local-life",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "MAINLAND",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-local-market",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 180,
+      "durationMaxMinutes": 240,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-local-market",
+        "currency": "NGN",
+        "priceBasis": "PER_GROUP",
+        "rateMinor": 3500000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "GROUP",
+        "capacityPerSlot": 1,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-local-life.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "suya",
+      "isDemo": true,
+      "name": "Hosted suya evening — DEMO",
+      "cityId": "lagos",
+      "categoryId": "food",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "MAINLAND",
+      "kind": "LIGHT",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-suya",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 60,
+      "durationMaxMinutes": 90,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "17:00",
+        "closesAt": "23:00"
+      },
+      "offer": {
+        "id": "offer-suya",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 1000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-food.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "beach",
+      "isDemo": true,
+      "name": "Waterfront afternoon — DEMO",
+      "cityId": "lagos",
+      "categoryId": "waterfront",
+      "tags": [],
+      "zoneId": "LEKKI",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-beach",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 180,
+      "durationMaxMinutes": 240,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-beach",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 1500000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-waterfront.svg",
+      "inclusions": [
+        "Demo admission"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "cooking",
+      "isDemo": true,
+      "name": "Home-style cooking workshop — DEMO",
+      "cityId": "lagos",
+      "categoryId": "food",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "LEKKI",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-cooking",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 120,
+      "durationMaxMinutes": 180,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-cooking",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 2000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-food.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "music",
+      "isDemo": true,
+      "name": "Hosted live music evening — DEMO",
+      "cityId": "lagos",
+      "categoryId": "nightlife",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-music",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 120,
+      "durationMaxMinutes": 180,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "17:00",
+        "closesAt": "23:00"
+      },
+      "offer": {
+        "id": "offer-music",
+        "currency": "NGN",
+        "priceBasis": "PER_GROUP",
+        "rateMinor": 2500000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "GROUP",
+        "capacityPerSlot": 1,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-nightlife.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "makers",
+      "isDemo": true,
+      "name": "Fashion and makers visit — DEMO",
+      "cityId": "lagos",
+      "categoryId": "shopping",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-makers",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 90,
+      "durationMaxMinutes": 120,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-makers",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 900000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-shopping.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "gardens",
+      "isDemo": true,
+      "name": "Garden pause — DEMO",
+      "cityId": "lagos",
+      "categoryId": "nature",
+      "tags": [],
+      "zoneId": "LEKKI",
+      "kind": "LIGHT",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-gardens",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 45,
+      "durationMaxMinutes": 60,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-gardens",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 300000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-nature.svg",
+      "inclusions": [
+        "Demo admission"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "games",
+      "isDemo": true,
+      "name": "Social games session — DEMO",
+      "cityId": "lagos",
+      "categoryId": "recreation",
+      "tags": [],
+      "zoneId": "LEKKI",
+      "kind": "LIGHT",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-games",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 60,
+      "durationMaxMinutes": 90,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-games",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 500000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-recreation.svg",
+      "inclusions": [
+        "Demo admission"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "history",
+      "isDemo": true,
+      "name": "Art and history day — DEMO",
+      "cityId": "lagos",
+      "categoryId": "culture",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "MAINLAND",
+      "kind": "FULL_DAY",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-history",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 360,
+      "durationMaxMinutes": 420,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-history",
+        "currency": "NGN",
+        "priceBasis": "PER_GROUP",
+        "rateMinor": 6000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "GROUP",
+        "capacityPerSlot": 1,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-culture.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    },
+    {
+      "id": "neighbourhood",
+      "isDemo": true,
+      "name": "Neighbourhood stories walk — DEMO",
+      "cityId": "lagos",
+      "categoryId": "local-life",
+      "tags": [
+        "hosted"
+      ],
+      "zoneId": "MAINLAND",
+      "kind": "MAIN",
+      "description": "Fictional product for interface and transaction testing. Not a real venue or supplier offer.",
+      "supplierId": "demo-supplier-neighbourhood",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 120,
+      "durationMaxMinutes": 180,
+      "availabilityLocal": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "opensAt": "09:00",
+        "closesAt": "18:00"
+      },
+      "offer": {
+        "id": "offer-neighbourhood",
+        "currency": "NGN",
+        "priceBasis": "PER_GROUP",
+        "rateMinor": 3000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "GROUP",
+        "capacityPerSlot": 1,
+        "bookingCutoffHours": 24
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-local-life.svg",
+      "inclusions": [
+        "Demo admission",
+        "Local host during experience"
+      ],
+      "exclusions": [
+        "Meals unless explicitly included",
+        "Transport priced separately"
+      ],
+      "evidence": []
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Demo catalogue wrapper",
+  "type": "object",
+  "required": [
+    "warning",
+    "experiences"
+  ],
+  "properties": {
+    "warning": {
+      "type": "string"
+    },
+    "experiences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "isDemo",
+          "name",
+          "cityId",
+          "categoryId",
+          "kind",
+          "offer"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "isDemo": {
+            "const": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "cityId": {
+            "type": "string"
+          },
+          "categoryId": {
+            "enum": [
+              "nature",
+              "waterfront",
+              "local-life",
+              "food",
+              "culture",
+              "nightlife",
+              "recreation",
+              "shopping"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "MAIN",
+              "LIGHT",
+              "FULL_DAY"
+            ]
+          },
+          "offer": {
+            "type": "object",
+            "required": [
+              "id",
+              "currency",
+              "priceBasis",
+              "rateMinor",
+              "hostIncluded"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "currency": {
+                "const": "NGN"
+              },
+              "priceBasis": {
+                "enum": [
+                  "PER_ADULT",
+                  "PER_GROUP"
+                ]
+              },
+              "rateMinor": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hostIncluded": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$comment": "Fixture contract. Extend runtime schemas for production publish gates. Never promote demo fixtures."
+}

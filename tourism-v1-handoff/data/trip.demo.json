@@ -1,0 +1,84 @@
+{
+  "isDemo": true,
+  "id": "demo-trip",
+  "version": 1,
+  "cityId": "lagos",
+  "timezone": "Africa/Lagos",
+  "startDate": "2026-11-10",
+  "endDate": "2026-11-16",
+  "party": {
+    "adults": 2
+  },
+  "profile": {
+    "interests": [
+      "nature",
+      "culture",
+      "local-life"
+    ],
+    "occasion": "Anniversary",
+    "pace": "BALANCED",
+    "budgetMinor": 150000000,
+    "budgetScope": "PARTY_PLATFORM_SERVICES",
+    "alcoholPreference": "OPTIONAL",
+    "walkingComfort": "MODERATE"
+  },
+  "accommodation": {
+    "status": "CONFIRMED_DEMO",
+    "zoneId": "LEKKI",
+    "label": "Fictional Lekki base — no real address"
+  },
+  "assistance": "DRIVER_ONLY",
+  "items": [
+    {
+      "id": "custom-jog",
+      "localDate": "2026-11-10",
+      "startTime": "07:00",
+      "endTime": "08:00",
+      "kind": "CUSTOM",
+      "title": "Personal jog / private time",
+      "offerId": null,
+      "locked": true
+    },
+    {
+      "id": "visit-1",
+      "localDate": "2026-11-10",
+      "startTime": "09:00",
+      "endTime": "11:00",
+      "kind": "EXPERIENCE",
+      "title": "Conservation-style morning — DEMO",
+      "offerId": "offer-nature-walk",
+      "locked": false
+    },
+    {
+      "id": "travel-1",
+      "localDate": "2026-11-10",
+      "startTime": "11:00",
+      "endTime": "11:30",
+      "kind": "TRAVEL",
+      "title": "Estimated transfer — DEMO",
+      "offerId": null,
+      "locked": false
+    },
+    {
+      "id": "lunch-1",
+      "localDate": "2026-11-10",
+      "startTime": "11:30",
+      "endTime": "13:00",
+      "kind": "BREAK",
+      "title": "Lunch and downtime — not reserved",
+      "offerId": null,
+      "locked": false
+    },
+    {
+      "id": "visit-2",
+      "localDate": "2026-11-10",
+      "startTime": "13:00",
+      "endTime": "14:30",
+      "kind": "EXPERIENCE",
+      "title": "Contemporary art visit — DEMO",
+      "offerId": "offer-gallery",
+      "locked": false
+    }
+  ],
+  "note": "One populated demo day plus six free days. Eight-hour vehicle block 08:30–16:30 is an explicit test selection. Create dated slots for offers before checkout."
+}
