@@ -80,6 +80,13 @@ await context.addInitScript((id) => {
     localStorage.setItem("tourism.onboardedTrip", id);
   }
 }, trip.id);
+// Wait for the dialog's opening animation so measurements are of its resting layout.
+const settled = () =>
+  page
+    .locator(".reading-overlay")
+    .evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)),
+    );
 const modal = page.locator(".reading-overlay"),
   library = page.locator("#planner-library-panel");
 async function snapshot() {
@@ -102,9 +109,11 @@ try {
   await expect(library.locator(".planner-activity-card").first()).toBeVisible();
   await library.getByLabel("Search activities").fill("DEMO");
   await page.locator(".schedule-scroll").evaluate((el) => (el.scrollTop = 80));
-  const trigger = library.locator(".activity-card-content h3 button").first();
+  // The second card's title stays fully visible after the list scrolls by 40px, so
+  // the click does not auto-scroll the list before measuring.
+  const trigger = library.locator(".activity-card-content h3 button").nth(1);
   await trigger.scrollIntoViewIfNeeded();
-  await library.locator(".library-items").evaluate((el) => (el.scrollTop = 80));
+  await library.locator(".library-items").evaluate((el) => (el.scrollTop = 40));
   await page.evaluate(() => window.scrollTo(0, 40));
   const before = await snapshot(),
     saved = JSON.stringify(
@@ -112,6 +121,7 @@ try {
     );
   await trigger.click();
   await expect(modal).toBeVisible();
+  await settled();
   const info = modal.getByRole("region", { name: "Activity information" });
   const galleryBefore = await modal
     .locator(".experience-gallery")
@@ -133,6 +143,7 @@ try {
     footerBefore,
   );
   await expect(modal).toBeVisible();
+  await settled();
   expect(await snapshot()).toEqual(before);
   expect(
     await page.evaluate(
@@ -156,6 +167,7 @@ try {
   await page.mouse.move(4, 4, { steps: 8 });
   await page.mouse.up();
   await expect(modal).toBeVisible();
+  await settled();
   await page.mouse.click(4, 4);
   await expect(modal).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -166,6 +178,7 @@ try {
   for (const method of ["Close", "Escape"]) {
     await trigger.click();
     await expect(modal).toBeVisible();
+    await settled();
     if (method === "Close")
       await modal.getByRole("button", { name: "Close", exact: true }).click();
     else await page.keyboard.press("Escape");
@@ -196,6 +209,7 @@ try {
         .click();
     await trigger.click();
     await expect(modal).toBeVisible();
+    await settled();
     const gallery = await modal.locator(".experience-gallery").boundingBox();
     const frame = await modal.boundingBox();
     expect(frame.y).toBeGreaterThanOrEqual(0);
@@ -229,9 +243,10 @@ try {
   // Removing a saved card while reading must not unmount the overlay host.
   await page.setViewportSize({ width: 1440, height: 900 });
   await library.getByRole("button", { name: /My Bucket/ }).click();
-  await trigger.click();
+  await library.locator(".activity-card-content h3 button").first().click();
   await modal.getByRole("button", { name: /Remove from bucket/ }).click();
   await expect(modal).toBeVisible();
+  await settled();
   await page.keyboard.press("Escape");
   await expect(modal).toHaveCount(0);
   await expect(library.getByText("Your bucket is empty.")).toBeVisible();

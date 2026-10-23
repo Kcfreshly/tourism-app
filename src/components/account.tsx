@@ -41,8 +41,15 @@ export default function Account() {
   }
   return (
     <section className="account-page">
-      <p className="eyebrow">YOUR PLANS, TOGETHER</p>
-      <h1>{session ? "Welcome back." : "Keep your stay close."}</h1>
+      <div className="page-intro">
+        <p className="eyebrow">Account</p>
+        <h1>{session ? "Welcome back." : "Keep your trips with you."}</h1>
+        <p className="lede">
+          {session
+            ? "Your trips are linked to this account."
+            : "Sign in to keep your trip drafts across devices. Any drafts you made as a guest are linked automatically."}
+        </p>
+      </div>
       <div className="card form-card">
         {isPending ? (
           <p role="status">Checking session…</p>
@@ -94,15 +101,27 @@ export default function Account() {
                 Sign out
               </button>
             </div>
-            <Link href="/admin">Staff workspace →</Link>
+            <p>
+              <Link className="text-link" href="/admin">
+                Staff workspace
+              </Link>
+            </p>
           </>
         ) : (
           <>
-            <div className="chips">
-              <button aria-pressed={!signup} onClick={() => setSignup(false)}>
+            <div className="segmented" role="group" aria-label="Account">
+              <button
+                type="button"
+                aria-pressed={!signup}
+                onClick={() => setSignup(false)}
+              >
                 Sign in
               </button>
-              <button aria-pressed={signup} onClick={() => setSignup(true)}>
+              <button
+                type="button"
+                aria-pressed={signup}
+                onClick={() => setSignup(true)}
+              >
                 Create demo account
               </button>
             </div>
@@ -157,7 +176,9 @@ export default function Account() {
             </form>
           </>
         )}
-        <p role="status">{status}</p>
+        <p role="status" className="muted">
+          {status}
+        </p>
       </div>
     </section>
   );

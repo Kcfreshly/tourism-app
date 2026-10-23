@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { catalogue } from "./schema";
-import { photoForCategory, type Photo } from "../domain/photos";
+import { photoForExperience, type Photo } from "../domain/photos";
 import fixture from "../../tourism-v1-handoff/data/experiences.demo.json";
 export type Experience = (typeof fixture.experiences)[number] & {
   schedulingType?: "FLEXIBLE" | "FIXED";
@@ -26,7 +26,7 @@ export async function listCatalogue() {
     const record = r.record as Experience;
     const fixed = ["cooking", "music", "local-market"].includes(r.seedKey);
     const inspiration = record.imagePath.startsWith("/assets/illustrations/")
-      ? photoForCategory(record.categoryId)
+      ? photoForExperience(r.seedKey, record.categoryId)
       : undefined;
     return {
       ...record,

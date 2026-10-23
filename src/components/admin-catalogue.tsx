@@ -132,17 +132,17 @@ export default function AdminCatalogue() {
               <button
                 className="secondary"
                 key={row.id}
+                aria-pressed={edit?.id === row.id}
                 onClick={() => {
                   setEdit(editRow(row));
                   setStatus("Editing local demo supply.");
                 }}
               >
-                <span>
-                  {row.record.name}
-                  <small>
-                    {row.status} · v{row.version}
-                  </small>
-                </span>
+                <span>{row.record.name}</span>
+                <small>
+                  <span className="status-dot" data-status={row.status} />
+                  {row.status.replace("_", " ").toLowerCase()} · v{row.version}
+                </small>
               </button>
             ))}
           </div>
@@ -311,7 +311,9 @@ export default function AdminCatalogue() {
               <p>No live supplier records can be published here.</p>
             </>
           )}
-          <p role="status">{status}</p>
+          <p role="status" className="muted">
+            {status}
+          </p>
           <button
             className="secondary"
             onClick={() => load().catch((e) => setStatus(e.message))}

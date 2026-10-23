@@ -19,7 +19,7 @@ assert(manual.includes("Review trip summary"));
 const home = await page("/");
 assert(home.includes("/assets/photos/lekki-canopy.webp"));
 const explore = await page("/explore");
-assert(explore.includes("Save now. Plan your days next."));
+assert(explore.includes("Find experiences worth making time for."));
 assert(explore.includes("/assets/photos/"));
 const credits = JSON.parse(
   await readFile(

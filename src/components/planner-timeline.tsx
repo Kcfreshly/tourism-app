@@ -7,7 +7,16 @@ import {
   type PlannerDrag,
 } from "@/domain/planner-interactions";
 import type { Experience } from "@/server/catalogue";
+import { displayName, zoneLabel } from "@/domain/experience-content";
 import ExperienceOverlay from "./experience-overlay";
+import Icon from "./icons";
+
+function length(start: string, end: string) {
+  const total = minutes(end) - minutes(start);
+  const h = Math.floor(total / 60),
+    m = total % 60;
+  return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
+}
 
 export default function PlannerTimeline({
   day,
@@ -66,6 +75,9 @@ export default function PlannerTimeline({
     : preview
       ? validate(preview)
       : undefined;
+  const fullDay = items
+    .map((item) => offers.find((e) => e.offer.id === item.offerId))
+    .find((offer) => offer?.kind === "FULL_DAY");
   function begin(
     event: PointerEvent<HTMLButtonElement>,
     item: Item,
@@ -76,6 +88,45 @@ export default function PlannerTimeline({
     event.currentTarget.setPointerCapture(event.pointerId);
     setResize({ item, proposed: item, edge, y: event.clientY });
   }
+  function resizeHandle(item: Item, original: Item, edge: "start" | "end") {
+    return (
+      <button
+        className={`block-resize edge-${edge}`}
+        aria-label={`Resize ${edge} of ${item.title}`}
+        title={`Drag to change the ${edge} time, or use the arrow keys`}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+            event.preventDefault();
+            onCommit(
+              resizedBlock(original, edge, event.key === "ArrowUp" ? -15 : 15),
+            );
+          } else if (event.key === "Enter") onEdit(original);
+        }}
+        disabled={busy}
+        onPointerDown={(event) => begin(event, item, edge)}
+        onPointerMove={(event) => {
+          if (resize && event.currentTarget.hasPointerCapture(event.pointerId))
+            setResize({
+              ...resize,
+              proposed: resizedBlock(
+                resize.item,
+                resize.edge,
+                event.clientY - resize.y,
+              ),
+            });
+        }}
+        onPointerUp={(event) => {
+          if (resize) {
+            onCommit(resize.proposed);
+            setResize(null);
+          }
+          if (event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onPointerCancel={() => setResize(null)}
+      />
+    );
+  }
   return (
     <>
       <div className="schedule-heading">
@@ -84,28 +135,45 @@ export default function PlannerTimeline({
             {new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", {
               weekday: "long",
               day: "numeric",
-              month: "short",
+              month: "long",
+              timeZone: "UTC",
             })}
           </h2>
-          <span>Africa/Lagos · 15-minute intervals</span>
+          <span>
+            {items.length
+              ? `${items.length} ${items.length === 1 ? "item" : "items"} · Lagos time`
+              : "Nothing planned yet · Lagos time"}
+          </span>
         </div>
         <button className="secondary" disabled={busy} onClick={onPersonal}>
-          + Personal time
+          <Icon name="plus" size={16} />
+          Add personal time
         </button>
       </div>
-      {!items.length && (
-        <p className="schedule-empty">
-          Your day is open. Drag an activity here or add personal time.
+      {fullDay && (
+        <p className="day-full-banner">
+          <Icon name="info" size={16} />
+          This day is full: {displayName(fullDay.name)} takes up the main part
+          of the day, so other activities can’t overlap it.
         </p>
       )}
-      <div className="schedule-feedback" role="status" aria-live="polite">
+      <div
+        className="schedule-feedback"
+        role="status"
+        aria-live="polite"
+        data-state={
+          resize || preview ? (problem ? "invalid" : "valid") : undefined
+        }
+      >
         {resize
           ? `${resize.proposed.startTime}–${resize.proposed.endTime} · ${minutes(resize.proposed.endTime) - minutes(resize.proposed.startTime)} min${problem ? ` · ${problem}` : " · Release to apply"}`
           : preview
-            ? `${preview.startTime}–${preview.endTime}${problem ? ` · ${problem}` : " · Available"}`
+            ? `${preview.startTime}–${preview.endTime}${problem ? ` · ${problem}` : " · Available — drop to add"}`
             : dragging && hover !== null
-              ? "Choose a valid start time or a published fixed session."
-              : "Drag an activity into your day, or select Add to day."}
+              ? "Choose a valid start time or a published session."
+              : items.length
+                ? "Drag blocks to move them. Drag the top or bottom edge of a flexible activity to change its length."
+                : "Your day is open. Drag an activity here, or use Add to day."}
       </div>
       <div
         className="schedule-scroll"
@@ -115,6 +183,7 @@ export default function PlannerTimeline({
       >
         <div
           className="time-grid"
+          data-dragging={!!dragging}
           style={{ height: end - start }}
           onDragOver={(event) => {
             if (!dragging) return;
@@ -138,6 +207,10 @@ export default function PlannerTimeline({
                 : dragging.kind === "offer"
                   ? "copy"
                   : "move";
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node))
+              setHover(null);
           }}
           onDrop={(event) => {
             event.preventDefault();
@@ -214,67 +287,33 @@ export default function PlannerTimeline({
               item.kind === "EXPERIENCE" &&
               offer?.schedulingType !== "FIXED" &&
               offer?.kind !== "FULL_DAY";
+            const type =
+              item.kind !== "EXPERIENCE"
+                ? "personal"
+                : offer?.kind === "FULL_DAY"
+                  ? "full-day"
+                  : offer?.schedulingType === "FIXED"
+                    ? "fixed"
+                    : "flexible";
             return (
               <article
                 key={item.id}
-                className={`schedule-block block-${item.kind.toLowerCase()} ${duration < 60 ? "short-block" : ""}`}
+                className={`schedule-block block-${item.kind.toLowerCase()} ${duration < 60 ? "short-block" : ""} ${duration < 40 ? "tiny-block" : ""}`}
                 data-item-id={item.id}
+                data-type={type}
+                data-locked={item.locked}
+                data-moving={
+                  dragging?.kind === "item" && dragging.id === item.id
+                }
                 data-invalid={resize?.item.id === item.id && !!problem}
                 style={{
                   top: minutes(item.startTime) - start,
                   height: Math.max(15, duration),
                 }}
               >
-                {flexible && !item.locked && (
-                  <button
-                    className="block-resize edge-start"
-                    aria-label={`Resize start of ${item.title}`}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "ArrowUp" ||
-                        event.key === "ArrowDown"
-                      ) {
-                        event.preventDefault();
-                        onCommit(
-                          resizedBlock(
-                            original,
-                            "start",
-                            event.key === "ArrowUp" ? -15 : 15,
-                          ),
-                        );
-                      } else if (event.key === "Enter") onEdit(original);
-                    }}
-                    disabled={busy}
-                    onPointerDown={(event) => begin(event, item, "start")}
-                    onPointerMove={(event) => {
-                      if (
-                        resize &&
-                        event.currentTarget.hasPointerCapture(event.pointerId)
-                      )
-                        setResize({
-                          ...resize,
-                          proposed: resizedBlock(
-                            resize.item,
-                            resize.edge,
-                            event.clientY - resize.y,
-                          ),
-                        });
-                    }}
-                    onPointerUp={(event) => {
-                      if (resize) {
-                        onCommit(resize.proposed);
-                        setResize(null);
-                      }
-                      if (
-                        event.currentTarget.hasPointerCapture(event.pointerId)
-                      )
-                        event.currentTarget.releasePointerCapture(
-                          event.pointerId,
-                        );
-                    }}
-                    onPointerCancel={() => setResize(null)}
-                  />
-                )}
+                {flexible &&
+                  !item.locked &&
+                  resizeHandle(item, original, "start")}
                 <div className="block-main">
                   <div className="block-topline">
                     <button
@@ -282,7 +321,11 @@ export default function PlannerTimeline({
                       draggable={!busy && !item.locked}
                       disabled={busy || item.locked}
                       aria-label={`Move ${item.title}`}
-                      title="Drag to move; use Edit for keyboard or fixed-session alternatives"
+                      title={
+                        item.locked
+                          ? "Unlock to move"
+                          : "Drag to move. Use Edit to move with the keyboard."
+                      }
                       onDragStart={(event) => {
                         const payload: PlannerDrag = {
                           kind: "item",
@@ -300,108 +343,87 @@ export default function PlannerTimeline({
                         setHover(null);
                       }}
                     >
-                      ⠿
+                      <Icon name={item.locked ? "lock" : "grip"} size={16} />
                     </button>
-                    <span>
+                    <span className="block-time">
                       {item.startTime}–{item.endTime}
-                      {offer?.schedulingType === "FIXED"
-                        ? " · Fixed session"
-                        : offer?.kind === "FULL_DAY"
-                          ? " · Day full"
-                          : ""}
-                      {item.locked ? " · Locked" : ""}
+                      <span className="block-length">
+                        {length(item.startTime, item.endTime)}
+                      </span>
                     </span>
-                    <button
-                      className="block-edit"
-                      disabled={busy}
-                      onClick={() => onEdit(original)}
-                    >
-                      Edit
-                    </button>
+                    <span className="block-tags">
+                      {type === "fixed" && <span>Set session</span>}
+                      {type === "full-day" && <span>Full day</span>}
+                      {type === "personal" && <span>Personal</span>}
+                    </span>
+                    <span className="block-actions">
+                      <button
+                        className="icon-button"
+                        disabled={busy}
+                        aria-label={item.locked ? "Unlock" : "Lock"}
+                        title={
+                          item.locked
+                            ? "Unlock: allow moves and suggestions to change this"
+                            : "Lock: keep this exactly where it is"
+                        }
+                        onClick={() => onLock(original)}
+                      >
+                        <Icon
+                          name={item.locked ? "unlock" : "lock"}
+                          size={16}
+                        />
+                      </button>
+                      {offer && !item.locked && (
+                        <button
+                          className="icon-button"
+                          disabled={busy}
+                          aria-label="Replace"
+                          title="Replace with another activity"
+                          onClick={() => onReplace(original)}
+                        >
+                          <Icon name="swap" size={16} />
+                        </button>
+                      )}
+                      <button
+                        className="icon-button"
+                        disabled={busy}
+                        aria-label="Remove"
+                        title="Remove from this day"
+                        onClick={() => onRemove(original)}
+                      >
+                        <Icon name="trash" size={16} />
+                      </button>
+                      <button
+                        className="block-edit"
+                        disabled={busy}
+                        onClick={() => onEdit(original)}
+                      >
+                        Edit
+                      </button>
+                    </span>
                   </div>
                   <h3>
                     {offer ? (
                       <ExperienceOverlay
                         experience={offer}
-                        trigger={item.title.replace(/\s*[—-]\s*DEMO$/, "")}
+                        trigger={displayName(item.title)}
                         triggerStyle="title"
                       />
                     ) : (
                       item.title
                     )}
                   </h3>
-                  {duration >= 60 && (
-                    <div className="block-actions">
-                      <button onClick={() => onLock(original)}>
-                        {item.locked ? "Unlock" : "Lock"}
-                      </button>
-                      {offer && !item.locked && (
-                        <button
-                          disabled={busy}
-                          onClick={() => onReplace(original)}
-                        >
-                          Replace
-                        </button>
-                      )}
-                      <button
-                        disabled={busy}
-                        onClick={() => onRemove(original)}
-                      >
-                        Remove
-                      </button>
-                    </div>
+                  {offer && duration >= 75 && (
+                    <p className="block-meta">
+                      <Icon name="pin" size={14} />
+                      {zoneLabel(offer.zoneId)}
+                      {offer.offer.hostIncluded ? " · Local host included" : ""}
+                    </p>
                   )}
                 </div>
-                {flexible && !item.locked && (
-                  <button
-                    className="block-resize edge-end"
-                    aria-label={`Resize end of ${item.title}`}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "ArrowUp" ||
-                        event.key === "ArrowDown"
-                      ) {
-                        event.preventDefault();
-                        onCommit(
-                          resizedBlock(
-                            original,
-                            "end",
-                            event.key === "ArrowUp" ? -15 : 15,
-                          ),
-                        );
-                      } else if (event.key === "Enter") onEdit(original);
-                    }}
-                    disabled={busy}
-                    onPointerDown={(event) => begin(event, item, "end")}
-                    onPointerMove={(event) => {
-                      if (
-                        resize &&
-                        event.currentTarget.hasPointerCapture(event.pointerId)
-                      )
-                        setResize({
-                          ...resize,
-                          proposed: resizedBlock(
-                            resize.item,
-                            resize.edge,
-                            event.clientY - resize.y,
-                          ),
-                        });
-                    }}
-                    onPointerUp={(event) => {
-                      if (resize) {
-                        onCommit(resize.proposed);
-                        setResize(null);
-                      }
-                      if (
-                        event.currentTarget.hasPointerCapture(event.pointerId)
-                      )
-                        event.currentTarget.releasePointerCapture(
-                          event.pointerId,
-                        );
-                    }}
-                    onPointerCancel={() => setResize(null)}
-                  />
-                )}
+                {flexible &&
+                  !item.locked &&
+                  resizeHandle(item, original, "end")}
               </article>
             );
           })}

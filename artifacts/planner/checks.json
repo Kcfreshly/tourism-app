@@ -1,0 +1,316 @@
+{
+  "tripId": "2509d697-2b78-42e0-b3c8-08e70a81f2c4",
+  "report": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "name": "desktop-1440.png",
+      "metrics": {
+        "library": {
+          "x": 40,
+          "y": 437.09375,
+          "width": 470.75,
+          "height": 613.953125,
+          "top": 437.09375,
+          "right": 510.75,
+          "bottom": 1051.046875,
+          "left": 40
+        },
+        "schedule": {
+          "x": 524.75,
+          "y": 437.09375,
+          "width": 860.25,
+          "height": 613.953125,
+          "top": 437.09375,
+          "right": 1385,
+          "bottom": 1051.046875,
+          "left": 524.75
+        },
+        "card": {
+          "x": 53,
+          "y": 603.6875,
+          "width": 429.75,
+          "height": 146.078125,
+          "top": 603.6875,
+          "right": 482.75,
+          "bottom": 749.765625,
+          "left": 53
+        },
+        "columns": "429.75px"
+      }
+    },
+    {
+      "check": "pointer and keyboard divider, persistence, reset",
+      "passed": true
+    },
+    {
+      "check": "flexible pointer resize, 15-minute keyboard resize and opening-hours rejection",
+      "passed": true
+    },
+    {
+      "check": "schedule drag move and invalid manual edits leave saved blocks intact",
+      "passed": true
+    },
+    {
+      "check": "fixed session edges absent, arbitrary time controls disabled, valid alternative session preserves its duration",
+      "passed": true
+    },
+    {
+      "check": "full-day block marks the day full, has no resize edge and rejects additional personal time",
+      "passed": true
+    },
+    {
+      "check": "library drag schedules an activity; Add to day opens the edit alternative without starting a drag",
+      "passed": true
+    },
+    {
+      "check": "clear/cancel/undo update bucket only and preserve itinerary",
+      "passed": true
+    },
+    {
+      "check": "Explore to bucket to planner retains all saved edits and new selections",
+      "passed": true
+    },
+    {
+      "check": "detail overlay retains filters and planner context",
+      "passed": true
+    },
+    {
+      "check": "last activity card and its actions remain reachable by scrolling",
+      "passed": true
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "name": "desktop-1440.png",
+      "metrics": {
+        "library": {
+          "x": 40,
+          "y": 437.09375,
+          "width": 470.75,
+          "height": 613.953125,
+          "top": 437.09375,
+          "right": 510.75,
+          "bottom": 1051.046875,
+          "left": 40
+        },
+        "schedule": {
+          "x": 524.75,
+          "y": 437.09375,
+          "width": 860.25,
+          "height": 613.953125,
+          "top": 437.09375,
+          "right": 1385,
+          "bottom": 1051.046875,
+          "left": 524.75
+        },
+        "card": {
+          "x": 53,
+          "y": 603.6875,
+          "width": 429.75,
+          "height": 146.078125,
+          "top": 603.6875,
+          "right": 482.75,
+          "bottom": 749.765625,
+          "left": 53
+        },
+        "columns": "429.75px"
+      }
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "name": "laptop-1280.png",
+      "metrics": {
+        "library": {
+          "x": 40,
+          "y": 437.09375,
+          "width": 414.75,
+          "height": 513.953125,
+          "top": 437.09375,
+          "right": 454.75,
+          "bottom": 951.046875,
+          "left": 40
+        },
+        "schedule": {
+          "x": 468.75,
+          "y": 437.09375,
+          "width": 756.25,
+          "height": 513.953125,
+          "top": 437.09375,
+          "right": 1225,
+          "bottom": 951.046875,
+          "left": 468.75
+        },
+        "card": {
+          "x": 53,
+          "y": 603.6875,
+          "width": 373.75,
+          "height": 146.078125,
+          "top": 603.6875,
+          "right": 426.75,
+          "bottom": 749.765625,
+          "left": 53
+        },
+        "columns": "373.75px"
+      }
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "name": "tablet-768-activities.png",
+      "metrics": {
+        "library": {
+          "x": 30.109375,
+          "y": 556.078125,
+          "width": 692.78125,
+          "height": 787.953125,
+          "top": 556.078125,
+          "right": 722.890625,
+          "bottom": 1344.03125,
+          "left": 30.109375
+        },
+        "schedule": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "card": {
+          "x": 43.109375,
+          "y": 722.671875,
+          "width": 651.78125,
+          "height": 146.078125,
+          "top": 722.671875,
+          "right": 694.890625,
+          "bottom": 868.75,
+          "left": 43.109375
+        },
+        "columns": "651.781px"
+      }
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "name": "tablet-768-schedule.png",
+      "metrics": {
+        "library": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "schedule": {
+          "x": 30.109375,
+          "y": 556.078125,
+          "width": 692.78125,
+          "height": 787.953125,
+          "top": 556.078125,
+          "right": 722.890625,
+          "bottom": 1344.03125,
+          "left": 30.109375
+        },
+        "card": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "columns": "minmax(0px, 1fr)"
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "name": "mobile-390-activities.png",
+      "metrics": {
+        "library": {
+          "x": 16,
+          "y": 565.796875,
+          "width": 343,
+          "height": 615.953125,
+          "top": 565.796875,
+          "right": 359,
+          "bottom": 1181.75,
+          "left": 16
+        },
+        "schedule": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "card": {
+          "x": 29,
+          "y": 750.984375,
+          "width": 302,
+          "height": 183.421875,
+          "top": 750.984375,
+          "right": 331,
+          "bottom": 934.40625,
+          "left": 29
+        },
+        "columns": "302px"
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "name": "mobile-390-schedule.png",
+      "metrics": {
+        "library": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "schedule": {
+          "x": 16,
+          "y": 565.796875,
+          "width": 343,
+          "height": 615.953125,
+          "top": 565.796875,
+          "right": 359,
+          "bottom": 1181.75,
+          "left": 16
+        },
+        "card": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "columns": "minmax(0px, 1fr)"
+      }
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "Local demo inventory; checkout is unavailable.",
+    "Desktop Chromium plus responsive viewports; native iOS/Android touch behaviour is not emulated."
+  ]
+}

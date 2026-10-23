@@ -18,7 +18,14 @@ import {
   availableStarts,
 } from "@/domain/planner";
 import type { Experience } from "@/server/catalogue";
-import { useBucket } from "./bucket";
+import { ClearBucket, useBucket } from "./bucket";
+import Icon from "./icons";
+import { useBackdropDismiss } from "./dialog-dismiss";
+import {
+  formatDuration,
+  formatMoney,
+  zoneLabel,
+} from "@/domain/experience-content";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 type Price = ReturnType<typeof assess>;
 type Trip = {
@@ -38,12 +45,30 @@ type Proposal = {
   price: Price;
   diff: { added: Item[]; removed: Item[] };
 };
-const money = (n: number) =>
-  new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    maximumFractionDigits: 2,
-  }).format(n / 100);
+const money = (n: number) => formatMoney(n, n % 100 ? 2 : 0);
+function shortDate(date: string) {
+  return new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+// Validation messages from the domain lead with an ISO date; show the trip day.
+function friendlyIssue(message: string, days: string[]) {
+  return message.replace(/^(\d{4}-\d{2}-\d{2}):\s*/, (_, date: string) =>
+    days.includes(date)
+      ? `Day ${days.indexOf(date) + 1} (${shortDate(date)}): `
+      : `${shortDate(date)}: `,
+  );
+}
+function statusTone(status: string, blocked: boolean) {
+  if (blocked) return "warn";
+  if (/^Saved/.test(status)) return "ok";
+  if (/^(Loading|Saving|Unsaved|Undo|Preparing|Proposal ready)/.test(status))
+    return "info";
+  return "warn";
+}
 async function api(path: string, method = "GET", payload?: unknown) {
   const r = await fetch(path, {
     method,
@@ -61,14 +86,8 @@ export default function Planner({
   id: string;
   servicesOnly?: boolean;
 }) {
-  const {
-    ids: bucket,
-    clear: clearBucket,
-    restore: restoreBucket,
-  } = useBucket();
-  const [clearedBucket, setClearedBucket] = useState<string[] | null>(null);
+  const { ids: bucket } = useBucket();
   const [layoutReset, setLayoutReset] = useState(0);
-  const clearDialog = useRef<HTMLDialogElement>(null);
   const [replacing, setReplacing] = useState<Item | null>(null);
   const [view, setView] = useState("all");
   const [shuffle, setShuffle] = useState(0);
@@ -90,6 +109,8 @@ export default function Planner({
     [past, setPast] = useState<{ items: Item[]; services: Services }[]>([]);
   const dialog = useRef<HTMLDialogElement>(null),
     library = useRef<HTMLDialogElement>(null);
+  const libraryDismiss = useBackdropDismiss(library),
+    editDismiss = useBackdropDismiss(dialog);
   useEffect(() => {
     if (editing && !dialog.current?.open) dialog.current?.showModal();
   }, [editing]);
@@ -110,7 +131,7 @@ export default function Planner({
         receive(data);
         setOffers(data.offers);
         setDay(data.trip.profile.startDate);
-        setStatus("Saved. No capacity held.");
+        setStatus("Saved · nothing is booked yet");
       })
       .catch((e) => {
         if (active) setStatus(e.message);
@@ -130,7 +151,7 @@ export default function Planner({
         services,
       });
       receive(data);
-      setStatus("Saved. Estimate updated.");
+      setStatus("Saved · estimate updated");
       return true;
     } catch (e) {
       setStatus(
@@ -178,7 +199,7 @@ export default function Planner({
     setDirty(true);
     setBlocked(false);
     setProposal(null);
-    setStatus("Unsaved changes · recalculation pending");
+    setStatus("Unsaved changes · updating estimate…");
     return true;
   }
   function openItem(item: Item) {
@@ -214,7 +235,7 @@ export default function Planner({
         : [];
     if (offer && !available.length) {
       setStatus(
-        "This experience cannot fit this day: check opening hours, sessions, capacity, duration and travel buffers.",
+        "This experience can’t fit this day. Its opening hours, sessions, length or travel time clash with your plans — try another day.",
       );
       return;
     }
@@ -241,12 +262,12 @@ export default function Planner({
   async function generate() {
     if (dirty && !(await save())) return;
     setBusy(true);
-    setStatus("Preparing a trip proposal…");
+    setStatus("Preparing a suggested plan…");
     try {
       setProposal(
         await api(`${root}/plan`, "POST", { selectedOfferIds: bucket }),
       );
-      setStatus("Proposal ready. Review the changes before applying.");
+      setStatus("Proposal ready. Review the changes before applying them.");
     } catch (e) {
       setStatus(
         e instanceof Error
@@ -277,7 +298,7 @@ export default function Planner({
               replacing?.id,
             )
           : [];
-      if (!trip) return { e, starts, score: 0 };
+      if (!trip) return { e, starts, score: 0, note: undefined };
       const cost =
         e.offer.rateMinor *
         (e.offer.priceBasis === "PER_ADULT" ? trip.profile.adults : 1);
@@ -305,7 +326,23 @@ export default function Planner({
         (shuffle
           ? (((index + shuffle) % offers.length) / offers.length) * 8
           : 0);
-      return { e, starts, score };
+      const reason =
+        e.zoneId === trip.profile.zoneId
+          ? "Near your base"
+          : nearby
+            ? "Near today’s plans"
+            : trip.profile.interests.includes(
+                  e.categoryId as Profile["interests"][number],
+                )
+              ? "Matches your interests"
+              : undefined;
+      const note = starts.length
+        ? [reason, `fits from ${starts[0].startTime}`]
+            .filter(Boolean)
+            .join(" · ")
+            .replace(/^f/, "F")
+        : undefined;
+      return { e, starts, score, note };
     })
     .sort((a, b) => b.score - a.score);
   function candidateAt(
@@ -384,17 +421,25 @@ export default function Planner({
     <div className="library-shell compact-library">
       <div className="library-controls">
         <div className="library-tabs">
+          <div className="segmented" role="group" aria-label="Activity source">
+            <button
+              type="button"
+              aria-pressed={view === "bucket"}
+              onClick={() => setView("bucket")}
+            >
+              My Bucket <span className="count">{bucket.length}</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === "all"}
+              onClick={() => setView("all")}
+            >
+              All Experiences
+            </button>
+          </div>
           <button
-            aria-pressed={view === "bucket"}
-            onClick={() => setView("bucket")}
-          >
-            My Bucket <span>{bucket.length}</span>
-          </button>
-          <button aria-pressed={view === "all"} onClick={() => setView("all")}>
-            All Experiences
-          </button>
-          <button
-            className="shuffle-button"
+            type="button"
+            className="shuffle-button secondary"
             title="Refresh suggestions without changing your itinerary"
             aria-label="Shuffle suggestions"
             onClick={() => {
@@ -402,13 +447,16 @@ export default function Planner({
               setShuffle((n) => n + 1);
             }}
           >
-            Shuffle
+            <Icon name="shuffle" size={16} />
+            <span className="shuffle-label">Shuffle</span>
           </button>
         </div>
         <div className="library-filters">
-          <label>
+          <label className="search-field">
+            <Icon name="search" size={16} />
             <span className="sr-only">Search activities</span>
             <input
+              type="search"
               aria-label="Search activities"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -431,51 +479,36 @@ export default function Planner({
             </select>
           </label>
         </div>
-        <div className="library-utility">
-          <span>Drag into your day, or select Add to day.</span>
-          <details>
-            <summary>Help</summary>
-            <p>
-              My Bucket is your saved shortlist. All Experiences is the full
-              catalogue. Saving does not book or schedule an activity. Shuffle
-              refreshes suggestions without changing your itinerary.
-            </p>
-          </details>
-        </div>
-        {view === "bucket" && (
+        {view === "bucket" ? (
           <div className="bucket-navigation">
-            <Link href={`/explore?trip=${encodeURIComponent(id)}`}>
+            <Link
+              className="text-link"
+              href={`/explore?trip=${encodeURIComponent(id)}`}
+            >
+              <Icon name="compass" size={16} />
               Explore more experiences
             </Link>
-            <button
-              className="text-button"
-              disabled={!bucket.length}
-              onClick={() => clearDialog.current?.showModal()}
-            >
-              Clear bucket
-            </button>
+            <ClearBucket />
           </div>
-        )}
-        {clearedBucket && (
-          <div className="bucket-undo" role="status">
-            Bucket cleared.{" "}
-            <button
-              className="text-button"
-              aria-label="Undo clear bucket"
-              onClick={() => {
-                restoreBucket(clearedBucket);
-                setClearedBucket(null);
-              }}
-            >
-              Undo
-            </button>
-          </div>
+        ) : (
+          <p className="library-hint">
+            {shuffle
+              ? "Fresh suggestions for this day. Your itinerary hasn’t changed."
+              : "Best fits for this day first. Drag a card into your day, or use Add to day."}
+          </p>
         )}
         {replacing && (
-          <div className="replacement-hint">
-            Choose an alternative to {replacing.title}.{" "}
-            <button onClick={() => setReplacing(null)}>
-              Cancel replacement
+          <div className="replacement-hint" role="status">
+            <span>
+              Choose a replacement for <strong>{replacing.title}</strong>.
+              You’ll confirm before anything changes.
+            </span>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setReplacing(null)}
+            >
+              Cancel
             </button>
           </div>
         )}
@@ -488,6 +521,7 @@ export default function Planner({
       >
         {!libraryEntries.length && (
           <div className="library-empty">
+            <Icon name={view === "bucket" ? "bookmark" : "search"} size={26} />
             <h3>
               {view === "bucket" && !bucket.length
                 ? "Your bucket is empty."
@@ -495,24 +529,39 @@ export default function Planner({
             </h3>
             <p>
               {view === "bucket" && !bucket.length
-                ? "Explore experiences to save your favourites."
+                ? "Save favourites while you explore, or browse All Experiences here."
                 : "Try another category or search."}
             </p>
-            <Link
-              className="button"
-              href={`/explore?trip=${encodeURIComponent(id)}`}
-            >
-              Explore experiences
-            </Link>
+            {view === "bucket" && !bucket.length ? (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setView("all")}
+              >
+                Browse All Experiences
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setSearch("");
+                  setCategory("");
+                }}
+              >
+                Clear search
+              </button>
+            )}
           </div>
         )}
-        {libraryEntries.map(({ e, starts }) => (
+        {libraryEntries.map(({ e, starts, note }) => (
           <PlannerActivityCard
             key={e.offer.id}
             experience={e}
             saved={bucket.includes(e.offer.id)}
             busy={busy}
             available={!!starts.length}
+            note={note}
             onAdd={() => add(e)}
             onDrag={setDragging}
           />
@@ -522,10 +571,12 @@ export default function Planner({
   );
   if (!trip || !services)
     return (
-      <section>
-        <h1>Your plan</h1>
+      <section className="page-status">
+        <div className="spinner" aria-hidden="true" />
         <p role="status">{status}</p>
-        <Link href="/trips">Return to my trips</Link>
+        <Link className="text-link" href="/trips">
+          Return to my trips
+        </Link>
       </section>
     );
   const days = tripDays(trip.profile),
@@ -533,138 +584,184 @@ export default function Planner({
       .filter((i) => i.localDate === day)
       .sort((a, b) => a.startTime.localeCompare(b.startTime)),
     hasActivities = dayItems.some((i) => i.kind === "EXPERIENCE");
+  const dayLabel = (date: string) =>
+    `Day ${days.indexOf(date) + 1} · ${shortDate(date)}`;
+  const issues = price ? [...price.blockers, ...price.warnings] : [];
+  const tone = statusTone(status, blocked);
+  const assistanceOptions: {
+    value: Services["assistance"];
+    title: string;
+    text: string;
+    icon: "car" | "users" | "sun";
+  }[] = [
+    {
+      value: "DRIVER_ONLY",
+      title: "Driver only",
+      text: "A dedicated vehicle on activity days. Hosted experiences still include their host.",
+      icon: "car",
+    },
+    {
+      value: "ACTIVITY_GUIDE",
+      title: "Guide for selected activities",
+      text: "Add a local guide to the experiences you choose below.",
+      icon: "users",
+    },
+    {
+      value: "FULL_DAY_GUIDE",
+      title: "Full-day guide",
+      text: "An 8-hour guide from your vehicle start time on the days you choose.",
+      icon: "sun",
+    },
+  ];
   const serviceControls = (
     <>
-      <h2>Your support</h2>
-      <label>
-        Assistance level
-        <select
-          disabled={busy}
-          value={services.assistance}
-          onChange={(e) =>
-            change(items, {
-              ...services,
-              assistance: e.target.value as Services["assistance"],
-            })
-          }
-        >
-          <option value="DRIVER_ONLY">Driver only</option>
-          <option value="ACTIVITY_GUIDE">Selected-activity guide</option>
-          <option value="FULL_DAY_GUIDE">Full-day guide</option>
-        </select>
-      </label>
-      <p className="muted">
-        Dedicated vehicle for each experience day. No 24-hour hosting. Personal
-        blocks are unsupervised.
-      </p>
-      {hasActivities ? (
-        <>
-          <h3>{day} · dedicated vehicle</h3>
-          <div className="field-grid">
-            <label>
-              Pickup / coverage start
-              <input
-                disabled={busy}
-                type="time"
-                value={services.vehicleWindows[day]?.startTime ?? "08:00"}
-                onChange={(e) =>
-                  change(items, {
-                    ...services,
-                    vehicleWindows: {
-                      ...services.vehicleWindows,
-                      [day]: {
-                        startTime: e.target.value,
-                        hours: services.vehicleWindows[day]?.hours ?? 8,
+      <div className="services-intro">
+        <h2>Your support</h2>
+        <p className="muted">
+          Choose how you’d like to get around. Personal time is never
+          supervised, and there’s no 24-hour hosting.
+        </p>
+      </div>
+      <fieldset className="assistance-options" disabled={busy}>
+        <legend className="sr-only">Assistance level</legend>
+        {assistanceOptions.map((option) => (
+          <label
+            key={option.value}
+            className="assistance-card"
+            data-selected={services.assistance === option.value}
+          >
+            <input
+              type="radio"
+              name="assistance"
+              value={option.value}
+              checked={services.assistance === option.value}
+              onChange={() =>
+                change(items, { ...services, assistance: option.value })
+              }
+            />
+            <Icon name={option.icon} size={24} />
+            <strong>{option.title}</strong>
+            <span>{option.text}</span>
+          </label>
+        ))}
+      </fieldset>
+      <section className="service-day">
+        <h3>{dayLabel(day)}</h3>
+        {hasActivities ? (
+          <>
+            <div className="field-grid">
+              <label>
+                Vehicle from
+                <input
+                  disabled={busy}
+                  type="time"
+                  value={services.vehicleWindows[day]?.startTime ?? "08:00"}
+                  onChange={(e) =>
+                    change(items, {
+                      ...services,
+                      vehicleWindows: {
+                        ...services.vehicleWindows,
+                        [day]: {
+                          startTime: e.target.value,
+                          hours: services.vehicleWindows[day]?.hours ?? 8,
+                        },
                       },
-                    },
-                  })
-                }
-              />
-            </label>
-            <label>
-              Reserved hours
-              <select
-                disabled={busy}
-                value={services.vehicleWindows[day]?.hours ?? ""}
-                onChange={(e) =>
-                  change(items, {
-                    ...services,
-                    vehicleWindows: {
-                      ...services.vehicleWindows,
-                      [day]: {
-                        startTime:
-                          services.vehicleWindows[day]?.startTime ?? "08:00",
-                        hours: Number(e.target.value) as 4 | 8,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Reserved hours
+                <select
+                  disabled={busy}
+                  value={services.vehicleWindows[day]?.hours ?? ""}
+                  onChange={(e) =>
+                    change(items, {
+                      ...services,
+                      vehicleWindows: {
+                        ...services.vehicleWindows,
+                        [day]: {
+                          startTime:
+                            services.vehicleWindows[day]?.startTime ?? "08:00",
+                          hours: Number(e.target.value) as 4 | 8,
+                        },
                       },
-                    },
-                  })
-                }
-              >
-                <option value="" disabled>
-                  Select a block
-                </option>
-                <option value={4}>4 hours</option>
-                <option value={8}>8 hours</option>
-              </select>
-            </label>
-          </div>
+                    })
+                  }
+                >
+                  <option value="" disabled>
+                    Select a block
+                  </option>
+                  <option value={4}>4 hours</option>
+                  <option value={8}>8 hours</option>
+                </select>
+              </label>
+            </div>
+            <p className="muted">
+              Covers pickup, waiting time between activities and your return. Up
+              to 8 hours a day. Travel times are estimates.
+            </p>
+            {services.assistance === "FULL_DAY_GUIDE" && (
+              <label className="check">
+                <input
+                  disabled={busy}
+                  type="checkbox"
+                  checked={services.guideDays.includes(day)}
+                  onChange={(e) =>
+                    change(items, {
+                      ...services,
+                      guideDays: e.target.checked
+                        ? [...services.guideDays, day]
+                        : services.guideDays.filter((d) => d !== day),
+                    })
+                  }
+                />
+                8-hour guide from vehicle start time
+              </label>
+            )}
+            {services.assistance === "ACTIVITY_GUIDE" &&
+              dayItems
+                .filter((i) => i.kind === "EXPERIENCE")
+                .map((i) => {
+                  const included = offers.find((e) => e.offer.id === i.offerId)
+                    ?.offer.hostIncluded;
+                  return (
+                    <label key={i.id} className="check">
+                      <input
+                        type="checkbox"
+                        disabled={busy || included}
+                        checked={
+                          included || services.guideItemIds.includes(i.id)
+                        }
+                        onChange={(e) =>
+                          change(items, {
+                            ...services,
+                            guideItemIds: e.target.checked
+                              ? [...services.guideItemIds, i.id]
+                              : services.guideItemIds.filter(
+                                  (id) => id !== i.id,
+                                ),
+                          })
+                        }
+                      />
+                      {i.title}
+                      {included ? " · host already included" : ""}
+                    </label>
+                  );
+                })}
+          </>
+        ) : (
           <p className="muted">
-            Coverage includes gaps, pickup and return. Over 8 hours is
-            unavailable. Fictional travel buffers apply.
+            No vehicle needed — this day has only personal or free time.
           </p>
-          {services.assistance === "FULL_DAY_GUIDE" && (
-            <label className="check">
-              <input
-                disabled={busy}
-                type="checkbox"
-                checked={services.guideDays.includes(day)}
-                onChange={(e) =>
-                  change(items, {
-                    ...services,
-                    guideDays: e.target.checked
-                      ? [...services.guideDays, day]
-                      : services.guideDays.filter((d) => d !== day),
-                  })
-                }
-              />
-              8-hour guide from vehicle coverage start
-            </label>
-          )}
-          {services.assistance === "ACTIVITY_GUIDE" &&
-            dayItems
-              .filter((i) => i.kind === "EXPERIENCE")
-              .map((i) => {
-                const included = offers.find((e) => e.offer.id === i.offerId)
-                  ?.offer.hostIncluded;
-                return (
-                  <label key={i.id} className="check">
-                    <input
-                      type="checkbox"
-                      disabled={busy || included}
-                      checked={included || services.guideItemIds.includes(i.id)}
-                      onChange={(e) =>
-                        change(items, {
-                          ...services,
-                          guideItemIds: e.target.checked
-                            ? [...services.guideItemIds, i.id]
-                            : services.guideItemIds.filter((id) => id !== i.id),
-                        })
-                      }
-                    />
-                    {i.title}
-                    {included ? " · host included" : ""}
-                  </label>
-                );
-              })}
-        </>
-      ) : (
-        <p>No vehicle bought for a day with only personal/free time.</p>
-      )}
-      <hr />
-      <h3>Arrival extras</h3>
-      <p className="muted">
-        Airport transfers and arrival extras are not available yet.
-      </p>
+        )}
+      </section>
+      <section className="service-day">
+        <h3>Arrival extras</h3>
+        <p className="muted">
+          Airport pickup and arrival help aren’t available to add yet.
+        </p>
+      </section>
     </>
   );
   const editingOffer = offers.find(
@@ -682,6 +779,7 @@ export default function Planner({
           editing.id,
         )
       : [];
+  const editingExists = !!editing && items.some((i) => i.id === editing.id);
   const scheduleContents = (
     <PlannerTimeline
       day={day}
@@ -710,31 +808,90 @@ export default function Planner({
       onReplace={(item) => {
         setReplacing(item);
         setView("all");
-        library.current?.showModal();
+        if (window.matchMedia("(max-width: 900px)").matches)
+          library.current?.showModal();
       }}
     />
   );
+  const priceSummary = (
+    <details className="price-popover">
+      <summary>
+        <span className="price-label">Estimated total</span>
+        <strong aria-busy={dirty}>
+          {money(price?.totalMinor ?? 0)}
+          {dirty ? " *" : ""}
+        </strong>
+        <Icon name="chevronDown" size={16} />
+      </summary>
+      <div className="price-popover-content">
+        <h2>Cost breakdown</h2>
+        {price && price.totalMinor > 0 ? (
+          <dl className="price-lines">
+            <dt>Activities</dt>
+            <dd>{money(price.activitiesMinor)}</dd>
+            <dt>Transport</dt>
+            <dd>{money(price.transportMinor)}</dd>
+            <dt>Guides & hosting</dt>
+            <dd>{money(price.hostingMinor)}</dd>
+            <dt>Service fee</dt>
+            <dd>{money(price.feeMinor)}</dd>
+            <dt>Tax</dt>
+            <dd>{money(price.taxMinor)}</dd>
+            <dt className="price-total">Total</dt>
+            <dd className="price-total">{money(price.totalMinor)}</dd>
+          </dl>
+        ) : (
+          <p className="muted">Add activities to see your estimate.</p>
+        )}
+        {dirty && <p className="muted">* Recalculating after your change.</p>}
+        <p className="price-note">
+          <Icon name="info" size={16} />
+          Prices update automatically as you plan. Booking isn’t open in this
+          preview, so nothing is reserved or charged.
+        </p>
+      </div>
+    </details>
+  );
   return (
     <section className="planner-page planner-refined">
-      <div className="planner-heading">
+      <header className="planner-heading">
         <div>
-          <h1>{trip.profile.draftName || "Your Lagos trip"}</h1>
-          <p>
-            {trip.profile.adults} adults / {days.length} days /{" "}
-            {trip.profile.accommodation || "Starting area not set"}
+          <p className="eyebrow">
+            {servicesOnly ? "Services" : "Trip planner"}
           </p>
+          <h1>{trip.profile.draftName || "Your Lagos trip"}</h1>
+          <ul className="trip-facts">
+            <li>
+              <Icon name="calendar" size={15} />
+              {shortDate(days[0])} – {shortDate(days.at(-1)!)} · {days.length}{" "}
+              days
+            </li>
+            <li>
+              <Icon name="users" size={15} />
+              {trip.profile.adults} adults
+            </li>
+            <li>
+              <Icon name="pin" size={15} />
+              {trip.profile.accommodation ||
+                (trip.profile.zoneId !== "UNDECIDED"
+                  ? zoneLabel(trip.profile.zoneId)
+                  : "Base not set")}
+            </li>
+          </ul>
         </div>
-        <Link href={`/trips/${id}/profile`}>Edit trip profile</Link>
-      </div>
+        <nav className="planner-links" aria-label="Trip">
+          <Link className="text-link" href={`/trips/${id}/profile`}>
+            <Icon name="edit" size={16} />
+            Edit trip profile
+          </Link>
+          <Link className="text-link" href={`/trips/${id}/today`}>
+            <Icon name="sun" size={16} />
+            Day view
+          </Link>
+        </nav>
+      </header>
       <div className="workspace-toolbar">
         <div className="workspace-actions">
-          <button
-            className="secondary"
-            disabled={busy || !dirty}
-            onClick={() => void save()}
-          >
-            Save
-          </button>
           <button
             className="secondary"
             disabled={busy || !past.length}
@@ -749,77 +906,65 @@ export default function Planner({
               setStatus("Undo restored. Saving...");
             }}
           >
+            <Icon name="undo" size={16} />
             Undo
           </button>
+          {!servicesOnly && (
+            <button
+              className="secondary"
+              disabled={busy || dirty}
+              onClick={generate}
+              title="Kemi drafts a plan from your bucket. You review every change first."
+            >
+              <Icon name="sparkle" size={16} />
+              Suggest a plan
+            </button>
+          )}
           <button
-            className="secondary"
-            disabled={busy || dirty}
-            onClick={generate}
+            className="secondary save-button"
+            disabled={busy || !dirty}
+            onClick={() => void save()}
           >
-            Suggest a plan
+            Save
           </button>
           {!servicesOnly && (
             <button
               className="text-button reset-layout"
               onClick={() => setLayoutReset((n) => n + 1)}
             >
+              <Icon name="layout" size={16} />
               Reset layout
             </button>
           )}
+          <p
+            className="planner-save-state"
+            role="status"
+            aria-live="polite"
+            data-tone={tone}
+          >
+            <Icon
+              name={
+                tone === "ok" ? "check" : tone === "warn" ? "alert" : "clock"
+              }
+              size={15}
+            />
+            {status}
+          </p>
         </div>
         <div className="compact-price">
-          <details className="price-popover">
-            <summary>
-              <span>Estimated total</span>
-              <strong aria-busy={dirty}>
-                {money(price?.totalMinor ?? 0)}
-                {dirty ? " *" : ""}
-              </strong>
-              <span aria-hidden="true">&#8964;</span>
-            </summary>
-            <div className="price-popover-content">
-              <h2>Cost details</h2>
-              {price && price.totalMinor > 0 ? (
-                <dl className="price-lines">
-                  <dt>Activities</dt>
-                  <dd>{money(price.activitiesMinor)}</dd>
-                  <dt>Transport</dt>
-                  <dd>{money(price.transportMinor)}</dd>
-                  <dt>Hosting</dt>
-                  <dd>{money(price.hostingMinor)}</dd>
-                  <dt>Service fee</dt>
-                  <dd>{money(price.feeMinor)}</dd>
-                  <dt>Tax</dt>
-                  <dd>{money(price.taxMinor)}</dd>
-                  <dt>Total</dt>
-                  <dd>
-                    <strong>{money(price.totalMinor)}</strong>
-                  </dd>
-                </dl>
-              ) : (
-                <p>Add activities to see your estimate.</p>
-              )}
-              <p>
-                Checkout is not available yet. Saving a plan does not make a
-                booking.
-              </p>
-              <button disabled>Checkout unavailable</button>
-            </div>
-          </details>
+          {priceSummary}
           <Link
             className="button"
             href={`/trips/${id}/${servicesOnly ? "plan" : "services"}`}
           >
             {servicesOnly ? "Back to planner" : "Review services"}
+            <Icon name="arrowRight" size={16} />
           </Link>
         </div>
       </div>
-      <div className="planner-save-state" role="status" aria-live="polite">
-        {status}
-      </div>
       {blocked && (
         <div className="field-error">
-          Your latest changes could not be saved. They remain here.{" "}
+          Your latest changes couldn’t be saved. They’re still here.
           <button className="text-button" onClick={() => void save()}>
             Retry save
           </button>
@@ -849,134 +994,70 @@ export default function Planner({
           </button>
         </div>
       )}
-      <div className="day-chips compact-days" aria-label="Trip days">
-        {days.map((date, index) => (
-          <button
-            key={date}
-            aria-pressed={date === day}
-            className={date === day ? "" : "secondary"}
-            onClick={() => setDay(date)}
-            disabled={busy}
-            onDragOver={(event) => {
-              if (dragging) {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-              }
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              if (dragging?.kind === "item") {
-                const existing = items.find((item) => item.id === dragging.id);
-                if (existing) {
-                  const candidate = candidateAt(
-                    dragging,
-                    minutes(existing.startTime),
-                    date,
-                  );
-                  if (candidate) commitCandidate(candidate);
-                  else
-                    setStatus("Choose a valid alternative session using Edit.");
-                }
-              }
-              setDragging(null);
-            }}
-          >
-            Day {index + 1}
-            <span>
-              {new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-              })}
-            </span>
-            {items.some(
-              (item) =>
-                item.localDate === date &&
-                offers.find((e) => e.offer.id === item.offerId)?.kind ===
-                  "FULL_DAY",
-            ) && <b>Full</b>}
-          </button>
-        ))}
-      </div>
-      {servicesOnly ? (
-        <div className="services-workspace card card-body">
-          {serviceControls}
-        </div>
-      ) : (
-        <PlannerSplit
-          resetKey={layoutReset}
-          library={libraryContents}
-          schedule={scheduleContents}
-        />
-      )}
-      {price && (price.blockers.length > 0 || price.warnings.length > 0) && (
-        <details className="planner-validation">
-          <summary>
-            {price.blockers.length
-              ? `${price.blockers.length} ${price.blockers.length === 1 ? "thing" : "things"} to review before booking`
-              : "Plan advice"}
-          </summary>
-          {[...price.blockers, ...price.warnings].map((issue, index) => (
-            <p key={index}>{issue.message}</p>
-          ))}
-        </details>
-      )}
-      <dialog
-        ref={clearDialog}
-        className="clear-bucket-dialog"
-        aria-label="Clear your bucket"
-      >
-        <h2>Clear your bucket?</h2>
-        <p>
-          This removes your saved activities. Activities already scheduled in
-          your trip will stay.
-        </p>
-        <div className="actions">
-          <button
-            className="secondary"
-            onClick={() => clearDialog.current?.close()}
-          >
-            Keep activities
-          </button>
-          <button
-            onClick={() => {
-              setClearedBucket(clearBucket());
-              clearDialog.current?.close();
-            }}
-          >
-            Clear bucket
-          </button>
-        </div>
-      </dialog>
       {proposal && (
-        <div className="card proposal card-body">
-          <p className="eyebrow">PROPOSAL ONLY · CURRENT PLAN UNCHANGED</p>
-          <h2>Review the proposed changes.</h2>
-          <p>
-            {proposal.diff.removed.length} removed ·{" "}
-            {proposal.diff.added.length} added · locked items retained ·{" "}
-            {money(proposal.price.totalMinor)} estimated total (change:{" "}
-            {money(proposal.price.totalMinor - (price?.totalMinor ?? 0))})
-          </p>
+        <div className="proposal" role="region" aria-label="Suggested plan">
+          <div className="proposal-head">
+            <span className="kemi-avatar" aria-hidden="true">
+              K
+            </span>
+            <div>
+              <p className="eyebrow">Suggestion · your plan hasn’t changed</p>
+              <h2>Review Kemi’s suggested changes</h2>
+              <p>
+                {proposal.diff.added.length} to add ·{" "}
+                {proposal.diff.removed.length} to remove · locked items stay put
+                · new estimate {money(proposal.price.totalMinor)} (
+                {proposal.price.totalMinor - (price?.totalMinor ?? 0) >= 0
+                  ? "+"
+                  : "−"}
+                {money(
+                  Math.abs(
+                    proposal.price.totalMinor - (price?.totalMinor ?? 0),
+                  ),
+                )}
+                )
+              </p>
+            </div>
+          </div>
           {proposal.questions.map((question) => (
-            <p key={question}>{question}</p>
+            <p className="notice" key={question}>
+              {question}
+            </p>
           ))}
           <div className="proposal-diff">
             <div>
               <h3>Remove</h3>
-              {proposal.diff.removed.map((i) => (
-                <p key={i.id}>
-                  {i.localDate} {i.startTime} · {i.title}
-                </p>
-              ))}
+              {proposal.diff.removed.length ? (
+                <ul>
+                  {proposal.diff.removed.map((i) => (
+                    <li key={i.id} data-change="remove">
+                      <span>
+                        {shortDate(i.localDate)} · {i.startTime}
+                      </span>
+                      {i.title}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">Nothing removed.</p>
+              )}
             </div>
             <div>
               <h3>Add</h3>
-              {proposal.diff.added.map((i) => (
-                <p key={i.id}>
-                  {i.localDate} {i.startTime}–{i.endTime} · {i.title}
-                  <br />
-                </p>
-              ))}
+              {proposal.diff.added.length ? (
+                <ul>
+                  {proposal.diff.added.map((i) => (
+                    <li key={i.id} data-change="add">
+                      <span>
+                        {shortDate(i.localDate)} · {i.startTime}–{i.endTime}
+                      </span>
+                      {i.title}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">Nothing added.</p>
+              )}
             </div>
           </div>
           {proposal.price.blockers.map((b, index) => (
@@ -999,7 +1080,7 @@ export default function Planner({
                   setPast((p) => [...p.slice(-19), { items, services }]);
                   receive(data);
                   setProposal(null);
-                  setStatus("Proposal applied and saved. No booking made.");
+                  setStatus("Saved · suggestion applied. Nothing is booked.");
                 } catch (e) {
                   setStatus(
                     e instanceof Error
@@ -1019,22 +1100,174 @@ export default function Planner({
           </div>
         </div>
       )}
-      <dialog ref={library} className="library-sheet">
-        <button className="secondary" onClick={() => library.current?.close()}>
-          Close experience library
-        </button>
-        {libraryContents}
+      <div className="day-strip">
+        <div className="day-chips compact-days" aria-label="Trip days">
+          {days.map((date, index) => {
+            const count = items.filter(
+              (item) => item.localDate === date,
+            ).length;
+            const full = items.some(
+              (item) =>
+                item.localDate === date &&
+                offers.find((e) => e.offer.id === item.offerId)?.kind ===
+                  "FULL_DAY",
+            );
+            return (
+              <button
+                key={date}
+                aria-pressed={date === day}
+                onClick={() => setDay(date)}
+                disabled={busy}
+                data-drop={
+                  dragging?.kind === "item"
+                    ? (() => {
+                        const existing = items.find(
+                          (item) => item.id === dragging.id,
+                        );
+                        const candidate =
+                          existing &&
+                          candidateAt(
+                            dragging,
+                            minutes(existing.startTime),
+                            date,
+                          );
+                        return candidate &&
+                          !placementIssues(
+                            trip.profile,
+                            [
+                              ...items.filter((i) => i.id !== candidate.id),
+                              candidate,
+                            ],
+                            services,
+                            offers,
+                          ).length
+                          ? "valid"
+                          : "invalid";
+                      })()
+                    : undefined
+                }
+                onDragOver={(event) => {
+                  if (dragging) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (dragging?.kind === "item") {
+                    const existing = items.find(
+                      (item) => item.id === dragging.id,
+                    );
+                    if (existing) {
+                      const candidate = candidateAt(
+                        dragging,
+                        minutes(existing.startTime),
+                        date,
+                      );
+                      if (candidate) commitCandidate(candidate);
+                      else
+                        setStatus(
+                          "Choose a valid alternative session using Edit.",
+                        );
+                    }
+                  }
+                  setDragging(null);
+                }}
+              >
+                <span className="day-number">Day {index + 1}</span>
+                <span className="day-date">
+                  {new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                    timeZone: "UTC",
+                  })}
+                </span>
+                {full ? (
+                  <b>Full</b>
+                ) : (
+                  <span className="day-count" aria-label={`${count} planned`}>
+                    {Array.from({ length: Math.min(count, 4) }, (_, i) => (
+                      <i key={i} />
+                    ))}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {issues.length > 0 && (
+        <details
+          className="planner-validation"
+          data-blocking={!!price?.blockers.length}
+        >
+          <summary>
+            <Icon name="alert" size={16} />
+            {price?.blockers.length
+              ? `${price.blockers.length} ${price.blockers.length === 1 ? "thing" : "things"} to sort out before booking`
+              : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
+            <Icon name="chevronDown" size={16} />
+          </summary>
+          <ul>
+            {issues.map((issue, index) => {
+              const target = items.find((item) => item.id === issue.itemId);
+              return (
+                <li key={index}>
+                  {friendlyIssue(issue.message, days)}
+                  {target && target.localDate !== day && (
+                    <button
+                      className="text-button"
+                      onClick={() => setDay(target.localDate)}
+                    >
+                      Show {dayLabel(target.localDate)}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      )}
+      {servicesOnly ? (
+        <div className="services-workspace">{serviceControls}</div>
+      ) : (
+        <PlannerSplit
+          resetKey={layoutReset}
+          library={libraryContents}
+          schedule={scheduleContents}
+        />
+      )}
+      <dialog
+        ref={library}
+        className="sheet-dialog library-sheet"
+        {...libraryDismiss}
+      >
+        <div className="sheet-header">
+          <h2>Choose an activity</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Close experience library"
+            onClick={() => library.current?.close()}
+          >
+            <Icon name="close" size={20} />
+          </button>
+        </div>
+        <div className="sheet-body">{libraryContents}</div>
       </dialog>
       <dialog
         ref={dialog}
-        className="edit-dialog"
+        className="sheet-dialog edit-dialog"
+        aria-labelledby="edit-dialog-title"
         onCancel={() => setEditing(null)}
+        onClose={() => setEditing(null)}
+        {...editDismiss}
       >
         {editing && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const exists = items.some((i) => i.id === editing.id);
               let nextServices = services;
               if (
                 editing.kind === "EXPERIENCE" &&
@@ -1048,7 +1281,7 @@ export default function Planner({
                   },
                 };
               const accepted = change(
-                exists
+                editingExists
                   ? items.map((i) => (i.id === editing.id ? editing : i))
                   : [...items, editing],
                 nextServices,
@@ -1060,179 +1293,207 @@ export default function Planner({
               }
             }}
           >
-            <h2>
-              {items.some((i) => i.id === editing.id)
-                ? "Edit / move block"
-                : "Add to your day"}
-            </h2>
-            {replacing && (
-              <div className="notice">
-                <h3>Confirm replacement</h3>
-                <p>
-                  {replacing.title}: {replacing.startTime}-{replacing.endTime}{" "}
-                  becomes {editing.title}: {editing.startTime}-{editing.endTime}
-                  .
+            <div className="sheet-header">
+              <div>
+                <p className="eyebrow">
+                  {editing.kind === "EXPERIENCE"
+                    ? editingOffer?.schedulingType === "FIXED"
+                      ? "Set sessions"
+                      : editingOffer?.kind === "FULL_DAY"
+                        ? "Full day"
+                        : "Flexible time"
+                    : "Personal time"}
                 </p>
-                <p>
-                  Activity price change:{" "}
-                  {money(
-                    (offers.find((e) => e.offer.id === editing.offerId)?.offer
-                      .rateMinor ?? 0) *
+                <h2 id="edit-dialog-title">
+                  {replacing
+                    ? "Confirm replacement"
+                    : editingExists
+                      ? "Edit / move block"
+                      : "Add to your day"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close"
+                onClick={() => {
+                  dialog.current?.close();
+                  setEditing(null);
+                }}
+              >
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+            <div className="sheet-body edit-fields">
+              {replacing && (
+                <div className="notice">
+                  <h3>
+                    {replacing.title} → {editing.title}
+                  </h3>
+                  <p>
+                    {replacing.startTime}–{replacing.endTime} becomes{" "}
+                    {editing.startTime}–{editing.endTime}. Activity price
+                    change:{" "}
+                    {money(
                       (offers.find((e) => e.offer.id === editing.offerId)?.offer
-                        .priceBasis === "PER_ADULT"
-                        ? trip.profile.adults
-                        : 1) -
-                      (offers.find((e) => e.offer.id === replacing.offerId)
-                        ?.offer.rateMinor ?? 0) *
-                        (offers.find((e) => e.offer.id === replacing.offerId)
+                        .rateMinor ?? 0) *
+                        (offers.find((e) => e.offer.id === editing.offerId)
                           ?.offer.priceBasis === "PER_ADULT"
                           ? trip.profile.adults
-                          : 1),
-                  )}
-                  . Estimated total:{" "}
-                  {money(
-                    assess(
-                      trip.profile,
-                      items.map((i) => (i.id === replacing.id ? editing : i)),
-                      services,
-                      offers,
-                    ).totalMinor,
-                  )}
-                  .
-                </p>
-              </div>
-            )}
-            <label>
-              Title
-              <input
-                required
-                maxLength={160}
-                value={editing.title}
-                onChange={(e) =>
-                  setEditing({ ...editing, title: e.target.value })
-                }
-              />
-            </label>
-            <label>
-              Day
-              <select
-                value={editing.localDate}
-                onChange={(e) =>
-                  setEditing({ ...editing, localDate: e.target.value })
-                }
-              >
-                {days.map((d) => (
-                  <option key={d}>{d}</option>
-                ))}
-              </select>
-            </label>
-            {offers.find((e) => e.offer.id === editing.offerId)
-              ?.schedulingType === "FIXED" && (
+                          : 1) -
+                        (offers.find((e) => e.offer.id === replacing.offerId)
+                          ?.offer.rateMinor ?? 0) *
+                          (offers.find((e) => e.offer.id === replacing.offerId)
+                            ?.offer.priceBasis === "PER_ADULT"
+                            ? trip.profile.adults
+                            : 1),
+                    )}
+                    . New estimated total:{" "}
+                    {money(
+                      assess(
+                        trip.profile,
+                        items.map((i) => (i.id === replacing.id ? editing : i)),
+                        services,
+                        offers,
+                      ).totalMinor,
+                    )}
+                    .
+                  </p>
+                </div>
+              )}
               <label>
-                Available sessions
+                Title
+                <input
+                  required
+                  maxLength={160}
+                  value={editing.title}
+                  onChange={(e) =>
+                    setEditing({ ...editing, title: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Day
                 <select
-                  value={editing.startTime}
-                  onChange={(event) => {
-                    const session = offers
-                      .find((e) => e.offer.id === editing.offerId)
-                      ?.sessions?.find(
-                        (s) => s.startTime === event.target.value,
-                      );
-                    if (session)
-                      setEditing({
-                        ...editing,
-                        startTime: session.startTime,
-                        endTime: time(
-                          minutes(session.startTime) + session.durationMinutes,
-                        ),
-                      });
-                  }}
+                  value={editing.localDate}
+                  onChange={(e) =>
+                    setEditing({ ...editing, localDate: e.target.value })
+                  }
                 >
-                  <option value="" disabled>
-                    Choose a session
-                  </option>
-                  {offers
-                    .find((e) => e.offer.id === editing.offerId)
-                    ?.sessions?.filter((s) =>
-                      editingSessions.some(
-                        (candidate) =>
-                          candidate.startTime === s.startTime &&
-                          minutes(candidate.endTime) -
-                            minutes(candidate.startTime) ===
-                            s.durationMinutes,
-                      ),
-                    )
-                    .map((s) => (
-                      <option key={s.startTime} value={s.startTime}>
-                        {s.startTime} - {s.durationMinutes} minutes
-                      </option>
-                    ))}
+                  {days.map((d) => (
+                    <option key={d} value={d}>
+                      {dayLabel(d)}
+                    </option>
+                  ))}
                 </select>
               </label>
-            )}
-            <div className="field-grid">
-              <label>
-                Start (Africa/Lagos)
+              {editingOffer?.schedulingType === "FIXED" && (
+                <label>
+                  Available sessions
+                  <select
+                    value={editing.startTime}
+                    onChange={(event) => {
+                      const session = editingOffer.sessions?.find(
+                        (s) => s.startTime === event.target.value,
+                      );
+                      if (session)
+                        setEditing({
+                          ...editing,
+                          startTime: session.startTime,
+                          endTime: time(
+                            minutes(session.startTime) +
+                              session.durationMinutes,
+                          ),
+                        });
+                    }}
+                  >
+                    <option value="" disabled>
+                      Choose a session
+                    </option>
+                    {editingOffer.sessions
+                      ?.filter((s) =>
+                        editingSessions.some(
+                          (candidate) =>
+                            candidate.startTime === s.startTime &&
+                            minutes(candidate.endTime) -
+                              minutes(candidate.startTime) ===
+                              s.durationMinutes,
+                        ),
+                      )
+                      .map((s) => (
+                        <option key={s.startTime} value={s.startTime}>
+                          {s.startTime} · {s.durationMinutes} minutes
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              <div className="field-grid">
+                <label>
+                  Start time
+                  <input
+                    required
+                    type="time"
+                    step={900}
+                    disabled={editingOffer?.schedulingType === "FIXED"}
+                    value={editing.startTime}
+                    onChange={(e) =>
+                      setEditing({ ...editing, startTime: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  End time
+                  <input
+                    required
+                    type="time"
+                    step={900}
+                    disabled={editingOffer?.schedulingType === "FIXED"}
+                    value={editing.endTime}
+                    onChange={(e) =>
+                      setEditing({ ...editing, endTime: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+              {editing.kind === "EXPERIENCE" && editingOffer && (
+                <p className="form-hint">
+                  {editingOffer.schedulingType === "FIXED"
+                    ? "Session times are set by the host and can’t be changed."
+                    : `Lasts ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}. Open ${editingOffer.availabilityLocal.opensAt}–${editingOffer.availabilityLocal.closesAt}, Lagos time. The whole visit must fit.`}
+                </p>
+              )}
+              <label className="check">
                 <input
-                  required
-                  type="time"
-                  disabled={
-                    offers.find((e) => e.offer.id === editing.offerId)
-                      ?.schedulingType === "FIXED"
-                  }
-                  value={editing.startTime}
+                  type="checkbox"
+                  checked={editing.locked}
                   onChange={(e) =>
-                    setEditing({ ...editing, startTime: e.target.value })
+                    setEditing({ ...editing, locked: e.target.checked })
                   }
                 />
+                Lock this block so suggestions don’t change it
               </label>
-              <label>
-                End (Africa/Lagos)
-                <input
-                  required
-                  type="time"
-                  disabled={
-                    offers.find((e) => e.offer.id === editing.offerId)
-                      ?.schedulingType === "FIXED"
-                  }
-                  value={editing.endTime}
-                  onChange={(e) =>
-                    setEditing({ ...editing, endTime: e.target.value })
-                  }
-                />
-              </label>
-            </div>
-            {editing.kind === "EXPERIENCE" && (
-              <p className="muted">
-                Offer duration:{" "}
-                {
-                  offers.find((e) => e.offer.id === editing.offerId)
-                    ?.durationMinMinutes
-                }
-                –
-                {
-                  offers.find((e) => e.offer.id === editing.offerId)
-                    ?.durationMaxMinutes
-                }{" "}
-                min. Invalid placements are rejected; choose a valid time or
-                session.
+              <p className="edit-status" role="status">
+                {status}
               </p>
-            )}
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={editing.locked}
-                onChange={(e) =>
-                  setEditing({ ...editing, locked: e.target.checked })
-                }
-              />
-              Keep this block when generating a proposal
-            </label>
-            <p role="status">{status}</p>
-            <div className="actions">
-              <button type="submit">
-                {replacing ? "Confirm replacement" : "Save block"}
-              </button>
+            </div>
+            <div className="sheet-footer">
+              {editingExists && !replacing && (
+                <button
+                  type="button"
+                  className="text-button danger-text"
+                  disabled={busy}
+                  onClick={() => {
+                    if (change(items.filter((i) => i.id !== editing.id))) {
+                      dialog.current?.close();
+                      setEditing(null);
+                    }
+                  }}
+                >
+                  <Icon name="trash" size={16} />
+                  Remove
+                </button>
+              )}
               <button
                 className="secondary"
                 type="button"
@@ -1242,6 +1503,9 @@ export default function Planner({
                 }}
               >
                 Cancel
+              </button>
+              <button type="submit">
+                {replacing ? "Confirm replacement" : "Save block"}
               </button>
             </div>
           </form>

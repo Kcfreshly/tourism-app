@@ -273,7 +273,7 @@ try {
 
   await natureBlock.getByRole("button", { name: "Edit", exact: true }).click();
   const edit = page.locator(".edit-dialog");
-  await edit.getByLabel("End (Africa/Lagos)").fill("13:30");
+  await edit.getByLabel("End time").fill("13:30");
   await edit.getByRole("button", { name: "Save block" }).click();
   await expect(edit).toBeVisible();
   expect(
@@ -308,8 +308,8 @@ try {
   await expect(fixedBlock).toBeVisible();
   expect(await fixedBlock.locator(".block-resize").count()).toBe(0);
   await fixedBlock.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(edit.getByLabel("Start (Africa/Lagos)")).toBeDisabled();
-  await expect(edit.getByLabel("End (Africa/Lagos)")).toBeDisabled();
+  await expect(edit.getByLabel("Start time")).toBeDisabled();
+  await expect(edit.getByLabel("End time")).toBeDisabled();
   await expect(edit.getByLabel("Available sessions")).toBeVisible();
   const alternatives = await edit
     .getByLabel("Available sessions")
@@ -347,10 +347,10 @@ try {
   const fullBlock = page.locator(`[data-item-id="${fullItem.id}"]`);
   expect(await fullBlock.locator(".block-resize").count()).toBe(0);
   await page
-    .getByRole("button", { name: "+ Personal time", exact: true })
+    .getByRole("button", { name: "Add personal time", exact: true })
     .click();
-  await edit.getByLabel("Start (Africa/Lagos)").fill("20:00");
-  await edit.getByLabel("End (Africa/Lagos)").fill("21:00");
+  await edit.getByLabel("Start time").fill("20:00");
+  await edit.getByLabel("End time").fill("21:00");
   await edit.getByRole("button", { name: "Save block" }).click();
   await expect(edit).toBeVisible();
   await expect(edit.getByRole("status")).toContainText("day is full");
@@ -366,7 +366,7 @@ try {
   await page.locator(".compact-days button").nth(emptyDayIndex).click();
   await expect(
     page.getByText(
-      "Your day is open. Drag an activity here or add personal time.",
+      "Your day is open. Drag an activity here, or use Add to day.",
     ),
   ).toBeVisible();
   const natureCard = page.locator(

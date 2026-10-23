@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "Backdrop closes; inside click/scroll and inside-to-outside drag do not; gallery/header/footer remain stationary; background is inert; focus and all scroll positions restored.",
+    "Close and Escape restore focus, filters, page/panel scrolling and unchanged itinerary.",
+    "1280x800: stationary image, reachable actions, scrollable information, modal within viewport.",
+    "768x1024: stationary image, reachable actions, scrollable information, modal within viewport.",
+    "390x844: stationary image, reachable actions, scrollable information, modal within viewport.",
+    "390x480: stationary image, reachable actions, scrollable information, modal within viewport.",
+    "844x390: stationary image, reachable actions, scrollable information, modal within viewport.",
+    "Removing the originating card from My Bucket leaves the open dialog intact and returns focus to the activity list on close.",
+    "1440px: opaque website header remains at viewport top while the page scrolls.",
+    "390px: opaque website header remains at viewport top while the page scrolls.",
+    "Keyboard-focused activity links scroll into view below the fixed header."
+  ],
+  "errors": [],
+  "limitation": "Chromium responsive viewports; native mobile browsers were not exercised."
+}

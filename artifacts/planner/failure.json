@@ -1,0 +1,64 @@
+{
+  "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByText('Your day is open. Drag an activity here or add personal time.')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByText('Your day is open. Drag an activity here or add personal time.') with timeout 5000ms\n  - waiting for getByText('Your day is open. Drag an activity here or add personal time.')\n",
+  "errors": [],
+  "report": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "name": "desktop-1440.png",
+      "metrics": {
+        "library": {
+          "x": 40,
+          "y": 437.09375,
+          "width": 470.75,
+          "height": 613.953125,
+          "top": 437.09375,
+          "right": 510.75,
+          "bottom": 1051.046875,
+          "left": 40
+        },
+        "schedule": {
+          "x": 524.75,
+          "y": 437.09375,
+          "width": 860.25,
+          "height": 613.953125,
+          "top": 437.09375,
+          "right": 1385,
+          "bottom": 1051.046875,
+          "left": 524.75
+        },
+        "card": {
+          "x": 53,
+          "y": 603.6875,
+          "width": 429.75,
+          "height": 146.078125,
+          "top": 603.6875,
+          "right": 482.75,
+          "bottom": 749.765625,
+          "left": 53
+        },
+        "columns": "429.75px"
+      }
+    },
+    {
+      "check": "pointer and keyboard divider, persistence, reset",
+      "passed": true
+    },
+    {
+      "check": "flexible pointer resize, 15-minute keyboard resize and opening-hours rejection",
+      "passed": true
+    },
+    {
+      "check": "schedule drag move and invalid manual edits leave saved blocks intact",
+      "passed": true
+    },
+    {
+      "check": "fixed session edges absent, arbitrary time controls disabled, valid alternative session preserves its duration",
+      "passed": true
+    },
+    {
+      "check": "full-day block marks the day full, has no resize edge and rejects additional personal time",
+      "passed": true
+    }
+  ]
+}

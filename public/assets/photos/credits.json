@@ -6,13 +6,19 @@
     "author": "Liesel81",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-    "categories": ["nature", "recreation"],
+    "categories": [
+      "nature"
+    ],
     "src": "/assets/photos/lekki-canopy.webp",
     "source": "https://commons.wikimedia.org/wiki/File:Canopy_Walkway_LCC.jpg",
     "original": "https://upload.wikimedia.org/wikipedia/commons/4/43/Canopy_Walkway_LCC.jpg",
     "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
     "width": 1600,
-    "height": 903
+    "height": 903,
+    "experiences": [
+      "nature-walk",
+      "gardens"
+    ]
   },
   {
     "id": "lagos-beach",
@@ -21,13 +27,14 @@
     "author": "ABORISADEADETONA",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-    "categories": ["waterfront"],
+    "categories": [],
     "src": "/assets/photos/lagos-beach.webp",
     "source": "https://commons.wikimedia.org/wiki/File:Bar_beach_lagos.jpg",
     "original": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Bar_beach_lagos.jpg",
     "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
     "width": 780,
-    "height": 458
+    "height": 458,
+    "experiences": []
   },
   {
     "id": "lagos-theatre",
@@ -36,13 +43,16 @@
     "author": "Juganutt",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-    "categories": ["culture", "nightlife", "shopping"],
+    "categories": [],
     "src": "/assets/photos/lagos-theatre.webp",
     "source": "https://commons.wikimedia.org/wiki/File:National_Arts_Theatre,_Lagos.jpg",
     "original": "https://upload.wikimedia.org/wikipedia/commons/3/3b/National_Arts_Theatre%2C_Lagos.jpg",
     "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
     "width": 1600,
-    "height": 1199
+    "height": 1199,
+    "experiences": [
+      "history"
+    ]
   },
   {
     "id": "nigeria-suya",
@@ -51,12 +61,189 @@
     "author": "Halima Waziri",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-    "categories": ["food", "local-life"],
+    "categories": [],
     "src": "/assets/photos/nigeria-suya.webp",
     "source": "https://commons.wikimedia.org/wiki/File:Waina_and_Suya.jpg",
     "original": "https://upload.wikimedia.org/wikipedia/commons/8/82/Waina_and_Suya.jpg",
     "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
     "width": 675,
+    "height": 1200,
+    "experiences": [
+      "suya"
+    ]
+  },
+  {
+    "id": "elegushi-evening",
+    "file": "Evening-at-elegushi-beach.jpg",
+    "title": "Evening at Elegushi Beach, Lekki, Lagos",
+    "author": "S.aderogba",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "waterfront"
+    ],
+    "experiences": [
+      "beach"
+    ],
+    "src": "/assets/photos/elegushi-evening.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Evening-at-elegushi-beach.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Evening-at-elegushi-beach.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 946
+  },
+  {
+    "id": "lagoon-dusk",
+    "file": "Lagos_Lagoon_-_Brothers_at_Dusk.jpg",
+    "title": "Fishermen on the Lagos Lagoon at dusk",
+    "author": "Obii Okongwu",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [],
+    "experiences": [],
+    "src": "/assets/photos/lagoon-dusk.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Lagos_Lagoon_-_Brothers_at_Dusk.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/8/80/Lagos_Lagoon_-_Brothers_at_Dusk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 912
+  },
+  {
+    "id": "balogun-market",
+    "file": "Balogun_Market,_Lagos_Island.jpg",
+    "title": "Balogun Market, Lagos Island",
+    "author": "Yellowcrunchy",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "local-life"
+    ],
+    "experiences": [
+      "local-market"
+    ],
+    "src": "/assets/photos/balogun-market.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Balogun_Market,_Lagos_Island.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Balogun_Market%2C_Lagos_Island.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 900
+  },
+  {
+    "id": "jollof-dodo",
+    "file": "Jollof_rice_and_Dodo.jpg",
+    "title": "Jollof rice and dodo (fried plantain)",
+    "author": "Skarfmacaronne",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "food"
+    ],
+    "experiences": [
+      "cooking"
+    ],
+    "src": "/assets/photos/jollof-dodo.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Jollof_rice_and_Dodo.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/0/01/Jollof_rice_and_Dodo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1024,
+    "height": 681
+  },
+  {
+    "id": "freedom-park-festival",
+    "file": "Freedom_Park_Festival_2.jpg",
+    "title": "Performers at a festival in Freedom Park, Lagos",
+    "author": "Agbaje Isabella",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "nightlife"
+    ],
+    "experiences": [
+      "music"
+    ],
+    "src": "/assets/photos/freedom-park-festival.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Freedom_Park_Festival_2.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/7/78/Freedom_Park_Festival_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 1192
+  },
+  {
+    "id": "nike-gallery-paintings",
+    "file": "Lagos_Lekki_Nike_Art_Gallery_Aug_2026_IMG_6978b.jpg",
+    "title": "Paintings at Nike Art Gallery, Lekki, Lagos",
+    "author": "FrankvEck",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "culture"
+    ],
+    "experiences": [
+      "gallery"
+    ],
+    "src": "/assets/photos/nike-gallery-paintings.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Lagos_Lekki_Nike_Art_Gallery_Aug_2026_IMG_6978b.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Lagos_Lekki_Nike_Art_Gallery_Aug_2026_IMG_6978b.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
     "height": 1200
+  },
+  {
+    "id": "nike-gallery-crafts",
+    "file": "Lagos_Lekki_Nike_Art_Gallery_Aug_2026_IMG_6957b.jpg",
+    "title": "Sculpture and crafts at Nike Art Gallery, Lekki, Lagos",
+    "author": "FrankvEck",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "shopping"
+    ],
+    "experiences": [
+      "makers"
+    ],
+    "src": "/assets/photos/nike-gallery-crafts.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Lagos_Lekki_Nike_Art_Gallery_Aug_2026_IMG_6957b.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Lagos_Lekki_Nike_Art_Gallery_Aug_2026_IMG_6957b.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 1200
+  },
+  {
+    "id": "lekki-link-bridge",
+    "file": "Lekki_link_bridge.jpg",
+    "title": "Lekki\u2013Ikoyi Link Bridge at night, Lagos",
+    "author": "Olasunkanmiariyo",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [
+      "recreation"
+    ],
+    "experiences": [
+      "games"
+    ],
+    "src": "/assets/photos/lekki-link-bridge.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Lekki_link_bridge.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/9/94/Lekki_link_bridge.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1000,
+    "height": 667
+  },
+  {
+    "id": "palm-grove-street",
+    "file": "Fruit_Seller_on_Wheel_Bairo_at_Palm_Grove_Bus-stop,_Jan_2017.jpg",
+    "title": "Fruit seller at Palm Grove bus stop, Lagos",
+    "author": "Olusola David, Ayibiowu",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "categories": [],
+    "experiences": [
+      "neighbourhood"
+    ],
+    "src": "/assets/photos/palm-grove-street.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Fruit_Seller_on_Wheel_Bairo_at_Palm_Grove_Bus-stop,_Jan_2017.jpg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/3/36/Fruit_Seller_on_Wheel_Bairo_at_Palm_Grove_Bus-stop%2C_Jan_2017.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "modifications": "Resized and converted to WebP; displayed with layout cropping. Photo adaptations remain under the linked licence.",
+    "width": 1600,
+    "height": 1067
   }
 ]

@@ -11,6 +11,21 @@ import { createPortal } from "react-dom";
 import PhotoCredit from "./photo-credit";
 import type { Experience } from "@/server/catalogue";
 import { BucketButton } from "./bucket";
+import Icon from "./icons";
+import {
+  categoryShortLabels,
+  displayName,
+  formatDuration,
+  formatMoney,
+  priceBasisLabel,
+  storyFor,
+  zoneLabel,
+} from "@/domain/experience-content";
+const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function openDays(days: number[]) {
+  if (days.length === 7) return "Open daily";
+  return `Open ${days.map((day) => dayNames[day]).join(", ")}`;
+}
 type Selection = {
   experience: Experience & { seedKey?: string };
   onAdd?: () => void;
@@ -78,6 +93,7 @@ function ActivityDialog({
     [failed, setFailed] = useState<string[]>([]);
   const photos = e.photos?.length ? e.photos : [e.imagePath],
     selectedPhoto = photos[photoIndex] ?? photos[0];
+  const story = storyFor(e.seedKey, e.categoryId);
   useLayoutEffect(() => {
     const x = window.scrollX,
       y = window.scrollY,
@@ -122,7 +138,7 @@ function ActivityDialog({
       ref={ref}
       onClose={onClose}
       className="experience-overlay reading-overlay"
-      aria-label={e.name}
+      aria-label={displayName(e.name)}
       aria-modal="true"
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
@@ -174,14 +190,18 @@ function ActivityDialog({
     >
       <div className="overlay-header">
         <div>
-          <p className="eyebrow">EXPERIENCE DETAILS</p>
-          <h2>{e.name}</h2>
+          <p className="eyebrow">
+            {categoryShortLabels[e.categoryId] ?? e.categoryId} ·{" "}
+            {zoneLabel(e.zoneId)}
+          </p>
+          <h2>{displayName(e.name)}</h2>
         </div>
         <button
-          className="secondary"
+          className="secondary close-button"
           autoFocus
           onClick={() => ref.current?.close()}
         >
+          <Icon name="close" size={18} />
           Close
         </button>
       </div>
@@ -199,7 +219,7 @@ function ActivityDialog({
                 failed.includes(selectedPhoto)
                   ? "Illustrated activity fallback"
                   : e.photos?.length
-                    ? e.name
+                    ? displayName(e.name)
                     : (e.inspirationPhoto?.title ??
                       "Category illustration; venue photos not supplied")
               }
@@ -212,11 +232,14 @@ function ActivityDialog({
                 )
               }
             />
+            {e.inspirationPhoto && !e.photos?.length && (
+              <span className="image-label">Destination inspiration</span>
+            )}
           </div>
           {photos.length > 1 && (
             <div className="gallery-controls">
               <button
-                className="secondary"
+                className="icon-button"
                 aria-label="Previous photo"
                 onClick={() =>
                   setPhotoIndex(
@@ -224,19 +247,19 @@ function ActivityDialog({
                   )
                 }
               >
-                Previous
+                <Icon name="chevronLeft" />
               </button>
               <span aria-live="polite">
                 {photoIndex + 1} / {photos.length}
               </span>
               <button
-                className="secondary"
+                className="icon-button"
                 aria-label="Next photo"
                 onClick={() =>
                   setPhotoIndex((index) => (index + 1) % photos.length)
                 }
               >
-                Next
+                <Icon name="chevronRight" />
               </button>
             </div>
           )}
@@ -247,82 +270,144 @@ function ActivityDialog({
           aria-label="Activity information"
           tabIndex={0}
         >
-          <p className="experience-introduction">{e.description}</p>
-          <h3>Where you will go</h3>
-          <p>{e.zoneId}, Lagos. Meeting point unconfirmed.</p>
-          <h3>Why visit</h3>
-          <p>Explore {e.categoryId} at your own pace.</p>
-          <dl className="experience-facts">
+          <p className="experience-introduction">{story.summary}</p>
+          <dl className="fact-grid">
             <div>
-              <dt>Price</dt>
+              <dt>
+                <Icon name="clock" size={16} /> Duration
+              </dt>
               <dd>
-                NGN {(e.offer.rateMinor / 100).toLocaleString("en-NG")} /{" "}
-                {e.offer.priceBasis === "PER_ADULT" ? "adult" : "group"}
+                {formatDuration(e.durationMinMinutes, e.durationMaxMinutes)}
               </dd>
             </div>
             <div>
-              <dt>Duration</dt>
+              <dt>
+                <Icon name="pin" size={16} /> Area
+              </dt>
+              <dd>{zoneLabel(e.zoneId)}, Lagos</dd>
+            </div>
+            <div>
+              <dt>
+                <Icon name="calendar" size={16} /> Timing
+              </dt>
               <dd>
-                {e.durationMinMinutes}-{e.durationMaxMinutes} minutes
+                {e.schedulingType === "FIXED"
+                  ? "Fixed sessions"
+                  : e.kind === "FULL_DAY"
+                    ? "Full day"
+                    : "Flexible start"}
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <Icon name="users" size={16} /> Group size
+              </dt>
+              <dd>
+                {e.offer.minParty}–{e.offer.maxParty} adults
               </dd>
             </div>
           </dl>
-          <h3>Planning your visit</h3>
-          <p>
-            {e.schedulingType === "FIXED"
-              ? "Fixed sessions: choose a published session. Start and duration cannot be changed."
-              : "Flexible time: your full visit must fit opening hours and permitted duration."}
-          </p>
-          <p>
-            Opening hours: {e.availabilityLocal.opensAt}-
-            {e.availabilityLocal.closesAt} Africa/Lagos. Open on{" "}
-            {e.availabilityLocal.days
-              .map(
-                (day) =>
-                  [
-                    "",
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                    "Sunday",
-                  ][day],
-              )
-              .join(", ")}
-            . Capacity: {e.offer.capacityPerSlot}{" "}
-            {e.offer.capacityUnit.toLowerCase()}.
-          </p>
-          {e.sessions?.map((session) => (
-            <p key={session.startTime}>
-              {session.startTime} / {session.durationMinutes} minutes{" "}
-              {session.dates?.join(", ")}
+          {story.why && (
+            <section className="info-section">
+              <h3>Why it’s worth it</h3>
+              <p>{story.why}</p>
+            </section>
+          )}
+          <section className="info-section">
+            <h3>When you can go</h3>
+            <p>
+              {openDays(e.availabilityLocal.days)},{" "}
+              {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt} Lagos
+              time. Up to {e.offer.capacityPerSlot}{" "}
+              {e.offer.capacityUnit === "PERSON" ? "people" : "groups"} per
+              slot.
             </p>
-          ))}
-          <h3>Included</h3>
-          <ul>
-            {e.inclusions.map((value) => (
-              <li key={value}>{value}</li>
-            ))}
-          </ul>
-          <h3>Excluded</h3>
-          <ul>
-            {e.exclusions.map((value) => (
-              <li key={value}>{value}</li>
-            ))}
-          </ul>
+            {e.schedulingType === "FIXED" ? (
+              <>
+                <p>
+                  Runs at set times. Choose a session; its start time and length
+                  can’t be changed.
+                </p>
+                <ul className="session-list" aria-label="Sessions">
+                  {e.sessions?.map((session) => (
+                    <li key={session.startTime}>
+                      <strong>{session.startTime}</strong>
+                      <span>{formatDuration(session.durationMinutes)}</span>
+                      {session.dates && (
+                        <small>{session.dates.join(", ")}</small>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>
+                {e.kind === "FULL_DAY"
+                  ? "Takes up the main part of your day, so nothing else can overlap it."
+                  : `Pick your own start time and length. Your whole visit must finish by ${e.availabilityLocal.closesAt}.`}
+              </p>
+            )}
+          </section>
+          <div className="inclusion-columns">
+            <section className="info-section">
+              <h3>Included</h3>
+              <ul className="tick-list">
+                {e.inclusions.map((value) => (
+                  <li key={value}>
+                    <Icon name="check" size={16} />
+                    {value.replace(/^Demo a/, "A")}
+                  </li>
+                ))}
+              </ul>
+            </section>
+            <section className="info-section">
+              <h3>Not included</h3>
+              <ul className="cross-list">
+                {e.exclusions.map((value) => (
+                  <li key={value}>
+                    <Icon name="close" size={16} />
+                    {value}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+          <section className="info-section">
+            <h3>Good to know</h3>
+            <ul className="plain-list">
+              <li>For adults {e.offer.minAge}+.</li>
+              <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
+              <li>Wheelchair access: not confirmed.</li>
+              {e.offer.hostIncluded && <li>A local host joins you.</li>}
+              <li>Meeting point shared once booked.</li>
+            </ul>
+          </section>
           {e.videoUrl && (
             <video controls src={e.videoUrl} aria-label="Experience video" />
           )}
           {e.inspirationPhoto && <PhotoCredit photo={e.inspirationPhoto} />}
-          <p className="muted">
-            Saving does not book or assign a time. No inventory is held.
+          <p className="sample-note">
+            <Icon name="info" size={16} />
+            Sample listing. Adding it to your bucket saves the idea only — no
+            time is assigned and nothing is booked.
           </p>
         </div>
       </div>
       <div className="overlay-footer">
+        <p className="overlay-price">
+          <strong>{formatMoney(e.offer.rateMinor)}</strong>{" "}
+          <span>{priceBasisLabel(e.offer.priceBasis)}</span>
+        </p>
         <div className="overlay-actions">
+          <a
+            className="text-link"
+            href={`/experiences/${e.seedKey ?? e.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open in new tab
+            <Icon name="external" size={16} />
+          </a>
           <BucketButton id={e.offer.id} />
           {onAdd && (
             <button
@@ -331,16 +416,10 @@ function ActivityDialog({
                 onAdd();
               }}
             >
+              <Icon name="plus" size={18} />
               Add to itinerary
             </button>
           )}
-          <a
-            href={`/experiences/${e.seedKey ?? e.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open in new tab
-          </a>
         </div>
       </div>
     </dialog>,

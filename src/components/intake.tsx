@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { initialProfile, profileSchema, type Profile } from "@/domain/profile";
+import { formatMoney, zoneLabel } from "@/domain/experience-content";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 import { activateTrip, useBucket } from "./trip-store";
+import Icon from "./icons";
 
 type Saved = { id: string; version: number; profile: Profile };
 type Stage = "details" | "review" | "saved";
@@ -17,18 +19,51 @@ type Speech = {
   start: () => void;
   stop: () => void;
 };
+const suggestions = [
+  "2 adults",
+  "We love art, food and nature",
+  "Base: Lekki",
+  "Relaxed pace",
+  "Budget: NGN 500000",
+  "It’s our anniversary",
+];
+const paceLabels: Record<Profile["pace"], string> = {
+  RELAXED: "relaxed",
+  BALANCED: "balanced",
+  FULL: "full",
+};
+const assistanceLabels: Record<Profile["assistance"], string> = {
+  DRIVER_ONLY: "Driver only",
+  ACTIVITY_GUIDE: "Guide for selected activities",
+  FULL_DAY_GUIDE: "Full-day guide",
+};
+function longDate(value: string) {
+  const date = new Date(value + "T12:00:00Z");
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      });
+}
 export default function Intake({
   id,
   mode: entry = "chat",
   offer,
   fresh = false,
+  embedded = false,
   onContinue,
+  onSaved,
 }: {
   id?: string;
   mode?: string;
   offer?: string;
   fresh?: boolean;
+  embedded?: boolean;
   onContinue?: () => void;
+  onSaved?: (id: string) => void;
 }) {
   const { ids: bucket } = useBucket();
   const [profile, setProfile] = useState<Profile>({
@@ -44,13 +79,17 @@ export default function Intake({
     id ? "Loading your trip profile..." : "",
   );
   const [note, setNote] = useState("");
+  const [questions, setQuestions] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(!!id);
   const recognition = useRef<Speech | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const mounted = useRef(false);
   useEffect(() => () => recognition.current?.stop(), []);
   useEffect(() => {
-    heading.current?.focus();
+    // Move focus to the new step heading, but not on first render.
+    if (mounted.current) heading.current?.focus();
+    mounted.current = true;
   }, [stage]);
   useEffect(() => {
     let active = true;
@@ -62,7 +101,7 @@ export default function Intake({
           if (active) {
             setSaved(body.data);
             setProfile(body.data.profile);
-            setStatus("Your saved profile is ready to review.");
+            setStatus("");
           }
         })
         .catch((error) => {
@@ -101,7 +140,7 @@ export default function Intake({
       if (!id) localStorage.setItem("tourism.profile", JSON.stringify(next));
       return next;
     });
-    setStatus("Changes are ready to review.");
+    setStatus("");
   }
   function review() {
     const result = profileSchema.safeParse(profile);
@@ -112,8 +151,9 @@ export default function Intake({
     recognition.current?.stop();
     setListening(false);
     setHasReviewed(true);
+    setQuestions([]);
     setStage("review");
-    setStatus("Check your details before saving this draft.");
+    setStatus("");
   }
   function speak() {
     const browser = window as unknown as {
@@ -147,13 +187,14 @@ export default function Intake({
     try {
       speech.start();
       setListening(true);
+      setStatus("Listening… speak naturally, then press Stop.");
     } catch {
       setStatus("Voice could not start. Please retry or type your message.");
     }
   }
   async function askKemi() {
     setBusy(true);
-    setStatus("Preparing your trip summary...");
+    setStatus("Kemi is reading your message…");
     try {
       const response = await fetch("/api/v1/intake", {
         method: "POST",
@@ -165,6 +206,7 @@ export default function Intake({
       recognition.current?.stop();
       setListening(false);
       setProfile(body.data.profile);
+      setQuestions(body.data.questions ?? []);
       localStorage.setItem(
         "tourism.profile",
         JSON.stringify(body.data.profile),
@@ -173,8 +215,8 @@ export default function Intake({
       setStage("review");
       setStatus(
         body.data.changes.length
-          ? "Kemi updated your summary. Review every detail, then save your draft."
-          : "No new details were recognised. Review the summary or edit your details manually.",
+          ? "Kemi updated your summary. Check every detail before saving."
+          : "Kemi didn’t find new details. Review the summary or edit it yourself.",
       );
       setNote("");
     } catch (error) {
@@ -189,7 +231,7 @@ export default function Intake({
   }
   async function save(asNew = false) {
     setBusy(true);
-    setStatus("Saving your draft...");
+    setStatus("Saving your trip…");
     try {
       const submitted = {
         ...profile,
@@ -215,13 +257,17 @@ export default function Intake({
       if (!response.ok) throw Error(body.error.message);
       setSaved(body.data);
       setProfile(body.data.profile);
-      setStage("saved");
       localStorage.setItem(
         "tourism.profile",
         JSON.stringify(body.data.profile),
       );
       activateTrip(body.data.id);
-      setStatus("Draft saved. Your bucket is still here. Nothing is booked.");
+      if (onSaved) {
+        onSaved(body.data.id);
+        return;
+      }
+      setStage("saved");
+      setStatus("");
     } catch (error) {
       setStatus(
         error instanceof Error
@@ -237,13 +283,26 @@ export default function Intake({
     setStage("details");
     setStatus("");
   }
-  const rows = [
+  function chooseMode(next: "chat" | "form") {
+    recognition.current?.stop();
+    setListening(false);
+    setMode(next);
+  }
+  const rows: [string, string, boolean?][] = [
     ["Destination", "Lagos, Nigeria"],
-    ["Travel dates", `${profile.startDate} to ${profile.endDate}`],
+    [
+      "Travel dates",
+      `${longDate(profile.startDate)} – ${longDate(profile.endDate)}`,
+    ],
     ["Travellers", `${profile.adults} adults`],
     [
-      "Starting area",
-      `${profile.accommodation || "Not decided"}${profile.zoneId !== "UNDECIDED" ? ` / ${profile.zoneId}` : ""}`,
+      "Staying in",
+      profile.accommodation
+        ? `${profile.accommodation}${profile.zoneId !== "UNDECIDED" ? ` · ${zoneLabel(profile.zoneId)}` : ""}`
+        : profile.zoneId !== "UNDECIDED"
+          ? zoneLabel(profile.zoneId)
+          : "Not decided yet",
+      !profile.accommodation && profile.zoneId === "UNDECIDED",
     ],
     [
       "Interests",
@@ -256,76 +315,90 @@ export default function Intake({
     ],
     [
       "Budget",
-      `NGN ${(profile.budgetMinor / 100).toLocaleString("en-NG")} / ${profile.budgetBasis === "PERSON" ? "person" : "whole party"}`,
+      `${formatMoney(profile.budgetMinor)} ${profile.budgetBasis === "PERSON" ? "per person" : "for the whole party"}`,
     ],
-    ["Pace", profile.pace.toLowerCase()],
+    ["Pace", paceLabels[profile.pace]],
     [
       "Transport",
       profile.transport === "OWN"
-        ? "Own transport requested"
+        ? "Own transport (request)"
         : "Dedicated vehicle",
     ],
-    ["Guide", profile.assistance.replaceAll("_", " ").toLowerCase()],
-    ["Dietary requirements", profile.dietary || "None specified"],
-    ["Accessibility", profile.accessibility || "None specified"],
-    ["Walking comfort", profile.walking.toLowerCase()],
+    ["Guide", assistanceLabels[profile.assistance]],
+    ["Dietary needs", profile.dietary || "None", !profile.dietary],
+    ["Accessibility", profile.accessibility || "None", !profile.accessibility],
+    ["Walking comfort", profile.walking === "LOW" ? "Low" : "Moderate"],
     ["Alcohol", profile.alcohol === "NO_ALCOHOL" ? "No alcohol" : "Optional"],
-    ["Occasion / requests", profile.occasion || "None specified"],
+    ["Occasion or requests", profile.occasion || "None", !profile.occasion],
   ];
+  const stepIndex = stage === "details" ? 0 : stage === "review" ? 1 : 2;
+  const steps = embedded
+    ? ["Your details", "Check summary"]
+    : ["Your details", "Check summary", "Saved"];
   return (
-    <section className="intake-page">
-      <nav className="journey-steps" aria-label="Trip planning steps">
-        <span aria-current={stage === "details" ? "step" : undefined}>
-          1. Your details
-        </span>
-        <span aria-current={stage === "review" ? "step" : undefined}>
-          2. Review summary
-        </span>
-        <span aria-current={stage === "saved" ? "step" : undefined}>
-          3. Save & explore
-        </span>
-      </nav>
-      <p className="eyebrow">YOUR TRIP, ONE STEP AT A TIME</p>
-      <h1 ref={heading} tabIndex={-1}>
-        {stage === "saved"
-          ? "Your trip draft is ready."
-          : stage === "review"
-            ? "Does this feel like your trip?"
-            : mode === "chat"
-              ? "Tell Kemi about your trip."
-              : "Make the trip yours."}
-      </h1>
-      <p className="lede">
-        {stage === "saved"
-          ? "Explore ideas first or start organising your days. You can return to your profile and create more drafts at any time."
-          : stage === "review"
-            ? "Review the details Kemi will use to tailor your trip. Edit them yourself or ask Kemi to make a change."
-            : "Start with your dates, who is coming and what you love. Your next step is a summary you can review before saving."}
-      </p>
+    <section
+      className={`intake-page ${embedded ? "intake-page--embedded" : ""}`}
+    >
+      <ol className="journey-steps" aria-label="Trip planning steps">
+        {steps.map((label, index) => (
+          <li
+            key={label}
+            aria-current={index === stepIndex ? "step" : undefined}
+            data-done={index < stepIndex}
+          >
+            {label}
+          </li>
+        ))}
+      </ol>
+      <div className="intake-heading">
+        {!embedded && (
+          <p className="eyebrow">
+            {stage === "saved" ? "Trip saved" : "Plan your stay"}
+          </p>
+        )}
+        <h1 ref={heading} tabIndex={-1}>
+          {stage === "saved"
+            ? "Your trip draft is ready."
+            : stage === "review"
+              ? "Does this feel like your trip?"
+              : mode === "chat"
+                ? "Tell Kemi about your trip."
+                : "Make the trip yours."}
+        </h1>
+        <p className="lede">
+          {stage === "saved"
+            ? "Nothing is booked. Add more ideas to your bucket, or start arranging your days."
+            : stage === "review"
+              ? "This is the profile Kemi and the planner will use. Correct anything that isn’t right."
+              : "Your dates, who’s coming and what you love. You’ll check a summary before anything is saved."}
+        </p>
+      </div>
       {stage === "details" && (
-        <div className="intake-workspace card form-card">
-          <div className="chips">
+        <div className="intake-workspace">
+          <div
+            className="method-switch"
+            role="group"
+            aria-label="How would you like to share your details?"
+          >
             <button
               type="button"
+              aria-label="Talk to Kemi"
               aria-pressed={mode === "chat"}
-              onClick={() => {
-                recognition.current?.stop();
-                setListening(false);
-                setMode("chat");
-              }}
+              onClick={() => chooseMode("chat")}
             >
+              <Icon name="mic" size={22} />
               Talk to Kemi
+              <small>Speak or type, in your own words</small>
             </button>
             <button
               type="button"
+              aria-label="Enter details manually"
               aria-pressed={mode === "form"}
-              onClick={() => {
-                recognition.current?.stop();
-                setListening(false);
-                setMode("form");
-              }}
+              onClick={() => chooseMode("form")}
             >
+              <Icon name="list" size={22} />
               Enter details manually
+              <small>A short form, about two minutes</small>
             </button>
           </div>
           {mode === "chat" ? (
@@ -334,68 +407,103 @@ export default function Intake({
                 <span className="kemi-avatar" aria-hidden="true">
                   K
                 </span>
-                <div>
+                <div className="kemi-bubble">
                   <h2>
                     {hasReviewed
                       ? "What would you like to change?"
-                      : "Hello, I'm Kemi."}
+                      : "Hello, I’m Kemi."}
                   </h2>
                   <p>
                     {hasReviewed
-                      ? "Your current details are kept. Tell me only what needs changing, then review the updated summary."
-                      : "Tell me when you're visiting Lagos, how many adults are coming, and what makes a great trip for you."}
+                      ? "I’ll keep everything you’ve told me. Just mention what’s different."
+                      : "When are you visiting Lagos, how many adults are coming, and what makes a great trip for you?"}
                   </p>
                 </div>
               </div>
-              <label htmlFor="kemi-message">
-                {hasReviewed
-                  ? "Ask Kemi to edit your trip"
-                  : "Your trip, in your own words"}
-                <textarea
-                  id="kemi-message"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  maxLength={3000}
-                  placeholder={
-                    hasReviewed
-                      ? "Make the pace relaxed. Budget: NGN 500000. Dietary: vegetarian."
-                      : "2026-11-10 to 2026-11-16, 2 adults. We love art, food and nature. Base: Lekki. Budget: NGN 500000."
-                  }
-                />
-              </label>
-              <div className="conversation-actions">
-                <button
-                  className="secondary"
-                  type="button"
-                  disabled={busy}
-                  aria-pressed={listening}
-                  onClick={() => {
-                    if (listening) {
-                      recognition.current?.stop();
-                      setListening(false);
-                    } else speak();
-                  }}
-                >
-                  {listening ? "Stop listening" : "Use voice"}
-                </button>
-                <button
-                  disabled={busy || !note.trim()}
-                  onClick={() => void askKemi()}
-                >
-                  {busy
-                    ? "Preparing summary..."
-                    : hasReviewed
-                      ? "Review Kemi's changes"
-                      : "Review my trip summary"}
-                </button>
+              <div className="composer">
+                <label htmlFor="kemi-message">
+                  {hasReviewed
+                    ? "Ask Kemi to edit your trip"
+                    : "Your trip, in your own words"}
+                </label>
+                <div className="composer-box">
+                  <textarea
+                    id="kemi-message"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        (event.metaKey || event.ctrlKey) &&
+                        note.trim() &&
+                        !busy
+                      )
+                        void askKemi();
+                    }}
+                    maxLength={3000}
+                    placeholder={
+                      hasReviewed
+                        ? "Make the pace relaxed. Budget: NGN 500000. Dietary: vegetarian."
+                        : "2026-11-10 to 2026-11-16, 2 adults. We love art, food and nature. Base: Lekki."
+                    }
+                  />
+                  <div className="composer-actions">
+                    <button
+                      className="secondary voice-button"
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={listening}
+                      onClick={() => {
+                        if (listening) {
+                          recognition.current?.stop();
+                          setListening(false);
+                          setStatus("");
+                        } else speak();
+                      }}
+                    >
+                      <Icon name="mic" size={18} />
+                      {listening ? "Stop listening" : "Use voice"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || !note.trim()}
+                      onClick={() => void askKemi()}
+                    >
+                      {busy
+                        ? "Preparing summary..."
+                        : hasReviewed
+                          ? "Review Kemi's changes"
+                          : "Review my trip summary"}
+                      <Icon name="arrowRight" size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="suggestion-row" aria-label="Quick additions">
+                <span>Add:</span>
+                {suggestions.map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    className="chip"
+                    onClick={() =>
+                      setNote((previous) =>
+                        `${previous.trim()}${previous.trim() ? ". " : ""}${text}`.trim(),
+                      )
+                    }
+                  >
+                    {text}
+                  </button>
+                ))}
               </div>
               <p className="muted">
-                Voice uses your browser&apos;s speech service. Kemi&apos;s demo
-                helper recognises dates and simple preferences. You can correct
-                every field in the next step.
+                Kemi recognises dates written as YYYY-MM-DD, party size,
+                interests, your base, budget and pace. Voice uses your browser’s
+                speech service. You’ll check every field next.
               </p>
               {hasReviewed && (
                 <button
+                  type="button"
                   className="text-button"
                   onClick={() => setStage("review")}
                 >
@@ -405,40 +513,15 @@ export default function Intake({
             </div>
           ) : (
             <form
+              className="intake-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 review();
               }}
             >
-              <label>
-                Draft name (optional)
-                <input
-                  maxLength={80}
-                  value={profile.draftName ?? ""}
-                  onChange={(event) => update("draftName", event.target.value)}
-                  placeholder="A relaxed week in Lagos"
-                />
-              </label>
-              <fieldset disabled={busy}>
-                <legend>01 / Dates & travellers</legend>
+              <fieldset className="form-section" disabled={busy}>
+                <legend>When and who</legend>
                 <div className="field-grid">
-                  <label>
-                    City
-                    <select value={profile.cityId} onChange={() => {}}>
-                      <option value="lagos">Lagos</option>
-                      <option disabled>Abuja · coming soon</option>
-                    </select>
-                  </label>
-                  <label>
-                    Adults (18+)
-                    <input
-                      type="number"
-                      min="1"
-                      max="8"
-                      value={profile.adults}
-                      onChange={(e) => update("adults", Number(e.target.value))}
-                    />
-                  </label>
                   <label>
                     Arrival date
                     <input
@@ -457,13 +540,30 @@ export default function Intake({
                       onChange={(e) => update("endDate", e.target.value)}
                     />
                   </label>
+                  <label>
+                    Adults (18+)
+                    <input
+                      type="number"
+                      min="1"
+                      max="8"
+                      value={profile.adults}
+                      onChange={(e) => update("adults", Number(e.target.value))}
+                    />
+                  </label>
+                  <label>
+                    City
+                    <select value={profile.cityId} onChange={() => {}}>
+                      <option value="lagos">Lagos</option>
+                      <option disabled>Abuja · coming soon</option>
+                    </select>
+                  </label>
                 </div>
-                <p className="muted">
-                  1–30 days. All service dates and times use Africa/Lagos.
+                <p className="form-hint">
+                  Trips of 1–30 days. All times are Lagos time.
                 </p>
               </fieldset>
-              <fieldset disabled={busy}>
-                <legend>02 / The things you love</legend>
+              <fieldset className="form-section" disabled={busy}>
+                <legend>What you love</legend>
                 <div className="interest-grid">
                   {categories.map((c) => (
                     <label className="check" key={c.id}>
@@ -488,62 +588,44 @@ export default function Intake({
                     </label>
                   ))}
                 </div>
-                <label>
-                  Anything you’d like us to celebrate? (optional)
-                  <input
-                    maxLength={160}
-                    value={profile.occasion}
-                    onChange={(e) => update("occasion", e.target.value)}
-                  />
-                </label>
-                <label>
-                  Your pace
-                  <select
-                    value={profile.pace}
-                    onChange={(e) =>
-                      update("pace", e.target.value as Profile["pace"])
-                    }
-                  >
-                    <option value="RELAXED">Relaxed</option>
-                    <option value="BALANCED">Balanced</option>
-                    <option value="FULL">Full</option>
-                  </select>
-                </label>
-              </fieldset>
-              <label>
-                Accessibility requirements
-                <input
-                  maxLength={300}
-                  value={profile.accessibility ?? ""}
-                  onChange={(e) => update("accessibility", e.target.value)}
-                />
-              </label>
-              <label>
-                Transport preference
-                <select
-                  value={profile.transport ?? "DEDICATED"}
-                  onChange={(e) =>
-                    update("transport", e.target.value as Profile["transport"])
-                  }
-                >
-                  <option value="DEDICATED">Dedicated vehicle</option>
-                  <option value="OWN">Own transport (request)</option>
-                </select>
-              </label>
-              <fieldset disabled={busy}>
-                <legend>03 / Your base & support</legend>
-                <label>
-                  Accommodation / pickup base (optional for a draft)
-                  <input
-                    maxLength={300}
-                    placeholder="Not decided yet"
-                    value={profile.accommodation}
-                    onChange={(e) => update("accommodation", e.target.value)}
-                  />
-                </label>
                 <div className="field-grid">
                   <label>
-                    Service zone
+                    Your pace
+                    <select
+                      value={profile.pace}
+                      onChange={(e) =>
+                        update("pace", e.target.value as Profile["pace"])
+                      }
+                    >
+                      <option value="RELAXED">Relaxed</option>
+                      <option value="BALANCED">Balanced</option>
+                      <option value="FULL">Full</option>
+                    </select>
+                  </label>
+                  <label>
+                    Anything to celebrate? (optional)
+                    <input
+                      maxLength={160}
+                      value={profile.occasion}
+                      onChange={(e) => update("occasion", e.target.value)}
+                    />
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset className="form-section" disabled={busy}>
+                <legend>Where you’re staying and getting around</legend>
+                <div className="field-grid">
+                  <label>
+                    Accommodation or starting area (optional)
+                    <input
+                      maxLength={300}
+                      placeholder="Not decided yet"
+                      value={profile.accommodation}
+                      onChange={(e) => update("accommodation", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Area
                     <select
                       value={profile.zoneId}
                       onChange={(e) =>
@@ -551,13 +633,28 @@ export default function Intake({
                       }
                     >
                       <option value="UNDECIDED">Not decided</option>
-                      <option>LEKKI</option>
-                      <option>VI</option>
-                      <option>MAINLAND</option>
+                      <option value="LEKKI">Lekki</option>
+                      <option value="VI">Victoria Island</option>
+                      <option value="MAINLAND">Mainland</option>
                     </select>
                   </label>
                   <label>
-                    Assistance
+                    Transport preference
+                    <select
+                      value={profile.transport ?? "DEDICATED"}
+                      onChange={(e) =>
+                        update(
+                          "transport",
+                          e.target.value as Profile["transport"],
+                        )
+                      }
+                    >
+                      <option value="DEDICATED">Dedicated vehicle</option>
+                      <option value="OWN">Own transport (request)</option>
+                    </select>
+                  </label>
+                  <label>
+                    Guide preference
                     <select
                       value={profile.assistance}
                       onChange={(e) =>
@@ -569,11 +666,16 @@ export default function Intake({
                     >
                       <option value="DRIVER_ONLY">Driver only</option>
                       <option value="ACTIVITY_GUIDE">
-                        Selected-activity guide
+                        Guide for selected activities
                       </option>
                       <option value="FULL_DAY_GUIDE">Full-day guide</option>
                     </select>
                   </label>
+                </div>
+              </fieldset>
+              <fieldset className="form-section" disabled={busy}>
+                <legend>Budget and needs</legend>
+                <div className="field-grid">
                   <label>
                     Budget (NGN)
                     <input
@@ -590,7 +692,7 @@ export default function Intake({
                     />
                   </label>
                   <label>
-                    Budget basis
+                    Budget is for
                     <select
                       value={profile.budgetBasis}
                       onChange={(e) =>
@@ -600,26 +702,32 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="PARTY">Whole party</option>
-                      <option value="PERSON">Per person</option>
+                      <option value="PARTY">The whole party</option>
+                      <option value="PERSON">Each person</option>
                     </select>
                   </label>
                 </div>
-                <p className="muted">
-                  Budget covers platform services; excludes flights and
-                  accommodation. Transport is included for off-base booked
-                  experiences under each assistance level, with separate price
-                  lines.
+                <p className="form-hint">
+                  Covers experiences, transport and guides — not flights or
+                  accommodation.
                 </p>
-                <label>
-                  Dietary requests (optional)
-                  <input
-                    maxLength={300}
-                    value={profile.dietary}
-                    onChange={(e) => update("dietary", e.target.value)}
-                  />
-                </label>
                 <div className="field-grid">
+                  <label>
+                    Dietary requests (optional)
+                    <input
+                      maxLength={300}
+                      value={profile.dietary}
+                      onChange={(e) => update("dietary", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Accessibility requirements (optional)
+                    <input
+                      maxLength={300}
+                      value={profile.accessibility ?? ""}
+                      onChange={(e) => update("accessibility", e.target.value)}
+                    />
+                  </label>
                   <label>
                     Alcohol preference
                     <select
@@ -646,7 +754,6 @@ export default function Intake({
                   </label>
                 </div>
               </fieldset>
-
               <div className="form-footer">
                 <button type="submit" disabled={busy}>
                   Review trip summary
@@ -667,7 +774,20 @@ export default function Intake({
       )}
       {stage === "review" && (
         <div className="review-layout">
-          <div className="card trip-review">
+          <div className="card form-card trip-review">
+            {questions.length > 0 && (
+              <div className="kemi-message">
+                <span className="kemi-avatar" aria-hidden="true">
+                  K
+                </span>
+                <div className="kemi-bubble">
+                  <h2>A couple of things to check</h2>
+                  {questions.map((question) => (
+                    <p key={question}>{question}</p>
+                  ))}
+                </div>
+              </div>
+            )}
             <label>
               Give this draft a name
               <input
@@ -678,8 +798,8 @@ export default function Intake({
               />
             </label>
             <dl className="trip-summary-grid">
-              {rows.map(([label, value]) => (
-                <div key={label}>
+              {rows.map(([label, value, missing]) => (
+                <div key={label} data-missing={!!missing}>
                   <dt>{label}</dt>
                   <dd>{value}</dd>
                 </div>
@@ -691,6 +811,7 @@ export default function Intake({
                 disabled={busy}
                 onClick={() => edit("form")}
               >
+                <Icon name="edit" size={16} />
                 Edit details manually
               </button>
               <button
@@ -698,25 +819,31 @@ export default function Intake({
                 disabled={busy}
                 onClick={() => edit("chat")}
               >
+                <Icon name="chat" size={16} />
                 Ask Kemi to edit
               </button>
             </div>
           </div>
-          <aside className="card review-next">
-            <p className="eyebrow">NEXT: YOUR DRAFT</p>
-            <h2>Save a starting point.</h2>
+          <aside className="review-next">
+            <p className="eyebrow">Next</p>
+            <h2>
+              {embedded ? "Open your planner" : "Save your starting point"}
+            </h2>
             <p>
-              This saves your trip preferences. Your {bucket.length} bucket
-              activities stay saved, without a scheduled time or booking.
+              Your {bucket.length} saved{" "}
+              {bucket.length === 1 ? "activity comes" : "activities come"} with
+              you, still unscheduled and unbooked.
             </p>
             <button disabled={busy} onClick={() => void save()}>
               {busy
                 ? "Saving..."
-                : saved
-                  ? "Save draft changes"
-                  : "Save my trip draft"}
+                : embedded
+                  ? "Save and open planner"
+                  : saved
+                    ? "Save draft changes"
+                    : "Save my trip draft"}
             </button>
-            {saved && (
+            {saved && !embedded && (
               <button
                 className="secondary"
                 disabled={busy}
@@ -725,10 +852,7 @@ export default function Intake({
                 Save as another draft
               </button>
             )}
-            <p className="muted">
-              Keep different drafts for different dates, budgets or travel
-              styles. Saving a new draft leaves the original in My trips.
-            </p>
+            <p>You can keep several drafts for different dates or budgets.</p>
           </aside>
         </div>
       )}
@@ -736,47 +860,47 @@ export default function Intake({
         <div className="saved-journey">
           <div className="saved-draft-banner">
             <span className="saved-mark" aria-hidden="true">
-              &#10003;
+              <Icon name="check" size={22} />
             </span>
             <div>
-              <p className="eyebrow">DRAFT SAVED</p>
+              <p className="eyebrow">Draft saved</p>
               <h2>{profile.draftName || "My Lagos trip"}</h2>
               <p>
-                {profile.startDate} to {profile.endDate} / {profile.adults}{" "}
-                adults / {bucket.length} saved activities
+                {longDate(profile.startDate)} – {longDate(profile.endDate)} ·{" "}
+                {profile.adults} adults · {bucket.length} saved{" "}
+                {bucket.length === 1 ? "activity" : "activities"}
               </p>
             </div>
           </div>
           <div className="next-step-grid">
             <article className="card next-step-card">
-              <span className="step-number">01</span>
-              <h2>Explore experiences</h2>
+              <span className="step-number">1</span>
+              <h2>Open your trip planner</h2>
               <p>
-                Browse ideas and add favourites to your bucket. The bucket is a
-                shortlist: it doesn&apos;t book activities or give them a time.
+                Your bucket is waiting under My Bucket, with the full catalogue
+                beside it. Drag activities into your days.
               </p>
               <Link
                 className="button"
-                href={`/explore?trip=${saved.id}`}
-                onClick={onContinue}
-              >
-                Explore & add to bucket
-              </Link>
-            </article>
-            <article className="card next-step-card">
-              <span className="step-number">02</span>
-              <h2>Open your trip planner</h2>
-              <p>
-                Use My Bucket for your saved ideas, or All Experiences for the
-                full catalogue. Add activities to your days and choose valid
-                times.
-              </p>
-              <Link
-                className="button secondary"
                 href={`/trips/${saved.id}/plan`}
                 onClick={onContinue}
               >
                 Go to my trip
+              </Link>
+            </article>
+            <article className="card next-step-card">
+              <span className="step-number">2</span>
+              <h2>Keep exploring</h2>
+              <p>
+                Add more favourites to your bucket. Saving doesn’t book an
+                activity or give it a time.
+              </p>
+              <Link
+                className="button secondary"
+                href={`/explore?trip=${saved.id}`}
+                onClick={onContinue}
+              >
+                Explore & add to bucket
               </Link>
             </article>
           </div>
@@ -790,7 +914,7 @@ export default function Intake({
             >
               Review or create another draft
             </button>
-            <Link href="/trips" onClick={onContinue}>
+            <Link className="text-link" href="/trips" onClick={onContinue}>
               See all my trip drafts
             </Link>
             <button
