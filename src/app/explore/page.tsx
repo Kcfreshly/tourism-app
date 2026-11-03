@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import CatalogueBrowser from "@/components/catalogue-browser";
-import { WhatsOn } from "@/components/whats-on";
 import { listCatalogue } from "@/server/catalogue";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Explore experiences" };
@@ -25,15 +24,6 @@ export default async function Explore({
     );
   return (
     <section className="page explore-page">
-      <header className="page-intro">
-        <p className="eyebrow">Explore Lagos</p>
-        <h1>Find experiences worth making time for.</h1>
-        <p className="lede">
-          Add the ones you like to your bucket. Saving doesn’t book anything or
-          give it a time — you’ll arrange your days in the planner.
-        </p>
-      </header>
-      <WhatsOn records={records} />
       <CatalogueBrowser
         key={`${view}-${category}`}
         records={records}

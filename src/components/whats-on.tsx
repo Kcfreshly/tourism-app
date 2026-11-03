@@ -1,9 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Experience } from "@/server/catalogue";
-import { eventsInWindow, lagosToday, upcomingEvents } from "@/domain/events";
+import {
+  displayName,
+  formatMoney,
+  priceBasisLabel,
+  zoneLabel,
+} from "@/domain/experience-content";
+import {
+  eventDates,
+  eventTypeLabels,
+  eventsInWindow,
+  lagosToday,
+  upcomingEvents,
+} from "@/domain/events";
 import { useTripDates } from "@/hooks/use-trip-dates";
-import { ExperienceCard } from "./catalogue-browser";
+import { BucketButton } from "./bucket";
+import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
 
 type Record = Experience & { seedKey?: string };
@@ -35,8 +48,10 @@ function loadCatalogue() {
   return cataloguePromise;
 }
 
-export function EventCard({
-  experience,
+// One dated event as an agenda row: the date leads, as it is the reason to
+// care about an event, then what it is, when and where, and the price.
+function AgendaItem({
+  experience: e,
   start,
   end,
 }: {
@@ -44,35 +59,102 @@ export function EventCard({
   start?: string;
   end?: string;
 }) {
+  const dates = eventDates(e, start, end);
+  const first = dates[0];
+  const part = (option: Intl.DateTimeFormatOptions) =>
+    new Date(first + "T12:00:00Z").toLocaleDateString("en-GB", {
+      ...option,
+      timeZone: "UTC",
+    });
+  const time = e.sessions?.find((s) => s.dates?.includes(first))?.startTime;
+  const more = dates.length - 1;
+  const name = displayName(e.name);
   return (
-    <ExperienceCard
-      experience={experience}
-      start={start}
-      end={end}
-      variant="row"
-    />
+    <li className="agenda-item event-card">
+      <time className="agenda-date" dateTime={first}>
+        <span>{part({ weekday: "short" })}</span>
+        <strong>{part({ day: "numeric" })}</strong>
+        <span>{part({ month: "short" })}</span>
+      </time>
+      <div className="agenda-thumb">
+        <ExperienceOverlay
+          experience={e}
+          triggerStyle="image"
+          trigger={
+            <img
+              src={e.imagePath}
+              loading="lazy"
+              alt={e.inspirationPhoto?.title ?? `View ${name}`}
+            />
+          }
+        />
+      </div>
+      <div className="agenda-body">
+        {e.event && (
+          <p className="agenda-type">{eventTypeLabels[e.event.type]}</p>
+        )}
+        <h3>
+          <ExperienceOverlay
+            experience={e}
+            trigger={name}
+            triggerStyle="title"
+          />
+        </h3>
+        <p className="agenda-meta">
+          {[
+            time,
+            zoneLabel(e.zoneId),
+            more ? `+${more} more ${more === 1 ? "date" : "dates"}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
+      <div className="agenda-side">
+        <p className="agenda-price">
+          <strong>{formatMoney(e.offer.rateMinor)}</strong>{" "}
+          {priceBasisLabel(e.offer.priceBasis)}
+        </p>
+        <BucketButton id={e.offer.id} variant="compact" />
+      </div>
+    </li>
   );
 }
 
-function EventRow({
+function Agenda({
   events,
   start,
   end,
   label,
+  limit,
 }: {
   events: Record[];
   start?: string;
   end?: string;
   label: string;
+  // Rows shown before "Show all"; every row shows when omitted.
+  limit?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const shown = limit && !expanded ? events.slice(0, limit) : events;
   return (
-    <ul className="event-row" aria-label={label}>
-      {events.map((e) => (
-        <li key={e.id}>
-          <EventCard experience={e} start={start} end={end} />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ol className="agenda" aria-label={label}>
+        {shown.map((e) => (
+          <AgendaItem key={e.id} experience={e} start={start} end={end} />
+        ))}
+      </ol>
+      {shown.length < events.length && (
+        <button
+          type="button"
+          className="agenda-more"
+          onClick={() => setExpanded(true)}
+        >
+          Show all {events.length} events
+          <Icon name="chevronDown" size={16} />
+        </button>
+      )}
+    </>
   );
 }
 
@@ -97,12 +179,16 @@ export function WhatsOn({ records }: { records: Record[] }) {
           </h2>
           <p>
             {windowed
-              ? `${rangeLabel(windowed.start, windowed.end)}, from your trip details. Each event runs on its own dates only.`
-              : "Concerts, festivals, carnival, conferences and studio visits. Each runs on its own dates only."}
+              ? `${rangeLabel(windowed.start, windowed.end)} · concerts, festivals and more on fixed dates`
+              : "Concerts, festivals, carnival, conferences and studio visits"}
           </p>
         </div>
         {dates && (
-          <div className="segmented" role="group" aria-label="Show events">
+          <div
+            className="segmented segmented--small"
+            role="group"
+            aria-label="Show events"
+          >
             <button
               type="button"
               aria-pressed={!showAll}
@@ -121,11 +207,13 @@ export function WhatsOn({ records }: { records: Record[] }) {
         )}
       </div>
       {shown.length ? (
-        <EventRow
+        <Agenda
+          key={windowed ? "trip" : "all"}
           events={shown}
           start={windowed ? windowed.start : today}
           end={windowed?.end}
           label={windowed ? "Events during your trip" : "Upcoming events"}
+          limit={4}
         />
       ) : (
         <p className="whats-on-empty">
@@ -180,7 +268,7 @@ export function TripEvents({ start, end }: { start: string; end: string }) {
             Add any you like to your bucket. Nothing is booked, and each event
             only fits on the days it runs.
           </p>
-          <EventRow
+          <Agenda
             events={events}
             start={start}
             end={end}

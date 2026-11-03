@@ -27,10 +27,13 @@ try {
   await page.goto(`${base}/explore`);
   const whatsOn = page.locator(".whats-on");
   await expect(whatsOn).toContainText("Coming up in Lagos");
+  // The agenda opens with 4 dated rows, then reveals the rest on request.
+  await expect(whatsOn.locator(".event-card")).toHaveCount(4);
+  await whatsOn.getByRole("button", { name: "Show all 6 events" }).click();
   await expect(whatsOn.locator(".event-card")).toHaveCount(6);
   await page.getByRole("button", { name: "What’s on" }).click();
   await expect(page.locator(".experience.card")).toHaveCount(6);
-  checks.push("Explore: upcoming events row and What’s on filter.");
+  checks.push("Explore: upcoming events agenda, Show all, What’s on filter.");
 
   // Onboarding lists events for the chosen dates and saves them to the bucket.
   await page.goto(`${base}/plan/new?mode=form&fresh=1`);
@@ -81,6 +84,7 @@ try {
   await expect(whatsOn).toContainText("Happening during your trip");
   await expect(whatsOn.locator(".event-card")).toHaveCount(4);
   await whatsOn.getByRole("button", { name: "All upcoming" }).click();
+  await whatsOn.getByRole("button", { name: "Show all 6 events" }).click();
   await expect(whatsOn.locator(".event-card")).toHaveCount(6);
   checks.push("Explore: During my dates and All upcoming.");
 
@@ -102,7 +106,8 @@ try {
   );
   checks.push("Planner: day markers, trip-only events, Go to that day.");
 
-  // Mobile: rows scroll inside themselves, never the page.
+  // Mobile: the agenda stacks within the page width; the last row and its
+  // save button are reachable.
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -111,13 +116,13 @@ try {
   const m = await mobile.newPage();
   m.on("pageerror", (error) => errors.push(error.message));
   await m.goto(`${base}/explore`);
-  const row = m.locator(".whats-on .event-row");
-  const last = row.locator("li").last();
+  const last = m.locator(".whats-on .agenda-item").last();
   await last.scrollIntoViewIfNeeded();
-  const [rowBox, lastBox] = [await row.boundingBox(), await last.boundingBox()];
-  expect(lastBox.x + lastBox.width).toBeLessThanOrEqual(
-    rowBox.x + rowBox.width + 1,
-  );
+  const lastBox = await last.boundingBox();
+  expect(lastBox.x + lastBox.width).toBeLessThanOrEqual(390);
+  await expect(
+    last.getByRole("button", { name: /Add to bucket|Saved/ }),
+  ).toBeInViewport();
   expect(
     await m.evaluate(() => document.documentElement.scrollWidth - innerWidth),
   ).toBeLessThanOrEqual(0);
