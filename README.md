@@ -2,6 +2,10 @@
 
 Working brand, fictional supply, no real bookings. The local demo now includes catalogue, account/guest drafts, catalogue administration and the core multi-day planner with automatic prices. It is not the complete V1; checkout, fulfilment and companion remain pending.
 
+## Backend architecture
+
+See [the backend architecture guide](docs/BACKEND_ARCHITECTURE.md) for the implemented components, API routes, database model and request flows, with Mermaid diagrams. The main component map is also available as [a standalone Mermaid file](docs/backend-data-flow.mmd).
+
 ## Run locally
 
 Node 24 was used. Install with `npm ci` (the committed npm lockfile is authoritative). pnpm can execute the scripts, but dependencies were resolved with npm on this Windows machine. PowerShell execution policy blocks npm.ps1 here; use `npm.cmd`.

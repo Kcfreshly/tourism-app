@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { BucketButton, BucketTray, ClearBucket, useBucket } from "./bucket";
-import { useActiveTrip } from "./trip-store";
+import { BucketButton, BucketTray, ClearBucket } from "./bucket";
+import { useBucket } from "@/hooks/use-bucket";
+import { useActiveTrip } from "@/hooks/use-active-trip";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
 import categories from "../../tourism-v1-handoff/data/categories.json";
@@ -15,18 +16,47 @@ import {
   storyFor,
   zoneLabel,
 } from "@/domain/experience-content";
+import {
+  eventTypeLabels,
+  eventWhen,
+  isEvent,
+  lagosToday,
+} from "@/domain/events";
 export function money(n: number) {
   return formatMoney(n);
 }
 type Record = Experience & { seedKey: string };
 
-export function ExperienceCard({ experience: e }: { experience: Record }) {
+// One calm card for every listing: photo, a quiet meta line, the name, at
+// most one highlight and the price. The bucket toggle sits on the photo.
+export function ExperienceCard({
+  experience: e,
+  start,
+  end,
+  variant = "grid",
+}: {
+  experience: Experience & { seedKey?: string };
+  // Dated events show their first date inside this window.
+  start?: string;
+  end?: string;
+  variant?: "grid" | "row";
+}) {
   const { ids } = useBucket();
   const saved = ids.includes(e.offer.id);
   const name = displayName(e.name);
+  const highlight = e.event
+    ? eventWhen(e, start ?? lagosToday(), end)
+    : e.offer.hostIncluded
+      ? "Local host included"
+      : e.kind === "FULL_DAY"
+        ? "Full day"
+        : undefined;
   return (
-    <article className="experience card" data-saved={saved}>
-      <div className="card-media">
+    <article
+      className={`${variant === "row" ? "event-card" : "experience card"} tile`}
+      data-saved={saved}
+    >
+      <div className="tile-media card-media">
         <ExperienceOverlay
           experience={e}
           triggerStyle="image"
@@ -38,26 +68,18 @@ export function ExperienceCard({ experience: e }: { experience: Record }) {
             />
           }
         />
-        <span className="media-badge">
-          {categoryShortLabels[e.categoryId] ?? e.categoryId}
-        </span>
-        {saved && (
-          <span className="saved-flag">
-            <Icon name="bookmarkFilled" size={14} />
-            Saved
-          </span>
+        {e.event && (
+          <span className="media-badge">{eventTypeLabels[e.event.type]}</span>
         )}
+        <span className="tile-save">
+          <BucketButton id={e.offer.id} variant="icon" />
+        </span>
       </div>
-      <div className="card-body">
-        <p className="card-meta">
-          <span>
-            <Icon name="pin" size={15} />
-            {zoneLabel(e.zoneId)}
-          </span>
-          <span>
-            <Icon name="clock" size={15} />
-            {formatDuration(e.durationMinMinutes, e.durationMaxMinutes)}
-          </span>
+      <div className="tile-body">
+        <p className="tile-meta">
+          {categoryShortLabels[e.categoryId] ?? e.categoryId} ·{" "}
+          {zoneLabel(e.zoneId)} ·{" "}
+          {formatDuration(e.durationMinMinutes, e.durationMaxMinutes)}
         </p>
         <h3>
           <ExperienceOverlay
@@ -66,27 +88,16 @@ export function ExperienceCard({ experience: e }: { experience: Record }) {
             triggerStyle="title"
           />
         </h3>
-        <p className="card-teaser">
-          {storyFor(e.seedKey, e.categoryId).teaser}
-        </p>
-        <ul className="card-tags" aria-label="Good to know">
-          <li data-tone={e.schedulingType === "FIXED" ? "clay" : undefined}>
-            {e.schedulingType === "FIXED"
-              ? "Set sessions"
-              : e.kind === "FULL_DAY"
-                ? "Full day"
-                : "Flexible start"}
-          </li>
-          {e.offer.hostIncluded && <li>Local host</li>}
-          {e.kind === "LIGHT" && <li>Light activity</li>}
-        </ul>
-        <div className="card-footer">
-          <p className="card-price">
-            <strong>{formatMoney(e.offer.rateMinor)}</strong>
-            <span>{priceBasisLabel(e.offer.priceBasis)}</span>
+        {highlight && (
+          <p className="tile-highlight" data-event={!!e.event}>
+            {e.event && <Icon name="calendar" size={14} />}
+            {highlight}
           </p>
-          <BucketButton id={e.offer.id} variant="compact" />
-        </div>
+        )}
+        <p className="tile-price">
+          <strong>{formatMoney(e.offer.rateMinor)}</strong>{" "}
+          {priceBasisLabel(e.offer.priceBasis)}
+        </p>
       </div>
     </article>
   );
@@ -112,10 +123,15 @@ export default function CatalogueBrowser({
     [kind, setKind] = useState(""),
     [accessible, setAccessible] = useState(false);
   const query = search.trim().toLowerCase();
+  const filtering = !!(category || query || kind || accessible);
   const filtered = records.filter(
     (e) =>
       (!bucketOnly || ids.includes(e.offer.id)) &&
-      (!category || e.categoryId === category) &&
+      // Dated events have their own row above; list them here only when the
+      // traveller is filtering, searching or viewing their bucket.
+      (filtering || bucketOnly || !isEvent(e)) &&
+      (!category ||
+        (category === "events" ? isEvent(e) : e.categoryId === category)) &&
       (!query ||
         displayName(e.name).toLowerCase().includes(query) ||
         storyFor(e.seedKey, e.categoryId)
@@ -129,7 +145,6 @@ export default function CatalogueBrowser({
       // Accessibility is unconfirmed for every listing; never relax this filter.
       !accessible,
   );
-  const filtering = !!(category || query || kind || accessible);
   function resetFilters() {
     setCategory("");
     setSearch("");
@@ -197,6 +212,15 @@ export default function CatalogueBrowser({
           onClick={() => setCategory("")}
         >
           All categories
+        </button>
+        <button
+          type="button"
+          className="chip"
+          aria-pressed={category === "events"}
+          onClick={() => setCategory("events")}
+        >
+          <Icon name="calendar" size={14} />
+          What’s on
         </button>
         {categories.map((c) => (
           <button

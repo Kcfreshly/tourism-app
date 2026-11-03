@@ -16,3 +16,8 @@ export async function validateSelection(
       "Choose a currently published demo experience.",
     );
 }
+export async function publishedSelection(ids: string[]) {
+  if (!ids.length) return [];
+  const available = new Set((await listCatalogue()).map((e) => e.offer.id));
+  return [...new Set(ids)].filter((id) => available.has(id));
+}

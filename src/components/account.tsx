@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
-import { createAuthClient } from "better-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-const client = createAuthClient();
-export default function Account() {
+import { authClient as client } from "./auth-client";
+import { useSignOut } from "@/hooks/use-sign-out";
+export default function Account({ next }: { next?: string }) {
   const router = useRouter();
+  const { signOut, signingOut } = useSignOut();
   const { data: session, isPending } = client.useSession();
+  const planning = !!next && /^\/(plan|trips)/.test(next);
   const [signup, setSignup] = useState(false),
     [name, setName] = useState(""),
     [email, setEmail] = useState(""),
@@ -22,17 +24,25 @@ export default function Account() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setStatus("Signing in…");
+    setStatus(signup ? "Creating your account…" : "Signing in…");
     try {
       const result = signup
         ? await client.signUp.email({ name, email, password })
         : await client.signIn.email({ email, password });
       if (result.error) throw Error(result.error.message);
       setPassword("");
-      const count = await merge();
+      // Older guest drafts in this browser move into the account; a failure
+      // here must not block sign-in.
+      const count = await merge().catch(() => 0);
       setStatus(
-        `Signed in. ${count} guest draft${count === 1 ? "" : "s"} linked to your account.`,
+        count
+          ? `Signed in. ${count} earlier draft${count === 1 ? "" : "s"} linked to your account.`
+          : "Signed in.",
       );
+      if (next) {
+        router.replace(next);
+        router.refresh();
+      }
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Unable to sign in. Retry.");
     } finally {
@@ -42,12 +52,20 @@ export default function Account() {
   return (
     <section className="account-page">
       <div className="page-intro">
-        <p className="eyebrow">Account</p>
-        <h1>{session ? "Welcome back." : "Keep your trips with you."}</h1>
+        <p className="eyebrow">{planning ? "Before you plan" : "Account"}</p>
+        <h1>
+          {session
+            ? "Welcome back."
+            : planning
+              ? "Sign in to start planning."
+              : "Keep your trips with you."}
+        </h1>
         <p className="lede">
           {session
-            ? "Your trips are linked to this account."
-            : "Sign in to keep your trip drafts across devices. Any drafts you made as a guest are linked automatically."}
+            ? "Your trip drafts are saved to this account."
+            : planning
+              ? "Your trip drafts are saved to your account so you can pick them up anytime. Your bucket is kept while you sign in."
+              : "Exploring is open to everyone. Sign in to plan a trip and keep your drafts."}
         </p>
       </div>
       <div className="card form-card">
@@ -62,38 +80,28 @@ export default function Account() {
               password-reset links are sent.
             </p>
             <div className="actions">
-              <Link className="button" href="/trips">
-                Open my trips
+              {next && (
+                <Link className="button" href={next}>
+                  Continue planning
+                </Link>
+              )}
+              <Link
+                className={next ? "button secondary" : "button"}
+                href="/trips"
+              >
+                My trip drafts
+              </Link>
+              <Link className="button secondary" href="/explore">
+                Explore experiences
               </Link>
               <button
                 className="secondary"
-                disabled={busy}
+                disabled={signingOut}
                 onClick={async () => {
-                  setBusy(true);
-                  try {
-                    setStatus(`${await merge()} guest drafts linked.`);
-                  } catch (e) {
-                    setStatus(
-                      e instanceof Error ? e.message : "Retry linking drafts.",
-                    );
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                Link guest drafts
-              </button>
-              <button
-                className="secondary"
-                onClick={async () => {
-                  const r = await fetch("/api/v1/session", {
-                    method: "DELETE",
-                  });
-                  if (!r.ok) {
+                  if (!(await signOut())) {
                     setStatus("Unable to sign out. Retry.");
                     return;
                   }
-                  await client.signOut();
                   router.replace("/account");
                   router.refresh();
                 }}
@@ -101,11 +109,13 @@ export default function Account() {
                 Sign out
               </button>
             </div>
-            <p>
-              <Link className="text-link" href="/admin">
-                Staff workspace
-              </Link>
-            </p>
+            {(session.user as { role?: string }).role === "ADMIN" && (
+              <p>
+                <Link className="text-link" href="/admin">
+                  Staff workspace
+                </Link>
+              </p>
+            )}
           </>
         ) : (
           <>
@@ -122,7 +132,7 @@ export default function Account() {
                 aria-pressed={signup}
                 onClick={() => setSignup(true)}
               >
-                Create demo account
+                Create account
               </button>
             </div>
             <form onSubmit={submit}>
@@ -154,7 +164,7 @@ export default function Account() {
                 <input
                   required
                   type="password"
-                  minLength={12}
+                  minLength={8}
                   maxLength={128}
                   autoComplete={signup ? "new-password" : "current-password"}
                   value={password}
@@ -162,7 +172,7 @@ export default function Account() {
                 />
               </label>
               <p className="muted">
-                Use fictional details and a unique demo password (12+
+                Use fictional details and a unique demo password (8+
                 characters). Email delivery, verification and password recovery
                 are not configured.
               </p>
@@ -170,8 +180,12 @@ export default function Account() {
                 {busy
                   ? "Please wait…"
                   : signup
-                    ? "Create demo account"
-                    : "Sign in & link my drafts"}
+                    ? planning
+                      ? "Create account & start planning"
+                      : "Create account"
+                    : planning
+                      ? "Sign in & start planning"
+                      : "Sign in"}
               </button>
             </form>
           </>

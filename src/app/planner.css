@@ -1283,3 +1283,420 @@ main:has(.planner-page) {
     margin-left: 6px;
   }
 }
+
+.activity-when {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--c-clay);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.activity-unavailable {
+  flex-wrap: wrap;
+}
+.day-events {
+  grid-column: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-clay);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.day-chips button[aria-pressed="true"] .day-events {
+  color: var(--c-danfo);
+}
+
+/* Trip cost panel beside the workspace. The panel takes a fixed column so the
+   day timeline is narrower; below 1200px it moves under the workspace. */
+.planner-with-cost {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 340px);
+  gap: var(--space-4);
+  min-width: 0;
+}
+.planner-with-cost > * {
+  min-width: 0;
+}
+.planner-cost-panel {
+  display: flex;
+  min-height: 0;
+}
+.planner-with-cost:not([data-services="true"]) .planner-cost-panel {
+  height: max(500px, calc(100dvh - var(--site-header-height, 96px) - 290px));
+}
+.planner-with-cost[data-services="true"] .planner-cost-panel {
+  position: sticky;
+  top: calc(var(--site-header-height, 96px) + var(--space-4));
+  align-self: start;
+  max-height: calc(100dvh - var(--site-header-height, 96px) - 32px);
+}
+@media (min-width: 1201px) {
+  /* The full breakdown is on screen; the toolbar total would repeat it. */
+  .planner-page:has(.planner-cost-panel) .price-popover {
+    display: none;
+  }
+}
+@media (max-width: 1200px) {
+  .planner-with-cost {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .planner-with-cost:not([data-services="true"]) .planner-cost-panel,
+  .planner-with-cost[data-services="true"] .planner-cost-panel {
+    position: static;
+    height: auto;
+    max-height: none;
+  }
+}
+
+.trip-cost {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-sm);
+}
+.trip-cost-head {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--c-line);
+}
+.trip-cost-head .eyebrow {
+  margin: 0;
+}
+.trip-cost-head h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
+}
+.trip-cost-updating {
+  color: var(--c-ink-3);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.trip-cost-sub {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--text-sm);
+}
+.trip-cost-progress {
+  display: flex;
+  gap: 3px;
+  margin-top: var(--space-1);
+}
+.trip-cost-progress span {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--c-sunken);
+}
+.trip-cost-progress span[data-planned="true"] {
+  background: var(--c-lagoon);
+}
+.trip-cost-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+.trip-cost-days {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trip-cost-days > li {
+  border-bottom: 1px solid var(--c-line);
+}
+.trip-cost-days summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.trip-cost-days summary::-webkit-details-marker {
+  display: none;
+}
+.trip-cost-days details[open] summary .icon {
+  transform: rotate(180deg);
+}
+.trip-cost-day {
+  font-weight: 700;
+}
+.trip-cost-day .text-button {
+  min-height: 0;
+  padding: 0;
+  color: var(--c-ink);
+  font-weight: 700;
+}
+.trip-cost-days li[data-current="true"] .trip-cost-day .text-button {
+  color: var(--c-indigo);
+}
+.trip-cost-day-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.trip-cost-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 0 var(--space-3);
+  list-style: none;
+}
+.trip-cost-lines li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.trip-cost-lines .icon {
+  margin-top: 3px;
+  color: var(--c-ink-3);
+}
+.trip-cost-line-label {
+  display: grid;
+  overflow-wrap: anywhere;
+}
+.trip-cost-line-label small {
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+}
+.trip-cost-line-total {
+  font-variant-numeric: tabular-nums;
+}
+.trip-cost-free {
+  margin: 0 0 var(--space-3);
+  color: var(--c-ink-3);
+  font-size: var(--text-sm);
+}
+.trip-cost-totals {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+}
+.trip-cost-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+.trip-cost-totals dt {
+  color: var(--c-ink-2);
+}
+.trip-cost-totals dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.trip-cost-subtotal {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--c-line);
+}
+.trip-cost-total {
+  padding-top: var(--space-2);
+  border-top: 2px solid var(--c-ink);
+  font-weight: 800;
+}
+.trip-cost-total dt,
+.trip-cost-total dd {
+  color: var(--c-ink);
+  font-size: var(--text-md);
+}
+.trip-cost-note {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+}
+.trip-cost-note .icon {
+  flex: none;
+  margin-top: 1px;
+}
+.trip-cost-foot {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+.checkout-button {
+  width: 100%;
+  justify-content: center;
+}
+
+.services-mix-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--c-indigo-wash);
+  color: var(--c-indigo);
+  font-size: var(--text-sm);
+}
+.services-mix-note .icon {
+  flex: none;
+}
+.assistance-card:has(input:disabled) {
+  cursor: default;
+}
+.planner-with-cost[data-services="true"] .assistance-options {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+/* Checkout prompt */
+.checkout-prompt[open] {
+  width: min(480px, calc(100vw - 32px));
+}
+.checkout-prompt-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-3);
+}
+.checkout-prompt-head h2 {
+  margin: 0;
+}
+.checkout-prompt-days {
+  display: grid;
+  gap: var(--space-1);
+  max-height: min(300px, 40vh);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.checkout-prompt-days li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--c-sunken);
+}
+.checkout-prompt-days span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+.checkout-prompt .actions {
+  flex-wrap: wrap;
+}
+
+/* Checkout page */
+.checkout-steps li a {
+  color: inherit;
+}
+.checkout-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  align-items: start;
+  gap: var(--space-6);
+}
+.checkout-main {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.checkout-main .trip-cost-body {
+  overflow: visible;
+}
+.checkout-free-days {
+  display: flex;
+  gap: var(--space-3);
+}
+.checkout-free-days p {
+  margin: var(--space-1) 0 0;
+}
+.checkout-blockers {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--c-warning) 35%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--c-warning-soft);
+}
+.checkout-blockers h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  color: var(--c-warning);
+  font-size: var(--text-lg);
+}
+.checkout-blockers ul {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+}
+.checkout-blockers .actions {
+  flex-wrap: wrap;
+}
+.checkout-pay {
+  position: sticky;
+  top: calc(var(--site-header-height, 96px) + var(--space-4));
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-md);
+}
+.checkout-pay h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+.checkout-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+}
+.checkout-total strong {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+}
+.checkout-next {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--c-ink-2);
+  font-size: var(--text-sm);
+}
+.checkout-pay > button {
+  width: 100%;
+  justify-content: center;
+}
+.checkout-preview-note {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+}
+.checkout-preview-note .icon {
+  flex: none;
+  margin-top: 1px;
+}
+@media (max-width: 900px) {
+  .checkout-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .checkout-pay {
+    position: static;
+  }
+}

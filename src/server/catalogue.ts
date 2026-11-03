@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { catalogue } from "./schema";
-import { photoForExperience, type Photo } from "../domain/photos";
+import { photoById, photoForExperience, type Photo } from "../domain/photos";
+import type { EventInfo } from "../domain/events";
 import fixture from "../../tourism-v1-handoff/data/experiences.demo.json";
 export type Experience = (typeof fixture.experiences)[number] & {
   schedulingType?: "FLEXIBLE" | "FIXED";
@@ -15,6 +16,8 @@ export type Experience = (typeof fixture.experiences)[number] & {
   videoUrl?: string;
   photos?: string[];
   inspirationPhoto?: Photo;
+  photoId?: string;
+  event?: EventInfo;
 };
 export async function listCatalogue() {
   return (
@@ -25,9 +28,12 @@ export async function listCatalogue() {
   ).map((r) => {
     const record = r.record as Experience;
     const fixed = ["cooking", "music", "local-market"].includes(r.seedKey);
-    const inspiration = record.imagePath.startsWith("/assets/illustrations/")
-      ? photoForExperience(r.seedKey, record.categoryId)
-      : undefined;
+    // Events may name a specific photo or keep their own labelled illustration.
+    const inspiration = record.photoId
+      ? photoById(record.photoId)
+      : record.imagePath.startsWith("/assets/illustrations/category-")
+        ? photoForExperience(r.seedKey, record.categoryId)
+        : undefined;
     return {
       ...record,
       imagePath: inspiration?.src ?? record.imagePath,

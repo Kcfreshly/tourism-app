@@ -1,8 +1,11 @@
+import { requireSignedIn } from "@/server/page-auth";
 import Intake from "@/components/intake";
 export default async function Profile({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  return <Intake id={(await params).id} />;
+  const { id } = await params;
+  await requireSignedIn(`/trips/${encodeURIComponent(id)}/profile`);
+  return <Intake id={id} />;
 }

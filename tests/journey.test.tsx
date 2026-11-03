@@ -80,7 +80,7 @@ describe("trip journey", () => {
       target: { value: "4" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "Review trip summary" }),
+      screen.getByRole("button", { name: "Next: check summary" }),
     );
     expect(screen.getByText("4 adults")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Give this draft a name"), {
@@ -90,19 +90,24 @@ describe("trip journey", () => {
     await screen.findByRole("heading", { name: "Your trip draft is ready." });
     expect(
       screen
-        .getByRole("link", { name: "Explore & add to bucket" })
+        .getByRole("link", { name: "Explore experiences" })
         .getAttribute("href"),
     ).toBe("/explore?trip=draft-1");
     expect(
-      screen.getByRole("link", { name: "Go to my trip" }).getAttribute("href"),
+      screen
+        .getByRole("link", { name: "Go to my drafts" })
+        .getAttribute("href"),
+    ).toBe("/trips?saved=draft-1");
+    expect(
+      screen
+        .getByRole("link", { name: "Or open the trip planner now" })
+        .getAttribute("href"),
     ).toBe("/trips/draft-1/plan");
     const first = writes.find((write) => write.path === "/api/v1/trips")!
       .payload as Profile;
     expect(first.selectedOfferIds).toEqual(["offer-gallery"]);
     expect(first.adults).toBe(4);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Review or create another draft" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit this draft" }));
     fireEvent.change(screen.getByLabelText("Give this draft a name"), {
       target: { value: "Alternative dates" },
     });
@@ -112,9 +117,9 @@ describe("trip journey", () => {
     await waitFor(() =>
       expect(
         screen
-          .getByRole("link", { name: "Go to my trip" })
+          .getByRole("link", { name: "Go to my drafts" })
           .getAttribute("href"),
-      ).toBe("/trips/draft-2/plan"),
+      ).toBe("/trips?saved=draft-2"),
     );
     expect(first.draftName).toBe("Family art week");
     expect(localStorage.getItem("tourism.bucket.v1")).toBe('["offer-gallery"]');
@@ -134,7 +139,7 @@ describe("trip journey", () => {
     );
     expect(screen.getByLabelText("Arrival date")).toBeTruthy();
     fireEvent.click(
-      screen.getByRole("button", { name: "Review trip summary" }),
+      screen.getByRole("button", { name: "Next: check summary" }),
     );
     expect(
       screen.getByRole("heading", { name: "Does this feel like your trip?" }),

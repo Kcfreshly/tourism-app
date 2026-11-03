@@ -19,6 +19,8 @@ export default function PlannerActivityCard({
   busy,
   available,
   note,
+  when,
+  otherDay,
   onAdd,
   onDrag,
 }: {
@@ -27,6 +29,9 @@ export default function PlannerActivityCard({
   busy: boolean;
   available: boolean;
   note?: string;
+  // Dated events: when they run, and a shortcut to a day they run on.
+  when?: string;
+  otherDay?: { label: string; go: () => void };
   onAdd: () => void;
   onDrag: (value: PlannerDrag | null) => void;
 }) {
@@ -95,13 +100,21 @@ export default function PlannerActivityCard({
             className="scheduling-badge"
             data-fixed={e.schedulingType === "FIXED"}
           >
-            {e.schedulingType === "FIXED"
-              ? "Set sessions"
-              : e.kind === "FULL_DAY"
-                ? "Full day"
-                : "Flexible"}
+            {e.event
+              ? "Event"
+              : e.schedulingType === "FIXED"
+                ? "Set sessions"
+                : e.kind === "FULL_DAY"
+                  ? "Full day"
+                  : "Flexible"}
           </span>
         </p>
+        {when && (
+          <p className="activity-when">
+            <Icon name="calendar" size={14} />
+            {when}
+          </p>
+        )}
         <p className="activity-price">
           <strong>{formatMoney(e.offer.rateMinor)}</strong>{" "}
           <span>{priceBasisLabel(e.offer.priceBasis)}</span>
@@ -115,7 +128,20 @@ export default function PlannerActivityCard({
           )
         ) : (
           <p className="activity-unavailable">
-            Doesn’t fit this day. Try another day or session.
+            {otherDay ? (
+              <>
+                Runs on {otherDay.label}.{" "}
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={otherDay.go}
+                >
+                  Go to that day
+                </button>
+              </>
+            ) : (
+              "Doesn’t fit this day. Try another day or session."
+            )}
           </p>
         )}
       </div>

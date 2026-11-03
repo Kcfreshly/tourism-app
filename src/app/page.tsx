@@ -3,114 +3,66 @@ import Icon from "@/components/icons";
 import { photoById, photoForCategory } from "@/domain/photos";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 
-const hero = photoById("elegushi-evening");
-const exampleDay = [
-  { time: "09:00", title: "Morning nature walk", kind: "Flexible start" },
-  { time: "12:30", title: "Lunch with family", kind: "Personal time" },
-  { time: "15:00", title: "Contemporary art visit", kind: "Flexible start" },
-  { time: "19:00", title: "Hosted suya evening", kind: "Set session" },
-];
+const hero = photoById("fanti-carnival");
+// const heroTags = [
+//   { label: "Festivals", href: "/explore?category=events" },
+//   { label: "Beaches", href: "/explore?category=waterfront" },
+//   { label: "Afrobeats nights", href: "/explore?category=nightlife" },
+//   { label: "Food", href: "/explore?category=food" },
+//   { label: "Art & history", href: "/explore?category=culture" },
+// ];
 
 export default function Home() {
   return (
     <>
       <section className="home-hero">
-        <div className="home-hero-copy">
-          <p className="eyebrow">Lagos trip planning</p>
+        <img
+          className="home-hero-image"
+          src={hero.src}
+          alt={hero.title}
+          width={hero.width}
+          height={hero.height}
+          fetchPriority="high"
+        />
+        <div className="home-hero-inner">
+          <p className="home-hero-kicker">
+            <Icon name="pin" size={16} />
+            Lagos, Nigeria · West Africa
+          </p>
           <h1>
             Lagos, <span>your way.</span>
           </h1>
-          <p className="lede">
-            Build a stay around what you love. We bring experiences, transport
-            and local hosts together into one clear plan, priced as you go.
+          <p className="home-hero-lede">
+            Carnivals and masquerades, Atlantic beaches, Afrobeats nights and
+            jollof worth flying for. Tell us what you love — we’ll plan the
+            days, the drivers and the local hosts.
           </p>
-          <div className="entry-paths">
+          <div className="home-hero-actions">
             <Link
-              className="entry-path entry-path--kemi"
+              className="hero-cta hero-cta--primary"
               href="/plan/new?mode=chat"
             >
               <span className="kemi-avatar" aria-hidden="true">
                 K
               </span>
-              <span className="entry-path-text">
-                <strong>Plan with Kemi</strong>
-                <span>
-                  Tell Kemi about your trip. Get a personalised itinerary you
-                  can customise.
-                </span>
-              </span>
-              <Icon name="arrowRight" size={22} />
+              Plan with Kemi
+              <Icon name="arrowRight" size={18} />
             </Link>
-            <Link className="entry-path" href="/explore">
-              <span className="entry-icon" aria-hidden="true">
-                <Icon name="compass" size={24} />
-              </span>
-              <span className="entry-path-text">
-                <strong>Explore experiences</strong>
-                <span>
-                  Save activities to your bucket, then organise them into your
-                  trip.
-                </span>
-              </span>
-              <Icon name="arrowRight" size={22} />
+            <Link className="hero-cta" href="/explore">
+              Explore experiences
             </Link>
           </div>
+          {/* <nav className="home-hero-tags" aria-label="Popular in Lagos">
+            {heroTags.map((tag) => (
+              <Link key={tag.label} href={tag.href}>
+                {tag.label}
+              </Link>
+            ))}
+          </nav> */}
         </div>
-        <figure className="home-hero-media">
-          <img
-            src={hero.src}
-            alt={hero.title}
-            width={hero.width}
-            height={hero.height}
-          />
-          <div className="example-day" aria-label="Example day">
-            <p className="example-day-head">
-              <span>Example day</span>
-              <small>Saturday</small>
-            </p>
-            <ol>
-              {exampleDay.map((item) => (
-                <li key={item.time} data-kind={item.kind}>
-                  <time>{item.time}</time>
-                  <span>
-                    {item.title}
-                    <small>{item.kind}</small>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <figcaption>
-            Photo: {hero.author} / {hero.license}
-          </figcaption>
-        </figure>
-      </section>
-
-      <section
-        className="promise-strip"
-        aria-label="How saving and booking work"
-      >
-        <div>
-          <Icon name="bookmark" size={22} />
-          <p>
-            <strong>Saving isn’t booking.</strong> Your bucket is a shortlist of
-            ideas.
-          </p>
-        </div>
-        <div>
-          <Icon name="clock" size={22} />
-          <p>
-            <strong>No times until you choose.</strong> Arrange each day in the
-            planner.
-          </p>
-        </div>
-        <div>
-          <Icon name="edit" size={22} />
-          <p>
-            <strong>Yours to change.</strong> Customise the plan however you
-            started.
-          </p>
-        </div>
+        <p className="home-hero-credit">
+          {hero.title} · Photo: {hero.author} / {hero.license}
+        </p>
       </section>
 
       <section className="page-section">
@@ -137,6 +89,33 @@ export default function Home() {
               </Link>
             );
           })}
+        </div>
+      </section>
+
+      <section
+        className="promise-strip"
+        aria-label="How saving and booking work"
+      >
+        <div>
+          <Icon name="bookmark" size={22} />
+          <p>
+            <strong>Saving isn’t booking.</strong> Your bucket is a shortlist of
+            ideas.
+          </p>
+        </div>
+        <div>
+          <Icon name="clock" size={22} />
+          <p>
+            <strong>No times until you choose.</strong> Arrange each day in the
+            planner.
+          </p>
+        </div>
+        <div>
+          <Icon name="edit" size={22} />
+          <p>
+            <strong>Yours to change.</strong> Customise the plan however you
+            started.
+          </p>
         </div>
       </section>
 
@@ -168,8 +147,8 @@ export default function Home() {
             <span className="step-number">3</span>
             <h3>Choose your support</h3>
             <p>
-              Pick a driver, an activity guide or a full-day guide. Your total
-              updates with every change.
+              A driver comes with every activity day. Add guides in any mix, and
+              your total updates with every change.
             </p>
           </li>
         </ol>
@@ -185,17 +164,17 @@ export default function Home() {
         <div className="support-grid">
           <article>
             <Icon name="car" size={26} />
-            <h3>Driver only</h3>
+            <h3>Your own driver</h3>
             <p>
-              A dedicated vehicle for your activity days, with pickup and return
+              A dedicated vehicle on every activity day, with pickup and return
               to your base.
             </p>
           </article>
           <article>
             <Icon name="users" size={26} />
-            <h3>Activity guide</h3>
+            <h3>Guides for chosen activities</h3>
             <p>
-              A local guide for the experiences you choose. Hosted experiences
+              Add a local guide to the experiences you pick. Hosted experiences
               already include one.
             </p>
           </article>
@@ -203,8 +182,8 @@ export default function Home() {
             <Icon name="sun" size={26} />
             <h3>Full-day guide</h3>
             <p>
-              A guide with you across the day’s service window, alongside your
-              driver.
+              A guide with you for the whole day, on the days you choose. Mix it
+              with activity guides on other days.
             </p>
           </article>
         </div>

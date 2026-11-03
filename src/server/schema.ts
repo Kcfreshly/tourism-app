@@ -89,6 +89,15 @@ export const verification = pgTable("auth_verification", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+// One saved bucket per account. The browser keeps a cache for fast render.
+export const accountBuckets = pgTable("account_buckets", {
+  userId: text()
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  offerIds: jsonb().$type<string[]>().notNull().default([]),
+  version: integer().notNull().default(0),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
 export const audit = pgTable("audit_events", {
   id: uuid().primaryKey(),
   actorId: text().notNull(),

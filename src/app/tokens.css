@@ -36,10 +36,10 @@
     U+1EA0-1EF9, U+20AB;
 }
 :root {
-  --c-paper: #f7f3ea;
+  --c-paper: #fcfbf8;
   --c-surface: #ffffff;
   --c-sunken: #efe8da;
-  --c-line: #e2d9c8;
+  --c-line: #ebe5da;
   --c-line-strong: #c9bda6;
   --c-ink: #161a33;
   --c-ink-2: #474c66;

@@ -135,6 +135,42 @@ const stories: Record<string, Story> = {
       "A hosted walk through a characterful neighbourhood, its architecture and everyday rhythms.",
     why: "See the Lagos most visitors drive past.",
   },
+  "event-highlife-night": {
+    teaser: "Horns, guitars and a table for your group on a warm night.",
+    summary:
+      "An evening of live highlife and jazz with a reserved table, on one night only.",
+    why: "The classic sound of Lagos, timed for your trip.",
+  },
+  "event-conference": {
+    teaser: "A day of talks and networking with Lagos founders and creatives.",
+    summary:
+      "A day pass to a creative and tech conference: talks, panels, lunch and a networking session.",
+    why: "Useful if you’re in town for work, or curious about what Lagos is building.",
+  },
+  "event-studio-set": {
+    teaser: "Go behind the scenes where Nigerian music gets made.",
+    summary:
+      "A hosted visit to a working music studio. Meet a producer or engineer, see how a track comes together and try a short session yourself.",
+    why: "For anyone who loves Nigerian music and wants to see the craft behind it.",
+  },
+  "event-afrobeats-concert": {
+    teaser: "One night, one stage, a whole city singing along.",
+    summary:
+      "An open-air Afrobeats concert with a standard ticket and a set meeting point with your driver afterwards.",
+    why: "Your trip lines up with the show, and your ride home is already arranged.",
+  },
+  "event-food-music-festival": {
+    teaser: "December in Lagos: food stalls, DJs and long afternoons.",
+    summary:
+      "A two-day food and music festival by the water, with tasting tokens included in your ticket.",
+    why: "The festive season is when Lagos comes alive. This is a taste of it.",
+  },
+  "event-street-carnival": {
+    teaser: "Costumes, drums and masquerades through the streets.",
+    summary:
+      "A hosted day at a street carnival, with a reserved viewing spot and a host to guide you along the route.",
+    why: "Join the celebration with someone who knows where to stand and when to move.",
+  },
 };
 
 export function storyFor(

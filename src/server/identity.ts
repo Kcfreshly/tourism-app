@@ -1,9 +1,10 @@
 import { cookies, headers } from "next/headers";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { eq, and, gt } from "drizzle-orm";
 import { db } from "./db";
 import { sessions, trips, user } from "./schema";
 import { auth } from "./auth";
+import { allowedOrigins } from "./config";
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -13,11 +14,17 @@ export class ApiError extends Error {
     super(message);
   }
 }
-export async function identity(create = false) {
+// Planning, drafts and the planner require a signed-in account. Browsing the
+// catalogue and the bucket stay public.
+export async function identity() {
   const account = await accountIdentity();
-  if (account) return account;
-  const guest = await guestIdentity(create);
-  return { ...guest, kind: "GUEST" as const };
+  if (!account)
+    throw new ApiError(
+      401,
+      "SIGN_IN_REQUIRED",
+      "Sign in to start planning and save trip drafts.",
+    );
+  return account;
 }
 export async function accountIdentity() {
   const account = await auth().api.getSession({ headers: await headers() });
@@ -28,7 +35,8 @@ export async function accountIdentity() {
     .where(eq(user.id, account.user.id));
   return record ? { ...record, kind: "ACCOUNT" as const } : null;
 }
-export async function guestIdentity(create = false) {
+// Legacy guest drafts are only read so they can be linked to an account.
+export async function guestIdentity() {
   const jar = await cookies();
   const token = jar.get("tourism-session")?.value;
   if (token) {
@@ -46,34 +54,18 @@ export async function guestIdentity(create = false) {
       );
     if (session) return session;
   }
-  if (!create)
-    throw new ApiError(
-      401,
-      "UNAUTHENTICATED",
-      "Start or resume a draft in this browser.",
-    );
-  const secret = randomBytes(32).toString("base64url");
-  const session = {
-    id: randomUUID(),
-    tokenHash: createHash("sha256").update(secret).digest("hex"),
-    role: "GUEST",
-    expiresAt: new Date(Date.now() + 30 * 86400000),
-  };
-  await db().insert(sessions).values(session);
-  jar.set("tourism-session", secret, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.PUBLIC_APP_URL?.startsWith("https:") ?? false,
-    path: "/",
-    maxAge: 30 * 86400,
-  });
-  return session;
+  throw new ApiError(
+    401,
+    "UNAUTHENTICATED",
+    "No guest drafts in this browser.",
+  );
 }
+// Same-origin writes only: the configured URL, or the host the browser used
+// (localhost and 127.0.0.1 are both common for the local demo).
 export async function checkOrigin() {
   const h = await headers();
-  if (
-    h.get("origin") !== (process.env.PUBLIC_APP_URL ?? "http://127.0.0.1:3000")
-  )
+  const origin = h.get("origin");
+  if (!origin || !allowedOrigins(h.get("host")).includes(origin))
     throw new ApiError(
       403,
       "ORIGIN_REJECTED",

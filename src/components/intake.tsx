@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { initialProfile, profileSchema, type Profile } from "@/domain/profile";
 import { formatMoney, zoneLabel } from "@/domain/experience-content";
 import categories from "../../tourism-v1-handoff/data/categories.json";
-import { activateTrip, useBucket } from "./trip-store";
+import { useBucket } from "@/hooks/use-bucket";
+import { activateTrip } from "@/hooks/use-active-trip";
 import Icon from "./icons";
+import { TripEvents } from "./whats-on";
 
 type Saved = { id: string; version: number; profile: Profile };
 type Stage = "details" | "review" | "saved";
@@ -65,6 +68,7 @@ export default function Intake({
   onContinue?: () => void;
   onSaved?: (id: string) => void;
 }) {
+  const router = useRouter();
   const { ids: bucket } = useBucket();
   const [profile, setProfile] = useState<Profile>({
     ...initialProfile,
@@ -134,6 +138,15 @@ export default function Intake({
       active = false;
     };
   }, [id, offer, fresh]);
+  // A session can expire mid-journey: keep the details and come back here
+  // after signing in.
+  function signInAgain(current: Profile) {
+    if (!id) localStorage.setItem("tourism.profile", JSON.stringify(current));
+    onContinue?.();
+    router.push(
+      `/account?next=${encodeURIComponent(id ? `/trips/${id}/profile` : "/plan/new")}`,
+    );
+  }
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile((previous) => {
       const next = { ...previous, [key]: value };
@@ -201,6 +214,7 @@ export default function Intake({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile, message: note }),
       });
+      if (response.status === 401) return signInAgain(profile);
       const body = await response.json();
       if (!response.ok) throw Error(body.error.message);
       recognition.current?.stop();
@@ -253,6 +267,7 @@ export default function Intake({
           ),
         },
       );
+      if (response.status === 401) return signInAgain(profile);
       const body = await response.json();
       if (!response.ok) throw Error(body.error.message);
       setSaved(body.data);
@@ -262,10 +277,7 @@ export default function Intake({
         JSON.stringify(body.data.profile),
       );
       activateTrip(body.data.id);
-      if (onSaved) {
-        onSaved(body.data.id);
-        return;
-      }
+      onSaved?.(body.data.id);
       setStage("saved");
       setStatus("");
     } catch (error) {
@@ -332,9 +344,7 @@ export default function Intake({
     ["Occasion or requests", profile.occasion || "None", !profile.occasion],
   ];
   const stepIndex = stage === "details" ? 0 : stage === "review" ? 1 : 2;
-  const steps = embedded
-    ? ["Your details", "Check summary"]
-    : ["Your details", "Check summary", "Saved"];
+  const steps = ["Your details", "Check summary", "Saved"];
   return (
     <section
       className={`intake-page ${embedded ? "intake-page--embedded" : ""}`}
@@ -561,6 +571,7 @@ export default function Intake({
                 <p className="form-hint">
                   Trips of 1–30 days. All times are Lagos time.
                 </p>
+                <TripEvents start={profile.startDate} end={profile.endDate} />
               </fieldset>
               <fieldset className="form-section" disabled={busy}>
                 <legend>What you love</legend>
@@ -756,7 +767,8 @@ export default function Intake({
               </fieldset>
               <div className="form-footer">
                 <button type="submit" disabled={busy}>
-                  Review trip summary
+                  Next: check summary
+                  <Icon name="arrowRight" size={18} />
                 </button>
                 {hasReviewed && (
                   <button
@@ -805,6 +817,7 @@ export default function Intake({
                 </div>
               ))}
             </dl>
+            <TripEvents start={profile.startDate} end={profile.endDate} />
             <div className="actions">
               <button
                 className="secondary"
@@ -826,9 +839,7 @@ export default function Intake({
           </div>
           <aside className="review-next">
             <p className="eyebrow">Next</p>
-            <h2>
-              {embedded ? "Open your planner" : "Save your starting point"}
-            </h2>
+            <h2>Save your starting point</h2>
             <p>
               Your {bucket.length} saved{" "}
               {bucket.length === 1 ? "activity comes" : "activities come"} with
@@ -837,13 +848,11 @@ export default function Intake({
             <button disabled={busy} onClick={() => void save()}>
               {busy
                 ? "Saving..."
-                : embedded
-                  ? "Save and open planner"
-                  : saved
-                    ? "Save draft changes"
-                    : "Save my trip draft"}
+                : saved
+                  ? "Save draft changes"
+                  : "Save my trip draft"}
             </button>
-            {saved && !embedded && (
+            {saved && (
               <button
                 className="secondary"
                 disabled={busy}
@@ -852,7 +861,10 @@ export default function Intake({
                 Save as another draft
               </button>
             )}
-            <p>You can keep several drafts for different dates or budgets.</p>
+            <p>
+              Drafts are saved to your account. You can keep several for
+              different dates or budgets.
+            </p>
           </aside>
         </div>
       )}
@@ -872,51 +884,62 @@ export default function Intake({
               </p>
             </div>
           </div>
+          <h3 className="saved-question">What would you like to do next?</h3>
           <div className="next-step-grid">
             <article className="card next-step-card">
-              <span className="step-number">1</span>
-              <h2>Open your trip planner</h2>
+              <span className="step-number" aria-hidden="true">
+                <Icon name="compass" size={18} />
+              </span>
+              <h2>Explore experiences</h2>
               <p>
-                Your bucket is waiting under My Bucket, with the full catalogue
-                beside it. Drag activities into your days.
+                Browse Lagos and add favourites to your bucket. Saving doesn’t
+                book an activity or give it a time.
               </p>
               <Link
                 className="button"
-                href={`/trips/${saved.id}/plan`}
-                onClick={onContinue}
-              >
-                Go to my trip
-              </Link>
-            </article>
-            <article className="card next-step-card">
-              <span className="step-number">2</span>
-              <h2>Keep exploring</h2>
-              <p>
-                Add more favourites to your bucket. Saving doesn’t book an
-                activity or give it a time.
-              </p>
-              <Link
-                className="button secondary"
                 href={`/explore?trip=${saved.id}`}
                 onClick={onContinue}
               >
-                Explore & add to bucket
+                Explore experiences
+                <Icon name="arrowRight" size={18} />
+              </Link>
+            </article>
+            <article className="card next-step-card">
+              <span className="step-number" aria-hidden="true">
+                <Icon name="list" size={18} />
+              </span>
+              <h2>Go to my drafts</h2>
+              <p>
+                See this draft beside your other trips. Open the planner from
+                any draft whenever you’re ready to arrange your days.
+              </p>
+              <Link
+                className="button secondary"
+                href={`/trips?saved=${saved.id}`}
+                onClick={onContinue}
+              >
+                Go to my drafts
+                <Icon name="arrowRight" size={18} />
               </Link>
             </article>
           </div>
-          <div className="actions">
+          <div className="actions saved-more">
+            <Link
+              className="text-link"
+              href={`/trips/${saved.id}/plan`}
+              onClick={onContinue}
+            >
+              Or open the trip planner now
+            </Link>
             <button
-              className="secondary"
+              className="text-button"
               onClick={() => {
                 setStage("review");
                 setStatus("");
               }}
             >
-              Review or create another draft
+              Edit this draft
             </button>
-            <Link className="text-link" href="/trips" onClick={onContinue}>
-              See all my trip drafts
-            </Link>
             <button
               className="text-button"
               onClick={() => {

@@ -1,0 +1,49 @@
+flowchart TD
+    Browser["Browser: catalogue, account, intake, planner, checkout review"]
+    Local["Browser localStorage: bucket, unsaved profile, active trip"]
+    Browser <--> Local
+
+    subgraph App["Next.js application"]
+        Pages["Server pages: catalogue reads and page access guards"]
+        AuthAPI["GET / POST /api/auth/*"]
+        API["/api/v1 route handlers"]
+        Auth["Better Auth: accounts and sessions"]
+        Guards["Identity, origin, ownership and admin checks"]
+        Limits["Database request throttling"]
+        Catalogue["Catalogue reader and selection validation"]
+        Intake["Deterministic intake parser"]
+        Planner["Deterministic proposal generator and AJV contract validation"]
+        Domain["Zod schemas, placement checks, pricing and travel rules"]
+        DB["Drizzle database access and transactions"]
+        Config["Demo-mode configuration guard"]
+    end
+
+    Browser --> Pages
+    Browser --> AuthAPI
+    Browser --> API
+    AuthAPI --> Auth
+    Pages --> Auth
+    Pages --> Catalogue
+    API --> Guards
+    Guards --> Auth
+    Guards --> DB
+    API --> Limits
+    Limits --> DB
+    API --> Catalogue
+    API --> Intake
+    API --> Planner
+    API --> Domain
+    API --> DB
+    Planner --> Domain
+    Catalogue --> DB
+    Auth --> DB
+    DB --> Config
+
+    DB --> Choice{"DATABASE_URL set?"}
+    Choice -->|No| PGlite[("PGlite: .local/demo-db by default")]
+    Choice -->|Yes| PG[("PostgreSQL via postgres.js")]
+    Fixtures["Versioned JSON: catalogue, events, pricing, contracts"] --> Planner
+    Fixtures --> Domain
+    Fixtures --> Seed["CLI seed: AJV validates catalogue and events"]
+    Seed --> DB
+    Migrations["CLI migrate: ordered SQL and migration history"] --> DB

@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { activateTrip } from "./trip-store";
+import { useRouter } from "next/navigation";
+import { activateTrip } from "@/hooks/use-active-trip";
+import { useSignOut } from "@/hooks/use-sign-out";
 import Icon from "./icons";
 import type { Profile } from "@/domain/profile";
 import type { Item } from "@/domain/planner";
@@ -23,7 +25,9 @@ function dayCount(profile: Profile) {
     ) + 1
   );
 }
-export default function MyTrips() {
+export default function MyTrips({ saved }: { saved?: string }) {
+  const router = useRouter();
+  const { signOut, signingOut } = useSignOut();
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<Trip[]>([]),
@@ -31,14 +35,25 @@ export default function MyTrips() {
   useEffect(() => {
     fetch("/api/v1/trips")
       .then(async (r) => {
-        if (r.status === 401) return;
+        if (r.status === 401) {
+          router.replace("/account?next=%2Ftrips");
+          return;
+        }
         const body = await r.json();
         if (!r.ok) throw Error(body.error.message);
         setTrips(body.data);
       })
       .catch((e) => setStatus(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
+  useEffect(() => {
+    // Bring the draft that was just saved into view.
+    if (!loading && saved)
+      document
+        .getElementById(`trip-${saved}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [loading, saved]);
+  const justSaved = trips.find((t) => t.id === saved);
   return (
     <section className="trips-page">
       <div className="page-header-row">
@@ -55,6 +70,21 @@ export default function MyTrips() {
           Start a new trip
         </Link>
       </div>
+      {justSaved && (
+        <div className="saved-draft-banner" role="status">
+          <span className="saved-mark" aria-hidden="true">
+            <Icon name="check" size={22} />
+          </span>
+          <div>
+            <p className="eyebrow">Draft saved</p>
+            <h2>{justSaved.profile.draftName || "Your Lagos stay"}</h2>
+            <p>
+              It&#8217;s highlighted below. Open the planner when you&#8217;re
+              ready, or keep exploring to add ideas to your bucket.
+            </p>
+          </div>
+        </div>
+      )}
       <p role="status" className="muted">
         {status}
       </p>
@@ -89,7 +119,12 @@ export default function MyTrips() {
             ).length;
             const cover = photoForCategory(t.profile.interests[0] ?? "nature");
             return (
-              <article className="card trip-card" key={t.id}>
+              <article
+                className="card trip-card"
+                key={t.id}
+                id={`trip-${t.id}`}
+                data-just-saved={t.id === saved || undefined}
+              >
                 <div className="trip-card-cover">
                   <img src={cover.src} alt="" loading="lazy" />
                   <span className="status-badge">Draft · not booked</span>
@@ -157,7 +192,7 @@ export default function MyTrips() {
                           });
                           const body = await response.json();
                           if (!response.ok) throw Error(body.error.message);
-                          setTrips((previous) => [...previous, body.data]);
+                          setTrips((previous) => [body.data, ...previous]);
                           setStatus(
                             "New draft created from this profile. Its itinerary starts empty; the original is unchanged.",
                           );
@@ -183,26 +218,30 @@ export default function MyTrips() {
       )}
       <div className="trips-footer">
         <p>
-          Trips are saved privately to this browser. Sign in to keep them with
-          your account.
+          Drafts are saved privately to your account. Nothing is booked or
+          charged.
         </p>
         <div className="actions">
+          <Link className="text-link" href="/explore">
+            Explore experiences
+          </Link>
           <Link className="text-link" href="/account">
-            Sign in or manage account
+            Manage account
           </Link>
           <button
             className="text-button"
+            disabled={signingOut}
             onClick={async () => {
-              const r = await fetch("/api/v1/session", { method: "DELETE" });
-              if (r.ok) {
-                setTrips([]);
-                setStatus(
-                  "Session ended. Private data cleared from this page.",
-                );
-              } else setStatus("Unable to end session. Retry.");
+              if (!(await signOut())) {
+                setStatus("Unable to sign out. Retry.");
+                return;
+              }
+              setTrips([]);
+              router.replace("/");
+              router.refresh();
             }}
           >
-            End this browser session
+            Sign out
           </button>
         </div>
       </div>

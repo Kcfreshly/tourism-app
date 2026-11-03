@@ -164,7 +164,9 @@ for (const viewport of Object.keys(viewports)) {
         .locator(".schedule-block")
         .first()
         .waitFor({ state: "attached" });
-      await page.locator(".price-popover summary").click();
+      // Wide screens show the breakdown panel instead of the pop-over.
+      const popover = page.locator(".price-popover summary");
+      if (await popover.isVisible()) await popover.click();
     },
   });
   await shoot("09-my-trips", viewport, "/trips", { full: true });

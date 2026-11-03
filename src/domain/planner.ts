@@ -48,6 +48,18 @@ export const defaultServices: Services = {
   guideItemIds: [],
   guideDays: [],
 };
+// Guides are add-ons that combine freely: full-day guides on chosen days and
+// activity guides on chosen experiences. The legacy single choice is derived
+// so saved profiles and planner proposals keep a sensible summary.
+export function assistanceFor(
+  services: Pick<Services, "guideDays" | "guideItemIds">,
+): Services["assistance"] {
+  return services.guideDays.length
+    ? "FULL_DAY_GUIDE"
+    : services.guideItemIds.length
+      ? "ACTIVITY_GUIDE"
+      : "DRIVER_ONLY";
+}
 export type Issue = { code: string; message: string; itemId?: string };
 export type PriceLine = {
   key: string;
@@ -381,10 +393,8 @@ export function assess(
         totalMinor: vehicles * rules.crossZoneSurchargePerVehicleMinor,
         rule: `${rules.version}:cross-zone`,
       });
-    if (
-      services.assistance === "FULL_DAY_GUIDE" &&
-      services.guideDays.includes(day)
-    ) {
+    const guidedDay = services.guideDays.includes(day);
+    if (guidedDay) {
       const fullyHosted = experiences.every(
         (i) => resolved.get(i.id)!.offer.hostIncluded,
       );
@@ -404,40 +414,39 @@ export function assess(
           message: `${day}: guide add-on suppressed because every experience already includes a host.`,
         });
     }
-    if (
-      services.assistance === "FULL_DAY_GUIDE" &&
-      !services.guideDays.includes(day)
-    )
-      warnings.push({
-        code: "GUIDE_UNCOVERED",
-        message: `${day}: full-day guide not selected for this day; driver coverage only.`,
-      });
-    if (services.assistance === "ACTIVITY_GUIDE")
-      for (const item of experiences.filter((i) =>
-        services.guideItemIds.includes(i.id),
-      )) {
-        const e = resolved.get(item.id)!;
-        if (e.offer.hostIncluded) continue;
-        if (
-          minutes(item.endTime) - minutes(item.startTime) + 30 >
-          rules.activityGuideBlock.hours * 60
-        )
-          add(
-            "GUIDE_WINDOW",
-            "Experience and guide handoff buffer exceed the available 3-hour guide block.",
-            item.id,
-          );
-        else
-          lines.push({
-            key: `guide:${item.id}`,
-            label: `${e.name} · activity guide (3h including handoff)`,
-            group: "hosting",
-            quantity: 1,
-            unitRateMinor: rules.activityGuideBlock.rateMinor,
-            totalMinor: rules.activityGuideBlock.rateMinor,
-            rule: `${rules.version}:activity-guide`,
-          });
+    for (const item of experiences.filter((i) =>
+      services.guideItemIds.includes(i.id),
+    )) {
+      const e = resolved.get(item.id)!;
+      if (e.offer.hostIncluded) continue;
+      // Never charge twice: the full-day guide already covers this activity.
+      if (guidedDay) {
+        warnings.push({
+          code: "GUIDE_COVERED",
+          message: `${day}: the full-day guide already covers “${item.title}”, so no separate activity guide is charged.`,
+        });
+        continue;
       }
+      if (
+        minutes(item.endTime) - minutes(item.startTime) + 30 >
+        rules.activityGuideBlock.hours * 60
+      )
+        add(
+          "GUIDE_WINDOW",
+          "Experience and guide handoff buffer exceed the available 3-hour guide block.",
+          item.id,
+        );
+      else
+        lines.push({
+          key: `guide:${item.id}`,
+          label: `${e.name} · activity guide (3h including handoff)`,
+          group: "hosting",
+          quantity: 1,
+          unitRateMinor: rules.activityGuideBlock.rateMinor,
+          totalMinor: rules.activityGuideBlock.rateMinor,
+          rule: `${rules.version}:activity-guide`,
+        });
+    }
   }
   const activitiesMinor = lines
       .filter((l) => l.group === "activities")

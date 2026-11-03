@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS account_buckets (user_id text PRIMARY KEY REFERENCES auth_user(id) ON DELETE CASCADE, offer_ids jsonb NOT NULL DEFAULT '[]', version integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now());

@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Intake from "./intake";
 import Icon from "./icons";
-import { useBackdropDismiss } from "./dialog-dismiss";
-import { useBucket, useActiveTrip } from "./trip-store";
-export { useBucket } from "./trip-store";
+import { useBackdropDismiss } from "@/hooks/use-backdrop-dismiss";
+import { useBucket } from "@/hooks/use-bucket";
+import { useActiveTrip } from "@/hooks/use-active-trip";
+import { authClient } from "./auth-client";
 
 export function BucketButton({
   id,
@@ -153,6 +154,7 @@ export function PlanTrip({
 }: { tripId?: string; className?: string } = {}) {
   const activeTrip = useActiveTrip();
   const router = useRouter();
+  const { data: session } = authClient.useSession();
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const dismiss = useBackdropDismiss(dialog);
@@ -163,14 +165,17 @@ export function PlanTrip({
         type="button"
         className={className}
         onClick={() => {
-          if (trip) router.push(`/trips/${encodeURIComponent(trip)}/plan`);
+          // Exploring is public; planning starts after sign-in, with the
+          // bucket kept in this browser.
+          if (!session) router.push("/account?next=%2Fplan%2Fnew");
+          else if (trip) router.push(`/trips/${encodeURIComponent(trip)}/plan`);
           else {
             setOpen(true);
             dialog.current?.showModal();
           }
         }}
       >
-        {trip ? "Open trip planner" : "Plan my trip"}
+        {session && trip ? "Open trip planner" : "Plan my trip"}
         <Icon name="arrowRight" size={18} />
       </button>
       <dialog
@@ -198,14 +203,7 @@ export function PlanTrip({
         </div>
         <div className="sheet-body">
           {open && (
-            <Intake
-              embedded
-              onContinue={() => dialog.current?.close()}
-              onSaved={(id) => {
-                dialog.current?.close();
-                router.push(`/trips/${encodeURIComponent(id)}/plan`);
-              }}
-            />
+            <Intake embedded onContinue={() => dialog.current?.close()} />
           )}
         </div>
       </dialog>

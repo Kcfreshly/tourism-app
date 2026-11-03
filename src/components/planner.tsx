@@ -16,17 +16,24 @@ import {
   placementIssues,
   placementMessage,
   availableStarts,
+  assistanceFor,
 } from "@/domain/planner";
 import type { Experience } from "@/server/catalogue";
-import { ClearBucket, useBucket } from "./bucket";
+import { ClearBucket } from "./bucket";
+import { useBucket } from "@/hooks/use-bucket";
 import Icon from "./icons";
-import { useBackdropDismiss } from "./dialog-dismiss";
+import { useBackdropDismiss } from "@/hooks/use-backdrop-dismiss";
 import {
+  displayName,
   formatDuration,
   formatMoney,
   zoneLabel,
 } from "@/domain/experience-content";
+import { eventDates, eventDay, eventWhen, isEvent } from "@/domain/events";
 import categories from "../../tourism-v1-handoff/data/categories.json";
+import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
+import TripCost from "./trip-cost";
+import CheckoutButton from "./checkout-prompt";
 type Price = ReturnType<typeof assess>;
 type Trip = {
   id: string;
@@ -107,6 +114,11 @@ export default function Planner({
     [editing, setEditing] = useState<Item | null>(null),
     [proposal, setProposal] = useState<Proposal | null>(null),
     [past, setPast] = useState<{ items: Item[]; services: Services }[]>([]);
+  // Which guide add-ons are switched on; null follows the saved services.
+  const [guideModes, setGuideModes] = useState<{
+    activity: boolean;
+    fullDay: boolean;
+  } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null),
     library = useRef<HTMLDialogElement>(null);
   const libraryDismiss = useBackdropDismiss(library),
@@ -130,7 +142,15 @@ export default function Planner({
         if (!active) return;
         receive(data);
         setOffers(data.offers);
-        setDay(data.trip.profile.startDate);
+        // A link may open a particular day, e.g. from the checkout prompt.
+        const requested = new URLSearchParams(window.location.search).get(
+          "day",
+        );
+        setDay(
+          requested && tripDays(data.trip.profile).includes(requested)
+            ? requested
+            : data.trip.profile.startDate,
+        );
         setStatus("Saved · nothing is booked yet");
       })
       .catch((e) => {
@@ -282,7 +302,13 @@ export default function Planner({
     .filter(
       (e) =>
         (view === "all" || bucket.includes(e.offer.id)) &&
-        (!category || e.categoryId === category) &&
+        (!category ||
+          (category === "events" ? isEvent(e) : e.categoryId === category)) &&
+        // Only list dated events that run during this trip.
+        (!trip ||
+          !isEvent(e) ||
+          eventDates(e, trip.profile.startDate, trip.profile.endDate).length >
+            0) &&
         e.name.toLowerCase().includes(search.toLowerCase()),
     )
     .map((e, index) => {
@@ -299,6 +325,9 @@ export default function Planner({
             )
           : [];
       if (!trip) return { e, starts, score: 0, note: undefined };
+      const runsOn = isEvent(e)
+        ? eventDates(e, trip.profile.startDate, trip.profile.endDate)
+        : [];
       const cost =
         e.offer.rateMinor *
         (e.offer.priceBasis === "PER_ADULT" ? trip.profile.adults : 1);
@@ -323,11 +352,13 @@ export default function Planner({
           4 +
         Number(!budget || cost <= budget) * 3 +
         Number(bucket.includes(e.offer.id)) * 2 +
+        Number(runsOn.includes(day)) * 6 +
         (shuffle
           ? (((index + shuffle) % offers.length) / offers.length) * 8
           : 0);
-      const reason =
-        e.zoneId === trip.profile.zoneId
+      const reason = runsOn.includes(day)
+        ? "On today only"
+        : e.zoneId === trip.profile.zoneId
           ? "Near your base"
           : nearby
             ? "Near today’s plans"
@@ -342,7 +373,11 @@ export default function Planner({
             .join(" · ")
             .replace(/^f/, "F")
         : undefined;
-      return { e, starts, score, note };
+      const when = runsOn.length
+        ? eventWhen(e, trip.profile.startDate, trip.profile.endDate)
+        : undefined;
+      const otherDay = runsOn.find((d) => d !== day);
+      return { e, starts, score, note, when, otherDay };
     })
     .sort((a, b) => b.score - a.score);
   function candidateAt(
@@ -471,6 +506,7 @@ export default function Planner({
               onChange={(event) => setCategory(event.target.value)}
             >
               <option value="">All categories</option>
+              <option value="events">What’s on</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.label}
@@ -554,7 +590,7 @@ export default function Planner({
             )}
           </div>
         )}
-        {libraryEntries.map(({ e, starts, note }) => (
+        {libraryEntries.map(({ e, starts, note, when, otherDay }) => (
           <PlannerActivityCard
             key={e.offer.id}
             experience={e}
@@ -562,6 +598,15 @@ export default function Planner({
             busy={busy}
             available={!!starts.length}
             note={note}
+            when={when}
+            otherDay={
+              !starts.length && otherDay
+                ? {
+                    label: eventDay(otherDay),
+                    go: () => setDay(otherDay),
+                  }
+                : undefined
+            }
             onAdd={() => add(e)}
             onDrag={setDragging}
           />
@@ -588,63 +633,78 @@ export default function Planner({
     `Day ${days.indexOf(date) + 1} · ${shortDate(date)}`;
   const issues = price ? [...price.blockers, ...price.warnings] : [];
   const tone = statusTone(status, blocked);
-  const assistanceOptions: {
-    value: Services["assistance"];
-    title: string;
-    text: string;
-    icon: "car" | "users" | "sun";
-  }[] = [
-    {
-      value: "DRIVER_ONLY",
-      title: "Driver only",
-      text: "A dedicated vehicle on activity days. Hosted experiences still include their host.",
-      icon: "car",
-    },
-    {
-      value: "ACTIVITY_GUIDE",
-      title: "Guide for selected activities",
-      text: "Add a local guide to the experiences you choose below.",
-      icon: "users",
-    },
-    {
-      value: "FULL_DAY_GUIDE",
-      title: "Full-day guide",
-      text: "An 8-hour guide from your vehicle start time on the days you choose.",
-      icon: "sun",
-    },
-  ];
+  const modes = guideModes ?? {
+    activity: services.guideItemIds.length > 0,
+    fullDay: services.guideDays.length > 0,
+  };
+  const guidedDay = services.guideDays.includes(day);
+  function setGuides(
+    next: Partial<Pick<Services, "guideDays" | "guideItemIds">>,
+  ) {
+    const merged = { ...services!, ...next };
+    return change(items, { ...merged, assistance: assistanceFor(merged) });
+  }
   const serviceControls = (
     <>
       <div className="services-intro">
         <h2>Your support</h2>
         <p className="muted">
-          Choose how you’d like to get around. Personal time is never
-          supervised, and there’s no 24-hour hosting.
+          A driver comes with every day that has activities. Add guides on top,
+          in any mix. Personal time is never supervised, and there’s no 24-hour
+          hosting.
         </p>
       </div>
       <fieldset className="assistance-options" disabled={busy}>
-        <legend className="sr-only">Assistance level</legend>
-        {assistanceOptions.map((option) => (
-          <label
-            key={option.value}
-            className="assistance-card"
-            data-selected={services.assistance === option.value}
-          >
-            <input
-              type="radio"
-              name="assistance"
-              value={option.value}
-              checked={services.assistance === option.value}
-              onChange={() =>
-                change(items, { ...services, assistance: option.value })
-              }
-            />
-            <Icon name={option.icon} size={24} />
-            <strong>{option.title}</strong>
-            <span>{option.text}</span>
-          </label>
-        ))}
+        <legend className="sr-only">Support for your trip</legend>
+        <label className="assistance-card" data-selected="true">
+          <input type="checkbox" checked disabled />
+          <Icon name="car" size={24} />
+          <strong>Driver and vehicle</strong>
+          <span>
+            Always included on activity days: pickup, waiting time and your
+            return. Choose the hours for each day below.
+          </span>
+        </label>
+        <label className="assistance-card" data-selected={modes.activity}>
+          <input
+            type="checkbox"
+            checked={modes.activity}
+            onChange={(e) => {
+              if (!e.target.checked && !setGuides({ guideItemIds: [] })) return;
+              setGuideModes({ ...modes, activity: e.target.checked });
+            }}
+          />
+          <Icon name="users" size={24} />
+          <strong>Guides for chosen activities</strong>
+          <span>
+            A local guide for the activities you tick, up to 3 hours each.{" "}
+            {money(rules.activityGuideBlock.rateMinor)} per activity.
+          </span>
+        </label>
+        <label className="assistance-card" data-selected={modes.fullDay}>
+          <input
+            type="checkbox"
+            checked={modes.fullDay}
+            onChange={(e) => {
+              if (!e.target.checked && !setGuides({ guideDays: [] })) return;
+              setGuideModes({ ...modes, fullDay: e.target.checked });
+            }}
+          />
+          <Icon name="sun" size={24} />
+          <strong>Full-day guide</strong>
+          <span>
+            An 8-hour guide from your vehicle start time, on the days you tick.{" "}
+            {money(rules.guideDayBlock.rateMinor)} per day.
+          </span>
+        </label>
       </fieldset>
+      {modes.activity && modes.fullDay && (
+        <p className="services-mix-note">
+          <Icon name="info" size={16} />
+          On a day with a full-day guide, activity guides aren’t charged — the
+          full-day guide already covers them.
+        </p>
+      )}
       <section className="service-day">
         <h3>{dayLabel(day)}</h3>
         {hasActivities ? (
@@ -701,25 +761,24 @@ export default function Planner({
               Covers pickup, waiting time between activities and your return. Up
               to 8 hours a day. Travel times are estimates.
             </p>
-            {services.assistance === "FULL_DAY_GUIDE" && (
+            {modes.fullDay && (
               <label className="check">
                 <input
                   disabled={busy}
                   type="checkbox"
-                  checked={services.guideDays.includes(day)}
+                  checked={guidedDay}
                   onChange={(e) =>
-                    change(items, {
-                      ...services,
+                    setGuides({
                       guideDays: e.target.checked
                         ? [...services.guideDays, day]
                         : services.guideDays.filter((d) => d !== day),
                     })
                   }
                 />
-                8-hour guide from vehicle start time
+                Full-day guide on this day (8 hours from vehicle start time)
               </label>
             )}
-            {services.assistance === "ACTIVITY_GUIDE" &&
+            {modes.activity &&
               dayItems
                 .filter((i) => i.kind === "EXPERIENCE")
                 .map((i) => {
@@ -729,13 +788,14 @@ export default function Planner({
                     <label key={i.id} className="check">
                       <input
                         type="checkbox"
-                        disabled={busy || included}
+                        disabled={busy || included || guidedDay}
                         checked={
-                          included || services.guideItemIds.includes(i.id)
+                          included ||
+                          guidedDay ||
+                          services.guideItemIds.includes(i.id)
                         }
                         onChange={(e) =>
-                          change(items, {
-                            ...services,
+                          setGuides({
                             guideItemIds: e.target.checked
                               ? [...services.guideItemIds, i.id]
                               : services.guideItemIds.filter(
@@ -744,8 +804,12 @@ export default function Planner({
                           })
                         }
                       />
-                      {i.title}
-                      {included ? " · host already included" : ""}
+                      Guide for {displayName(i.title)}
+                      {included
+                        ? " · host already included"
+                        : guidedDay
+                          ? " · covered by the full-day guide"
+                          : ""}
                     </label>
                   );
                 })}
@@ -852,6 +916,17 @@ export default function Planner({
       </div>
     </details>
   );
+  const checkout = (
+    <CheckoutButton
+      tripId={id}
+      profile={trip.profile}
+      items={items}
+      disabled={busy}
+      beforeLeave={async () => !dirty || (await save())}
+      // On the services page the button opens the planner at that day.
+      onPlanDay={servicesOnly ? undefined : setDay}
+    />
+  );
   return (
     <section className="planner-page planner-refined">
       <header className="planner-heading">
@@ -954,11 +1029,11 @@ export default function Planner({
         <div className="compact-price">
           {priceSummary}
           <Link
-            className="button"
+            className={servicesOnly ? "button secondary" : "button"}
             href={`/trips/${id}/${servicesOnly ? "plan" : "services"}`}
           >
             {servicesOnly ? "Back to planner" : "Review services"}
-            <Icon name="arrowRight" size={16} />
+            {!servicesOnly && <Icon name="arrowRight" size={16} />}
           </Link>
         </div>
       </div>
@@ -1112,6 +1187,9 @@ export default function Planner({
                 offers.find((e) => e.offer.id === item.offerId)?.kind ===
                   "FULL_DAY",
             );
+            const events = offers.filter(
+              (e) => eventDates(e, date, date).length,
+            ).length;
             return (
               <button
                 key={date}
@@ -1192,6 +1270,12 @@ export default function Planner({
                     ))}
                   </span>
                 )}
+                {events > 0 && (
+                  <span className="day-events">
+                    <Icon name="calendar" size={12} />
+                    {events} {events === 1 ? "event" : "events"}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -1229,15 +1313,28 @@ export default function Planner({
           </ul>
         </details>
       )}
-      {servicesOnly ? (
-        <div className="services-workspace">{serviceControls}</div>
-      ) : (
-        <PlannerSplit
-          resetKey={layoutReset}
-          library={libraryContents}
-          schedule={scheduleContents}
-        />
-      )}
+      <div className="planner-with-cost" data-services={servicesOnly}>
+        {servicesOnly ? (
+          <div className="services-workspace">{serviceControls}</div>
+        ) : (
+          <PlannerSplit
+            resetKey={layoutReset}
+            library={libraryContents}
+            schedule={scheduleContents}
+          />
+        )}
+        <aside className="planner-cost-panel" aria-label="Trip cost">
+          <TripCost
+            profile={trip.profile}
+            price={price}
+            items={items}
+            dirty={dirty}
+            currentDay={day}
+            onSelectDay={setDay}
+            footer={checkout}
+          />
+        </aside>
+      </div>
       <dialog
         ref={library}
         className="sheet-dialog library-sheet"

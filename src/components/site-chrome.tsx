@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BucketNav } from "./bucket";
 import Icon from "./icons";
+import { authClient } from "./auth-client";
+import { useBucketSync } from "@/hooks/use-bucket-sync";
 
 const links = [
   { href: "/explore", label: "Explore", match: ["/explore", "/experiences"] },
@@ -26,8 +28,11 @@ export function BrandMark() {
 }
 
 export default function SiteChrome() {
+  // The header is on every page, so it keeps a signed-in bucket saved.
+  useBucketSync();
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const { data: session } = authClient.useSession();
   const [openPath, setOpenPath] = useState<string | null>(null);
   // The menu closes itself when navigation changes the path.
   const open = openPath === pathname;
@@ -83,7 +88,9 @@ export default function SiteChrome() {
                   aria-current={current ? "page" : undefined}
                   onClick={() => setOpenPath(null)}
                 >
-                  {link.label}
+                  {link.href === "/account" && !session
+                    ? "Sign in"
+                    : link.label}
                 </Link>
               );
             })}

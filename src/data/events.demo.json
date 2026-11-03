@@ -1,0 +1,377 @@
+{
+  "warning": "FICTIONAL DATED EVENTS FOR INTERFACE TESTING. Not real events, venues, ticket allocations or supplier offers.",
+  "experiences": [
+    {
+      "id": "event-highlife-night",
+      "isDemo": true,
+      "name": "Highlife & jazz night — DEMO",
+      "cityId": "lagos",
+      "categoryId": "nightlife",
+      "tags": ["event", "music"],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional dated event for interface testing. Not a real event, venue, ticket allocation or supplier offer.",
+      "supplierId": "demo-supplier-event-highlife-night",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 180,
+      "durationMaxMinutes": 180,
+      "availabilityLocal": {
+        "days": [1, 2, 3, 4, 5, 6, 7],
+        "opensAt": "20:00",
+        "closesAt": "23:00"
+      },
+      "offer": {
+        "id": "offer-event-highlife-night",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 2500000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 48
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-nightlife.svg",
+      "photoId": "freedom-park-festival",
+      "inclusions": ["Demo entry", "Reserved table for your group"],
+      "exclusions": ["Transport priced separately", "Food and drinks"],
+      "evidence": [],
+      "schedulingType": "FIXED",
+      "sessions": [
+        {
+          "startTime": "20:00",
+          "durationMinutes": 180,
+          "dates": ["2026-11-10"],
+          "capacity": 8
+        }
+      ],
+      "event": {
+        "type": "CONCERT"
+      }
+    },
+    {
+      "id": "event-conference",
+      "isDemo": true,
+      "name": "Creative & tech conference day pass — DEMO",
+      "cityId": "lagos",
+      "categoryId": "local-life",
+      "tags": ["event", "business"],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional dated event for interface testing. Not a real event, venue, ticket allocation or supplier offer.",
+      "supplierId": "demo-supplier-event-conference",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 360,
+      "durationMaxMinutes": 360,
+      "availabilityLocal": {
+        "days": [1, 2, 3, 4, 5, 6, 7],
+        "opensAt": "09:00",
+        "closesAt": "15:00"
+      },
+      "offer": {
+        "id": "offer-event-conference",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 6000000,
+        "minParty": 1,
+        "maxParty": 4,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 4,
+        "bookingCutoffHours": 48
+      },
+      "mobility": {
+        "intensity": "LOW",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-local-life.svg",
+      "photoId": "lagos-theatre",
+      "inclusions": ["Demo day pass", "Lunch and networking session"],
+      "exclusions": ["Transport priced separately"],
+      "evidence": [],
+      "schedulingType": "FIXED",
+      "sessions": [
+        {
+          "startTime": "09:00",
+          "durationMinutes": 360,
+          "dates": ["2026-11-11", "2026-11-12"],
+          "capacity": 4
+        }
+      ],
+      "event": {
+        "type": "CONFERENCE"
+      }
+    },
+    {
+      "id": "event-studio-set",
+      "isDemo": true,
+      "name": "Music studio & video set visit — DEMO",
+      "cityId": "lagos",
+      "categoryId": "culture",
+      "tags": ["event", "music"],
+      "zoneId": "LEKKI",
+      "kind": "MAIN",
+      "description": "Fictional dated event for interface testing. Not a real event, venue, ticket allocation or supplier offer.",
+      "supplierId": "demo-supplier-event-studio-set",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 180,
+      "durationMaxMinutes": 180,
+      "availabilityLocal": {
+        "days": [1, 2, 3, 4, 5, 6, 7],
+        "opensAt": "14:00",
+        "closesAt": "17:00"
+      },
+      "offer": {
+        "id": "offer-event-studio-set",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 3500000,
+        "minParty": 1,
+        "maxParty": 6,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 6,
+        "bookingCutoffHours": 48
+      },
+      "mobility": {
+        "intensity": "LOW",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/event-studio.svg",
+      "inclusions": [
+        "Studio tour with a host",
+        "Session with a producer or engineer",
+        "Short beat-making or recording session"
+      ],
+      "exclusions": [
+        "Transport priced separately",
+        "Meeting a specific artist",
+        "Photos or video on set without permission"
+      ],
+      "evidence": [],
+      "schedulingType": "FIXED",
+      "sessions": [
+        {
+          "startTime": "14:00",
+          "durationMinutes": 180,
+          "dates": [
+            "2026-11-12",
+            "2026-11-13",
+            "2026-11-19",
+            "2026-12-10",
+            "2026-12-17"
+          ],
+          "capacity": 6
+        }
+      ],
+      "event": {
+        "type": "STUDIO",
+        "guaranteed": "A studio tour, time with a producer or engineer, and a short hands-on session.",
+        "bonus": "If a video or recording shoot is on that day, you may watch part of it. Shoots and artists are never guaranteed."
+      }
+    },
+    {
+      "id": "event-afrobeats-concert",
+      "isDemo": true,
+      "name": "Afrobeats open-air concert — DEMO",
+      "cityId": "lagos",
+      "categoryId": "nightlife",
+      "tags": ["event", "music"],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional dated event for interface testing. Not a real event, venue, ticket allocation or supplier offer.",
+      "supplierId": "demo-supplier-event-afrobeats-concert",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 240,
+      "durationMaxMinutes": 240,
+      "availabilityLocal": {
+        "days": [1, 2, 3, 4, 5, 6, 7],
+        "opensAt": "19:00",
+        "closesAt": "23:00"
+      },
+      "offer": {
+        "id": "offer-event-afrobeats-concert",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 4500000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 48
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-nightlife.svg",
+      "photoId": "freedom-park-festival",
+      "inclusions": [
+        "Demo standard ticket",
+        "Meeting point with your driver after the show"
+      ],
+      "exclusions": [
+        "Transport priced separately",
+        "Food and drinks",
+        "VIP upgrades"
+      ],
+      "evidence": [],
+      "schedulingType": "FIXED",
+      "sessions": [
+        {
+          "startTime": "19:00",
+          "durationMinutes": 240,
+          "dates": ["2026-11-14"],
+          "capacity": 8
+        }
+      ],
+      "event": {
+        "type": "CONCERT"
+      }
+    },
+    {
+      "id": "event-food-music-festival",
+      "isDemo": true,
+      "name": "December food & music festival — DEMO",
+      "cityId": "lagos",
+      "categoryId": "food",
+      "tags": ["event", "music"],
+      "zoneId": "LEKKI",
+      "kind": "MAIN",
+      "description": "Fictional dated event for interface testing. Not a real event, venue, ticket allocation or supplier offer.",
+      "supplierId": "demo-supplier-event-food-music-festival",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 300,
+      "durationMaxMinutes": 300,
+      "availabilityLocal": {
+        "days": [1, 2, 3, 4, 5, 6, 7],
+        "opensAt": "14:00",
+        "closesAt": "19:00"
+      },
+      "offer": {
+        "id": "offer-event-food-music-festival",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 3000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 48
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-food.svg",
+      "photoId": "jollof-dodo",
+      "inclusions": ["Demo day ticket", "Two tasting tokens"],
+      "exclusions": ["Transport priced separately", "Extra food and drinks"],
+      "evidence": [],
+      "schedulingType": "FIXED",
+      "sessions": [
+        {
+          "startTime": "14:00",
+          "durationMinutes": 300,
+          "dates": ["2026-12-19", "2026-12-20"],
+          "capacity": 8
+        }
+      ],
+      "event": {
+        "type": "FESTIVAL"
+      }
+    },
+    {
+      "id": "event-street-carnival",
+      "isDemo": true,
+      "name": "Street carnival & masquerade day — DEMO",
+      "cityId": "lagos",
+      "categoryId": "culture",
+      "tags": ["event", "festival"],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional dated event for interface testing. Not a real event, venue, ticket allocation or supplier offer.",
+      "supplierId": "demo-supplier-event-street-carnival",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 300,
+      "durationMaxMinutes": 300,
+      "availabilityLocal": {
+        "days": [1, 2, 3, 4, 5, 6, 7],
+        "opensAt": "11:00",
+        "closesAt": "16:00"
+      },
+      "offer": {
+        "id": "offer-event-street-carnival",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 2000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": true,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 48
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/event-carnival.svg",
+      "inclusions": [
+        "Host to guide you through the route",
+        "Reserved viewing spot"
+      ],
+      "exclusions": ["Transport priced separately", "Costumes"],
+      "evidence": [],
+      "schedulingType": "FIXED",
+      "sessions": [
+        {
+          "startTime": "11:00",
+          "durationMinutes": 300,
+          "dates": ["2026-12-27"],
+          "capacity": 8
+        }
+      ],
+      "event": {
+        "type": "CARNIVAL"
+      }
+    }
+  ]
+}

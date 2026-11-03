@@ -21,6 +21,7 @@ import {
   storyFor,
   zoneLabel,
 } from "@/domain/experience-content";
+import { eventDates, eventDay, eventTypeLabels } from "@/domain/events";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function openDays(days: number[]) {
   if (days.length === 7) return "Open daily";
@@ -291,11 +292,13 @@ function ActivityDialog({
                 <Icon name="calendar" size={16} /> Timing
               </dt>
               <dd>
-                {e.schedulingType === "FIXED"
-                  ? "Fixed sessions"
-                  : e.kind === "FULL_DAY"
-                    ? "Full day"
-                    : "Flexible start"}
+                {e.event
+                  ? eventTypeLabels[e.event.type]
+                  : e.schedulingType === "FIXED"
+                    ? "Fixed sessions"
+                    : e.kind === "FULL_DAY"
+                      ? "Full day"
+                      : "Flexible start"}
               </dd>
             </div>
             <div>
@@ -313,41 +316,77 @@ function ActivityDialog({
               <p>{story.why}</p>
             </section>
           )}
-          <section className="info-section">
-            <h3>When you can go</h3>
-            <p>
-              {openDays(e.availabilityLocal.days)},{" "}
-              {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt} Lagos
-              time. Up to {e.offer.capacityPerSlot}{" "}
-              {e.offer.capacityUnit === "PERSON" ? "people" : "groups"} per
-              slot.
-            </p>
-            {e.schedulingType === "FIXED" ? (
-              <>
-                <p>
-                  Runs at set times. Choose a session; its start time and length
-                  can’t be changed.
+          {e.event?.guaranteed && (
+            <section className="info-section event-promise">
+              <h3>What’s guaranteed</h3>
+              <p>{e.event.guaranteed}</p>
+              {e.event.bonus && (
+                <p className="event-bonus">
+                  <strong>Possible bonus:</strong> {e.event.bonus}
                 </p>
-                <ul className="session-list" aria-label="Sessions">
-                  {e.sessions?.map((session) => (
-                    <li key={session.startTime}>
-                      <strong>{session.startTime}</strong>
-                      <span>{formatDuration(session.durationMinutes)}</span>
-                      {session.dates && (
-                        <small>{session.dates.join(", ")}</small>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
+              )}
+            </section>
+          )}
+          {e.event ? (
+            <section className="info-section">
+              <h3>When it’s on</h3>
               <p>
-                {e.kind === "FULL_DAY"
-                  ? "Takes up the main part of your day, so nothing else can overlap it."
-                  : `Pick your own start time and length. Your whole visit must finish by ${e.availabilityLocal.closesAt}.`}
+                Runs on these dates only, Lagos time. Its start time and length
+                can’t be changed. Up to {e.offer.capacityPerSlot} people per
+                date.
               </p>
-            )}
-          </section>
+              <ul className="session-list" aria-label="Event dates">
+                {eventDates(e).map((date) => (
+                  <li key={date}>
+                    <strong>{eventDay(date)}</strong>
+                    <span>
+                      {
+                        e.sessions?.find((s) => s.dates?.includes(date))
+                          ?.startTime
+                      }{" "}
+                      · {formatDuration(e.durationMinMinutes)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : (
+            <section className="info-section">
+              <h3>When you can go</h3>
+              <p>
+                {openDays(e.availabilityLocal.days)},{" "}
+                {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt}{" "}
+                Lagos time. Up to {e.offer.capacityPerSlot}{" "}
+                {e.offer.capacityUnit === "PERSON" ? "people" : "groups"} per
+                slot.
+              </p>
+              {e.schedulingType === "FIXED" ? (
+                <>
+                  <p>
+                    Runs at set times. Choose a session; its start time and
+                    length can’t be changed.
+                  </p>
+                  <ul className="session-list" aria-label="Sessions">
+                    {e.sessions?.map((session) => (
+                      <li key={session.startTime}>
+                        <strong>{session.startTime}</strong>
+                        <span>{formatDuration(session.durationMinutes)}</span>
+                        {session.dates && (
+                          <small>{session.dates.join(", ")}</small>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p>
+                  {e.kind === "FULL_DAY"
+                    ? "Takes up the main part of your day, so nothing else can overlap it."
+                    : `Pick your own start time and length. Your whole visit must finish by ${e.availabilityLocal.closesAt}.`}
+                </p>
+              )}
+            </section>
+          )}
           <div className="inclusion-columns">
             <section className="info-section">
               <h3>Included</h3>
@@ -379,6 +418,12 @@ function ActivityDialog({
               <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
               <li>Wheelchair access: not confirmed.</li>
               {e.offer.hostIncluded && <li>A local host joins you.</li>}
+              {e.event && (
+                <li>
+                  Sample event. Tickets are only sold once a partner allocation
+                  is confirmed.
+                </li>
+              )}
               <li>Meeting point shared once booked.</li>
             </ul>
           </section>

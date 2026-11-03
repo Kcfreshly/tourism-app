@@ -86,12 +86,12 @@ try {
     "Kemi onboarding saves the profile and opens the planner with both bucket items.",
   );
 
-  // Price summary opens; day view renders the same trip.
-  await page.locator(".price-popover summary").click();
+  // The cost breakdown sits beside the planner; day view renders the trip.
+  const cost = page.locator(".planner-cost-panel");
+  await expect(cost.locator(".trip-cost-days > li")).not.toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "Cost breakdown" }),
+    cost.getByRole("button", { name: "Review and checkout" }),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "Day view" }).click();
   await expect(page.locator(".pocket h1")).toBeVisible();
   await expect(page.locator(".pocket-nav")).toBeVisible();

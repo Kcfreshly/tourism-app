@@ -22,7 +22,7 @@ export async function POST(request: Request) {
         "INVALID_INTAKE",
         "Check your profile and keep the message under 3,000 characters.",
       );
-    const actor = await identity(true);
+    const actor = await identity();
     await limit(`intake:${actor.id}`, 20);
     return success(extractProfile(input.data.profile, input.data.message));
   } catch (e) {

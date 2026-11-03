@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { desc } from "drizzle-orm";
 import { db } from "@/server/db";
 import { trips } from "@/server/schema";
 import {
@@ -9,13 +10,17 @@ import {
   ownsTrip,
   success,
 } from "@/server/identity";
-import { validateSelection } from "@/server/selection";
+import { publishedSelection } from "@/server/selection";
 import { limit } from "@/server/limits";
 import { profileSchema } from "@/domain/profile";
 export async function GET() {
   try {
     const actor = await identity();
-    const data = await db().select().from(trips).where(ownsTrip(actor));
+    const data = await db()
+      .select()
+      .from(trips)
+      .where(ownsTrip(actor))
+      .orderBy(desc(trips.updatedAt));
     return success(data);
   } catch (e) {
     return failure(e);
@@ -32,19 +37,24 @@ export async function POST(request: Request) {
         "INVALID_PROFILE",
         parsed.error.issues.map((i) => i.message).join("; "),
       );
-    const actor = await identity(true);
+    const actor = await identity();
     await limit(`trip-create:${actor.id}`, 20);
-    await validateSelection(parsed.data.selectedOfferIds);
+    // Drop bucket ideas that were unpublished since they were saved, rather
+    // than refusing the whole draft.
+    const profile = {
+      ...parsed.data,
+      selectedOfferIds: await publishedSelection(parsed.data.selectedOfferIds),
+    };
     const [data] = await db()
       .insert(trips)
       .values({
         id: randomUUID(),
         ownerId: actor.id,
         ownerType: actor.kind,
-        profile: parsed.data,
+        profile,
         items: [],
         services: {
-          assistance: parsed.data.assistance,
+          assistance: profile.assistance,
           vehicleWindows: {},
           guideItemIds: [],
           guideDays: [],

@@ -4,7 +4,7 @@ import { db } from "./db";
 import * as schema from "./schema";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { assertDemo } from "./config";
+import { allowedOrigins, assertDemo } from "./config";
 const globalAuth = globalThis as unknown as {
   tourismAuth?: ReturnType<typeof createAuth>;
 };
@@ -27,13 +27,14 @@ function secret() {
 }
 function createAuth() {
   return betterAuth({
-    appName: "Lagos, Your Way — local demo",
+    appName: "Ọ̀nà — local demo",
     baseURL: process.env.PUBLIC_APP_URL ?? "http://127.0.0.1:3000",
     secret: secret(),
+    trustedOrigins: allowedOrigins(),
     database: drizzleAdapter(db(), { provider: "pg", schema }),
     emailAndPassword: {
       enabled: true,
-      minPasswordLength: 12,
+      minPasswordLength: 8,
       requireEmailVerification: false,
     },
     user: {
