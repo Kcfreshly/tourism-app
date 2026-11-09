@@ -1,6 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
-import { bucketLimit } from "@/domain/bucket";
+import { bucketLimit } from "@/modules/bucket/domain/bucket";
 import { notifyStore, storeKeys, subscribeToStore } from "./browser-store";
 
 const empty: string[] = [];

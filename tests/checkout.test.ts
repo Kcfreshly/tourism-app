@@ -2,14 +2,14 @@ import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
 import rules from "../tourism-v1-handoff/data/pricing.demo.json";
-import { initialProfile } from "../src/domain/profile";
+import { initialProfile } from "../src/modules/trips/domain/profile";
 import {
   assess,
   assistanceFor,
   defaultServices,
   type Item,
-} from "../src/domain/planner";
-import { costByDay, unplannedDays } from "../src/domain/checkout";
+} from "../src/modules/trips/domain/planner";
+import { costByDay, unplannedDays } from "../src/modules/trips/domain/checkout";
 
 const profile = {
   ...initialProfile,

@@ -17,7 +17,8 @@
     "test:admin": "node scripts/check-admin.mjs",
     "format:check": "prettier --check src scripts tests",
     "test:workspace": "node scripts/check-workspace.mjs",
-    "test:overlays": "node scripts/check-overlays.mjs"
+    "test:overlays": "node scripts/check-overlays.mjs",
+    "test:modules": "tsx scripts/check-modules.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.12",

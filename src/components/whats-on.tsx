@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { Experience } from "@/server/catalogue";
+import type { Experience } from "@/modules/catalogue/domain/experience";
 import {
   displayName,
   formatMoney,
   priceBasisLabel,
   zoneLabel,
-} from "@/domain/experience-content";
+} from "@/modules/catalogue/domain/experience-content";
 import {
   eventDates,
   eventTypeLabels,
   eventsInWindow,
   lagosToday,
   upcomingEvents,
-} from "@/domain/events";
+} from "@/modules/catalogue/domain/events";
 import { useTripDates } from "@/hooks/use-trip-dates";
 import { BucketButton } from "./bucket";
 import ExperienceOverlay from "./experience-overlay";

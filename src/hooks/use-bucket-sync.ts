@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { authClient } from "@/components/auth-client";
-import { mergeBuckets, type Bucket } from "@/domain/bucket";
+import { mergeBuckets, type Bucket } from "@/modules/bucket/domain/bucket";
 import { readBucket, writeBucket } from "./use-bucket";
 import { storeKeys } from "./browser-store";
 

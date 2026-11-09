@@ -9,8 +9,8 @@ import {
 } from "@testing-library/react";
 import Intake from "../src/components/intake";
 import { BucketButton } from "../src/components/bucket";
-import { extractProfile } from "../src/domain/intake";
-import type { Profile } from "../src/domain/profile";
+import { extractProfile } from "../src/modules/trips/domain/intake";
+import type { Profile } from "../src/modules/trips/domain/profile";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 

@@ -14,7 +14,7 @@ Scope: the traveller's bucket (shortlist of saved offers). Web client in `src/`,
 | Sign-out               | Clears the browser copy (`forgetTravellerState`), so a returning user starts with an empty bucket                         |
 | Consumers              | Explore cards and tray, header pill, onboarding (Kemi and form), planner library, checkout prompt, experience overlay     |
 
-Relevant conventions already in the codebase: JSON envelope `{ data, meta }` / `{ error: { code, message }, meta }` with `Cache-Control: private, no-store` (`src/server/identity.ts`); same-origin check on every write (`checkOrigin`); Postgres-backed fixed-window limiter (`limit(key, max, seconds)`); additive SQL migrations in `migrations/`.
+Relevant conventions already in the codebase: JSON envelope `{ data, meta }` / `{ error: { code, message }, meta }` with `Cache-Control: private, no-store` (`src/shared/presentation/http/responses.ts`); same-origin check on every write (`checkOrigin`); Postgres-backed fixed-window limiter (`guards.throttle(key, max)`); additive SQL migrations in `migrations/`.
 
 ## 2. Problems
 
@@ -107,22 +107,24 @@ CREATE TABLE IF NOT EXISTS account_buckets (
 
 Both phases are built.
 
-| Piece | Where |
-| --- | --- |
-| Migration | `migrations/0005_account_bucket.sql` |
-| Schema | `accountBuckets` in `src/server/schema.ts` |
-| Server logic | `src/server/bucket.ts` (load, versioned save, drops unpublished offers) |
-| Validation and merge rule | `src/domain/bucket.ts` |
-| Route | `src/app/api/v1/bucket/route.ts` (`GET`, `PUT`) |
-| Browser sync | `src/hooks/use-bucket-sync.ts`, mounted in `src/components/site-chrome.tsx` |
-| Cache helpers and keys | `src/hooks/use-bucket.ts`, `src/hooks/browser-store.ts` |
-| Sign-out flush | `src/hooks/use-sign-out.ts` |
+| Piece                     | Where                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Migration                 | `migrations/0005_account_bucket.sql`                                                                               |
+| Schema                    | `accountBuckets` in `src/modules/bucket/infrastructure/persistence/schema.ts`                                      |
+| Server logic              | `src/modules/bucket` use cases and `drizzle-bucket-repository.ts` (load, versioned save, drops unpublished offers) |
+| Validation and merge rule | `src/modules/bucket/domain/bucket.ts`                                                                              |
+| Route                     | `src/app/api/v1/bucket/route.ts` (`GET`, `PUT`)                                                                    |
+| Browser sync              | `src/hooks/use-bucket-sync.ts`, mounted in `src/components/site-chrome.tsx`                                        |
+| Cache helpers and keys    | `src/hooks/use-bucket.ts`, `src/hooks/browser-store.ts`                                                            |
+| Sign-out flush            | `src/hooks/use-sign-out.ts`                                                                                        |
 
 **Measured:**
+
 - A signed-in full page load makes 1 `GET /api/v1/bucket` with a 96-byte response for an empty bucket. In-app navigations make 0 requests, because the header stays mounted.
 - Each pause after edits makes 1 `PUT`. Two quick taps produce one save.
 
 **Deviations from §4–§6:**
+
 1. **The `409` body is the standard error envelope** with no current list. The client re-reads the version with `GET` and re-sends its list once. This keeps the shared error format unchanged.
 2. **Early taps are replayed, not kept wholesale.**
    - Taps made before the first `GET` returns are recorded as adds and removes, then applied to the server's list. A stale cache can't overwrite changes made on another device.
@@ -131,11 +133,12 @@ Both phases are built.
 3. **Sign-out sends any pending save** before ending the session, so the last tap isn't lost.
 
 **Verification:**
+
 - Unit tests: `tests/bucket-sync.test.tsx` and `tests/sign-out.test.tsx`.
 - Browser and API check: `scripts/check-bucket.mjs` covers guest 401, cross-origin 403, guest picks saved at sign-up, 409, 422, unknown ids dropped, restore on a fresh browser, and saving a removal.
 
 **Not verified:**
+
 - Two devices editing at exactly the same moment. The design accepts last-writer-wins for the device in use.
 - PostgreSQL, as opposed to the local PGlite database.
 - The rate limit under real traffic.
-

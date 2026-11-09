@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BucketButton, PlanTrip } from "@/components/bucket";
 import Icon from "@/components/icons";
 import { notFound } from "next/navigation";
-import { listCatalogue } from "@/server/catalogue";
+import { pages } from "@/bootstrap/container";
 import {
   categoryShortLabels,
   displayName,
@@ -14,11 +14,13 @@ import {
   priceBasisLabel,
   storyFor,
   zoneLabel,
-} from "@/domain/experience-content";
+} from "@/modules/catalogue/domain/experience-content";
 export const dynamic = "force-dynamic";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 async function find(slug: string) {
-  return (await listCatalogue()).find((e) => e.seedKey === slug);
+  return (await pages.listPublishedExperiences()).find(
+    (e) => e.seedKey === slug,
+  );
 }
 export async function generateMetadata({
   params,

@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import Ajv from "ajv/dist/2020.js";
-import { initialProfile, profileSchema } from "../src/domain/profile";
+import {
+  initialProfile,
+  profileSchema,
+} from "../src/modules/trips/domain/profile";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
 import contract from "../tourism-v1-handoff/contracts/catalogue.schema.json";
-import { publishBlockers } from "../src/server/catalogue";
-import { assertDemo } from "../src/server/config";
+import { publishBlockers } from "../src/modules/catalogue/domain/experience";
+import { assertDemo } from "../src/config/environment";
 describe("foundation trust boundaries", () => {
   it("fully validates supplied catalogue fixture schema", () =>
     expect(new Ajv().compile(contract)(fixture)).toBe(true));

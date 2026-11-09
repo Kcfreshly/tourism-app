@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useBucket } from "../src/hooks/use-bucket";
 import { useBucketSync, flushBucketSync } from "../src/hooks/use-bucket-sync";
-import { mergeBuckets, bucketWriteSchema } from "../src/domain/bucket";
+import {
+  mergeBuckets,
+  bucketWriteSchema,
+} from "../src/modules/bucket/domain/bucket";
 
 let session: { user: { id: string } } | null = null;
 vi.mock("../src/components/auth-client", () => ({

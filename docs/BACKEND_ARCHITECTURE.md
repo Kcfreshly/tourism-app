@@ -64,25 +64,27 @@ Standalone source: [backend-data-flow.mmd](backend-data-flow.mmd).
 
 ## Where each responsibility lives
 
-| Component | Responsibility | Source |
-| --- | --- | --- |
-| HTTP API | Parse requests, call guards and domain logic, coordinate database operations, return responses | [`src/app/api`](../src/app/api) |
-| Authentication | Email/password accounts, session creation/lookup, sign-out, trusted origins, auth-specific rate limiting | [`auth.ts`](../src/server/auth.ts), [`auth route`](../src/app/api/auth/%5B...all%5D/route.ts) |
-| Application identity | Resolve account and current database role; reject unsigned planning; enforce trip ownership and admin access; format responses | [`identity.ts`](../src/server/identity.ts) |
-| Page access | Redirect unsigned users to account entry before rendering planning pages | [`page-auth.ts`](../src/server/page-auth.ts) |
-| Trip access | Validate trip UUID, load an owned trip, parse stored profile/items/services | [`trip-access.ts`](../src/server/trip-access.ts) |
-| Catalogue | Read only `DEMO_PUBLISHED` supply; enrich records with photos and scheduling defaults | [`catalogue.ts`](../src/server/catalogue.ts) |
-| Selection | Filter unpublished bucket ideas during creation; validate selections on updates and previews | [`selection.ts`](../src/server/selection.ts) |
-| Intake | Extract supported dates, party counts and interests from text; return a profile suggestion | [`intake.ts`](../src/domain/intake.ts), [`profile.ts`](../src/domain/profile.ts) |
-| Proposal generation | Build an itinerary, retain locked/custom items, generate transfer blocks, validate the shared planner contract | [`server/planner.ts`](../src/server/planner.ts) |
-| Schedule and pricing | Validate item/service shapes, assess placement, travel buffers, transport and guide requirements, calculate NGN totals | [`domain/planner.ts`](../src/domain/planner.ts) |
-| Admin rules | Validate catalogue edits and review requirements | [`domain/catalogue.ts`](../src/domain/catalogue.ts) |
-| Checkout presentation | Group priced lines by day and identify unplanned days; no payment processing | [`checkout.ts`](../src/domain/checkout.ts) |
-| Persistence | Choose driver, share a process-level database instance, declare table mappings | [`db.ts`](../src/server/db.ts), [`schema.ts`](../src/server/schema.ts) |
-| SQL compatibility | Normalize raw SQL results from postgres.js arrays and PGlite `rows` objects | [`sql-rows.ts`](../src/server/sql-rows.ts) |
-| Application throttling | Atomically increment hashed per-operation counters in `request_limits` | [`limits.ts`](../src/server/limits.ts) |
-| Runtime guard | Refuse non-demo mode, live checkout and production execution without an explicit local-demo override | [`config.ts`](../src/server/config.ts) |
-| Setup and maintenance | Apply SQL migrations, seed fictional supply, explicitly grant a local account the admin role | [`scripts`](../scripts), [`migrations`](../migrations) |
+Code is grouped by module (identity, catalogue, trips, bucket, audit), each split into domain, application, infrastructure and presentation layers; see [`src/modules/README.md`](../src/modules/README.md). Route files only map HTTP methods to controllers built in [`src/bootstrap/container.ts`](../src/bootstrap/container.ts).
+
+| Component              | Responsibility                                                                                                                 | Source                                                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP API               | Parse requests, call guards and domain logic, coordinate database operations, return responses                                 | [`src/app/api`](../src/app/api)                                                                                                                                                                                                          |
+| Authentication         | Email/password accounts, session creation/lookup, sign-out, trusted origins, auth-specific rate limiting                       | [`better-auth.ts`](../src/modules/identity/infrastructure/auth/better-auth.ts), [`auth route`](../src/app/api/auth/%5B...all%5D/route.ts)                                                                                                |
+| Application identity   | Resolve account and current database role; reject unsigned planning; enforce trip ownership and admin access; format responses | [`request-guards.ts`](../src/modules/identity/presentation/http/request-guards.ts), [`resolve-actor.ts`](../src/modules/identity/application/use-cases/resolve-actor.ts), [`responses.ts`](../src/shared/presentation/http/responses.ts) |
+| Page access            | Redirect unsigned users to account entry before rendering planning pages                                                       | [`page-guards.ts`](../src/modules/identity/presentation/pages/page-guards.ts)                                                                                                                                                            |
+| Trip access            | Validate trip UUID, load an owned trip, parse stored profile/items/services                                                    | [`owned-trip.ts`](../src/modules/trips/presentation/http/owned-trip.ts), [`load-owned-trip.ts`](../src/modules/trips/application/use-cases/load-owned-trip.ts)                                                                           |
+| Catalogue              | Read only `DEMO_PUBLISHED` supply; enrich records with photos and scheduling defaults                                          | [`experience.ts`](../src/modules/catalogue/domain/experience.ts), [`list-published-experiences.ts`](../src/modules/catalogue/application/use-cases/list-published-experiences.ts)                                                        |
+| Selection              | Filter unpublished bucket ideas during creation; validate selections on updates and previews                                   | [`offer-selection.ts`](../src/modules/trips/application/services/offer-selection.ts)                                                                                                                                                     |
+| Intake                 | Extract supported dates, party counts and interests from text; return a profile suggestion                                     | [`intake.ts`](../src/modules/trips/domain/intake.ts), [`profile.ts`](../src/modules/trips/domain/profile.ts)                                                                                                                             |
+| Proposal generation    | Build an itinerary, retain locked/custom items, generate transfer blocks, validate the shared planner contract                 | [`proposal.ts`](../src/modules/trips/domain/proposal.ts)                                                                                                                                                                                 |
+| Schedule and pricing   | Validate item/service shapes, assess placement, travel buffers, transport and guide requirements, calculate NGN totals         | [`planner.ts`](../src/modules/trips/domain/planner.ts)                                                                                                                                                                                   |
+| Admin rules            | Validate catalogue edits and review requirements                                                                               | [`catalogue.ts`](../src/modules/catalogue/domain/catalogue.ts)                                                                                                                                                                           |
+| Checkout presentation  | Group priced lines by day and identify unplanned days; no payment processing                                                   | [`checkout.ts`](../src/modules/trips/domain/checkout.ts)                                                                                                                                                                                 |
+| Persistence            | Choose driver, share a process-level database instance, declare table mappings                                                 | [`client.ts`](../src/database/client.ts), [`schema.ts`](../src/database/schema.ts) (re-exports each module's `infrastructure/persistence/schema.ts`)                                                                                     |
+| SQL compatibility      | Normalize raw SQL results from postgres.js arrays and PGlite `rows` objects                                                    | [`sql-rows.ts`](../src/database/sql-rows.ts)                                                                                                                                                                                             |
+| Application throttling | Atomically increment hashed per-operation counters in `request_limits`                                                         | [`drizzle-rate-limiter.ts`](../src/modules/identity/infrastructure/persistence/drizzle-rate-limiter.ts), [`throttle-request.ts`](../src/modules/identity/application/use-cases/throttle-request.ts)                                      |
+| Runtime guard          | Refuse non-demo mode, live checkout and production execution without an explicit local-demo override                           | [`environment.ts`](../src/config/environment.ts)                                                                                                                                                                                         |
+| Setup and maintenance  | Apply SQL migrations, seed fictional supply, explicitly grant a local account the admin role                                   | [`scripts`](../scripts), [`migrations`](../migrations)                                                                                                                                                                                   |
 
 Domain modules are shared with the browser for immediate feedback. API handlers independently enforce validation and calculate returned prices; browser state is not the persistence authority.
 
@@ -90,25 +92,25 @@ Domain modules are shared with the browser for immediate feedback. API handlers 
 
 Paths below are relative to `/api/v1`, except authentication. Trip access always includes an owner check. Route-specific validation order varies; there is no single middleware pipeline through which every request passes.
 
-| Method | Path | Access | Input and result |
-| --- | --- | --- | --- |
-| GET, POST | `/api/auth/*` | Better Auth handler | Account and session operations using Better Auth's own protocol |
-| GET | `/experiences` | Public | Published demo catalogue |
-| GET | `/experiences/{id}` | Public | Published record by database UUID or `seedKey`; otherwise 404 |
-| POST | `/intake` | Account + origin check | `{ profile, message }` to suggested profile changes; does not save a trip |
-| GET | `/trips` | Account | Owned trips, newest update first |
-| POST | `/trips` | Account + origin check | Profile to a new trip; unavailable selected offers are filtered out |
-| GET | `/trips/{id}` | Account + ownership | Stored draft |
-| PATCH | `/trips/{id}` | Account + ownership + origin check | `{ expectedVersion, profile }`; validate against the existing schedule, synchronize assistance and increment version |
-| GET | `/trips/{id}/workspace` | Account + ownership | `{ trip, offers, price }` with fresh assessment |
-| PUT | `/trips/{id}/workspace` | Account + ownership + origin check | `{ expectedVersion, items, services }` to saved trip and calculated price |
-| POST | `/trips/{id}/plan` | Account + ownership + origin check | Optional `selectedOfferIds` to persisted proposal, price, assumptions, questions and added/removed diff |
-| POST | `/trips/{id}/plan/apply` | Account + ownership + origin check | `{ proposalId, expectedVersion }`; atomically consume proposal and update trip |
-| POST | `/account/merge` | Account + origin check | Claim legacy guest drafts from the browser cookie; return merged count |
-| DELETE | `/session` | Origin check; account/guest session if present | Expire guest session, delete guest cookie and invoke account sign-out when applicable |
-| GET | `/admin/catalogue` | Admin | All catalogue records, including unpublished drafts |
-| POST | `/admin/catalogue` | Admin + origin check | Name to a fictional draft and audit event |
-| PATCH | `/admin/catalogue` | Admin + origin check | Versioned edit, review and status update with an audit event |
+| Method    | Path                     | Access                                         | Input and result                                                                                                     |
+| --------- | ------------------------ | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| GET, POST | `/api/auth/*`            | Better Auth handler                            | Account and session operations using Better Auth's own protocol                                                      |
+| GET       | `/experiences`           | Public                                         | Published demo catalogue                                                                                             |
+| GET       | `/experiences/{id}`      | Public                                         | Published record by database UUID or `seedKey`; otherwise 404                                                        |
+| POST      | `/intake`                | Account + origin check                         | `{ profile, message }` to suggested profile changes; does not save a trip                                            |
+| GET       | `/trips`                 | Account                                        | Owned trips, newest update first                                                                                     |
+| POST      | `/trips`                 | Account + origin check                         | Profile to a new trip; unavailable selected offers are filtered out                                                  |
+| GET       | `/trips/{id}`            | Account + ownership                            | Stored draft                                                                                                         |
+| PATCH     | `/trips/{id}`            | Account + ownership + origin check             | `{ expectedVersion, profile }`; validate against the existing schedule, synchronize assistance and increment version |
+| GET       | `/trips/{id}/workspace`  | Account + ownership                            | `{ trip, offers, price }` with fresh assessment                                                                      |
+| PUT       | `/trips/{id}/workspace`  | Account + ownership + origin check             | `{ expectedVersion, items, services }` to saved trip and calculated price                                            |
+| POST      | `/trips/{id}/plan`       | Account + ownership + origin check             | Optional `selectedOfferIds` to persisted proposal, price, assumptions, questions and added/removed diff              |
+| POST      | `/trips/{id}/plan/apply` | Account + ownership + origin check             | `{ proposalId, expectedVersion }`; atomically consume proposal and update trip                                       |
+| POST      | `/account/merge`         | Account + origin check                         | Claim legacy guest drafts from the browser cookie; return merged count                                               |
+| DELETE    | `/session`               | Origin check; account/guest session if present | Expire guest session, delete guest cookie and invoke account sign-out when applicable                                |
+| GET       | `/admin/catalogue`       | Admin                                          | All catalogue records, including unpublished drafts                                                                  |
+| POST      | `/admin/catalogue`       | Admin + origin check                           | Name to a fictional draft and audit event                                                                            |
+| PATCH     | `/admin/catalogue`       | Admin + origin check                           | Versioned edit, review and status update with an audit event                                                         |
 
 Application rate limits apply to intake (20), trip creation (20), trip writes (100), proposal generation (10), catalogue creation (15) and catalogue edits (60), each per actor and operation in a 60-second window. Profile and workspace writes share the trip-write counter. Merge and proposal application do not call the application limiter. Better Auth separately configures a 30-request/60-second auth limit; it does not use the application's `request_limits` helper.
 
@@ -237,15 +239,15 @@ flowchart LR
     Catalogue -.->|entityId for admin edits| Audit
 ```
 
-| Stored data | Shape and authority |
-| --- | --- |
-| Trip | `profile`, `items`, and `services` are JSONB; owner, version and update timestamp are columns. The owner ID/type pair is checked in application queries. There is no owner foreign key in the current migrations. |
-| Catalogue | Full experience/offer payload in JSONB, plus relational status, seed key, version and review JSONB. An experience database ID, fixture `seedKey` and nested offer ID are distinct identifiers. Planner items reference the nested offer ID. |
-| Proposal | Candidate JSONB payload, foreign key to trip, source trip version, expiry and application timestamp. |
-| Authentication | Better Auth tables are separate from legacy guest `sessions`. Auth IDs are text; application trip ownership uses a UUID column. Better Auth is configured to generate UUID strings. |
-| Audit | Selected admin actions and guest merges, not a complete log of every trip edit or request. |
-| Rate counters | Database-backed counters keyed by SHA-256 of the operation/actor key. |
-| Migration history | SQL-managed table recording applied migration filenames; not declared in the Drizzle application schema. |
+| Stored data       | Shape and authority                                                                                                                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trip              | `profile`, `items`, and `services` are JSONB; owner, version and update timestamp are columns. The owner ID/type pair is checked in application queries. There is no owner foreign key in the current migrations.                           |
+| Catalogue         | Full experience/offer payload in JSONB, plus relational status, seed key, version and review JSONB. An experience database ID, fixture `seedKey` and nested offer ID are distinct identifiers. Planner items reference the nested offer ID. |
+| Proposal          | Candidate JSONB payload, foreign key to trip, source trip version, expiry and application timestamp.                                                                                                                                        |
+| Authentication    | Better Auth tables are separate from legacy guest `sessions`. Auth IDs are text; application trip ownership uses a UUID column. Better Auth is configured to generate UUID strings.                                                         |
+| Audit             | Selected admin actions and guest merges, not a complete log of every trip edit or request.                                                                                                                                                  |
+| Rate counters     | Database-backed counters keyed by SHA-256 of the operation/actor key.                                                                                                                                                                       |
+| Migration history | SQL-managed table recording applied migration filenames; not declared in the Drizzle application schema.                                                                                                                                    |
 
 Prices, assessment blockers and warnings are calculated on demand, not stored as immutable quotes. `assess()` combines trip profile, scheduled items, services, current published supply and [`pricing.demo.json`](../tourism-v1-handoff/data/pricing.demo.json). Activity, transport, cross-zone and guide lines use integer NGN minor units; fees use integer half-up rounding; current tax is zero. Hosted experiences and full-day guides suppress duplicate guide charges. Custom, break and travel blocks have no activity price.
 
@@ -261,17 +263,17 @@ Page guards improve navigation; API identity and ownership checks protect the da
 
 ## Runtime, setup and current limits
 
-| Setting or tool | Effect |
-| --- | --- |
-| `DATABASE_URL` | When set, use PostgreSQL through postgres.js and Drizzle; otherwise use PGlite. |
-| `LOCAL_DATABASE_PATH` | Override the PGlite directory; default `.local/demo-db`. One process must own the embedded database directory. |
-| `PUBLIC_APP_URL` | Configure auth base URL and origin handling; default `http://127.0.0.1:3000`. |
-| `AUTH_SECRET` | Supply auth secret; otherwise demo mode generates and persists `.local/auth-secret`. |
-| `APP_MODE`, `LIVE_CHECKOUT_ENABLED` | Database initialization rejects non-demo mode or live checkout. |
-| `ALLOW_LOCAL_DEMO_BUILD` | Must be `true` for production-mode local demo execution; does not enable live operations. |
+| Setting or tool                        | Effect                                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                         | When set, use PostgreSQL through postgres.js and Drizzle; otherwise use PGlite.                                                            |
+| `LOCAL_DATABASE_PATH`                  | Override the PGlite directory; default `.local/demo-db`. One process must own the embedded database directory.                             |
+| `PUBLIC_APP_URL`                       | Configure auth base URL and origin handling; default `http://127.0.0.1:3000`.                                                              |
+| `AUTH_SECRET`                          | Supply auth secret; otherwise demo mode generates and persists `.local/auth-secret`.                                                       |
+| `APP_MODE`, `LIVE_CHECKOUT_ENABLED`    | Database initialization rejects non-demo mode or live checkout.                                                                            |
+| `ALLOW_LOCAL_DEMO_BUILD`               | Must be `true` for production-mode local demo execution; does not enable live operations.                                                  |
 | `PAYMENT_PROVIDER`, `PLANNER_PROVIDER` | Listed in the environment example; no payment integration or runtime planner-provider switch is implemented. The planner is deterministic. |
-| `npm.cmd run db:migrate` | Apply ordered SQL migrations in transactions with an advisory lock and migration history. |
-| `npm.cmd run db:seed:demo` | Validate catalogue/event fixtures against JSON Schema and insert missing seed keys, preserving existing edits. |
+| `npm.cmd run db:migrate`               | Apply ordered SQL migrations in transactions with an advisory lock and migration history.                                                  |
+| `npm.cmd run db:seed:demo`             | Validate catalogue/event fixtures against JSON Schema and insert missing seed keys, preserving existing edits.                             |
 
 Next.js loads `.env.local` for the app; CLI scripts read shell environment variables. Stop the local app before running migrations/seeds or copying the PGlite directory. PostgreSQL is the intended storage option for multiple app instances; production concurrency and operational readiness are not established by local embedded tests.
 
@@ -279,4 +281,4 @@ Next.js loads `.env.local` for the app; CLI scripts read shell environment varia
 
 ## Maintaining this guide
 
-Update this guide when changing routes, access rules, database tables, pricing authority or provider integrations. Keep the standalone component map synchronized with the first Mermaid block. The primary implementation references are [`src/app/api`](../src/app/api), [`src/server`](../src/server), [`src/domain`](../src/domain), [`migrations`](../migrations) and [`scripts`](../scripts); handoff specifications describe planned behavior and may differ from the running implementation.
+Update this guide when changing routes, access rules, database tables, pricing authority or provider integrations. Keep the standalone component map synchronized with the first Mermaid block. The primary implementation references are [`src/app/api`](../src/app/api), [`src/modules`](../src/modules) (layering rules in its README), [`src/bootstrap/container.ts`](../src/bootstrap/container.ts), [`migrations`](../migrations) and [`scripts`](../scripts); handoff specifications describe planned behavior and may differ from the running implementation.

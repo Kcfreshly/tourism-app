@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Item, Services, assess } from "@/domain/planner";
-import type { Profile } from "@/domain/profile";
-import { unplannedDays } from "@/domain/checkout";
-import { formatMoney, zoneLabel } from "@/domain/experience-content";
+import type { Item, Services, assess } from "@/modules/trips/domain/planner";
+import type { Profile } from "@/modules/trips/domain/profile";
+import { unplannedDays } from "@/modules/trips/domain/checkout";
+import {
+  formatMoney,
+  zoneLabel,
+} from "@/modules/catalogue/domain/experience-content";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
 import TripCost from "./trip-cost";
 import Icon from "./icons";

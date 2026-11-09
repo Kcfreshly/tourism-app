@@ -1,5 +1,5 @@
 import Intake from "@/components/intake";
-import { requireSignedIn } from "@/server/page-auth";
+import { pages } from "@/bootstrap/container";
 export default async function NewPlan({
   searchParams,
 }: {
@@ -11,6 +11,6 @@ export default async function NewPlan({
       (entry): entry is [string, string] => !!entry[1],
     ),
   ).toString();
-  await requireSignedIn(`/plan/new${query ? `?${query}` : ""}`);
+  await pages.requireSignedIn(`/plan/new${query ? `?${query}` : ""}`);
   return <Intake mode={mode} offer={offer} fresh={fresh === "1"} />;
 }

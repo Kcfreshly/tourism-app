@@ -1,7 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { sql } from "drizzle-orm";
-import { db } from "../src/server/db";
-import { sqlRows } from "../src/server/sql-rows";
+import { db } from "../src/database/client";
+import { sqlRows } from "../src/database/sql-rows";
 await db().execute(
   sql`CREATE TABLE IF NOT EXISTS migration_history (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`,
 );

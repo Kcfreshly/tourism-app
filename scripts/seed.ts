@@ -3,9 +3,9 @@ import Ajv from "ajv/dist/2020.js";
 import source from "../tourism-v1-handoff/data/experiences.demo.json";
 import events from "../src/data/events.demo.json";
 import contract from "../tourism-v1-handoff/contracts/catalogue.schema.json";
-import { db } from "../src/server/db";
-import { catalogue } from "../src/server/schema";
-import { assertDemo } from "../src/server/config";
+import { db } from "../src/database/client";
+import { catalogue } from "../src/database/schema";
+import { assertDemo } from "../src/config/environment";
 assertDemo();
 const validate = new Ajv().compile(contract);
 for (const fixture of [source, events])

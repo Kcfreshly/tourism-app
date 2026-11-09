@@ -1,9 +1,9 @@
 "use client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Item } from "@/domain/planner";
-import type { Profile } from "@/domain/profile";
-import { unplannedDays } from "@/domain/checkout";
+import type { Item } from "@/modules/trips/domain/planner";
+import type { Profile } from "@/modules/trips/domain/profile";
+import { unplannedDays } from "@/modules/trips/domain/checkout";
 import { useBackdropDismiss } from "@/hooks/use-backdrop-dismiss";
 import Icon from "./icons";
 

@@ -1,9 +1,9 @@
 "use client";
 import type { ReactNode } from "react";
-import type { Item, PriceLine } from "@/domain/planner";
-import type { Profile } from "@/domain/profile";
-import { costByDay, unplannedDays } from "@/domain/checkout";
-import { formatMoney } from "@/domain/experience-content";
+import type { Item, PriceLine } from "@/modules/trips/domain/planner";
+import type { Profile } from "@/modules/trips/domain/profile";
+import { costByDay, unplannedDays } from "@/modules/trips/domain/checkout";
+import { formatMoney } from "@/modules/catalogue/domain/experience-content";
 import Icon from "./icons";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
 

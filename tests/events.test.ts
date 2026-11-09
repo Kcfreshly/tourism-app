@@ -3,19 +3,19 @@ import { randomUUID } from "node:crypto";
 import Ajv from "ajv/dist/2020.js";
 import contract from "../tourism-v1-handoff/contracts/catalogue.schema.json";
 import events from "../src/data/events.demo.json";
-import { initialProfile } from "../src/domain/profile";
+import { initialProfile } from "../src/modules/trips/domain/profile";
 import {
   availableStarts,
   assess,
   defaultServices,
-} from "../src/domain/planner";
+} from "../src/modules/trips/domain/planner";
 import {
   eventDates,
   eventWhen,
   eventsInWindow,
   upcomingEvents,
-} from "../src/domain/events";
-import type { Experience } from "../src/server/catalogue";
+} from "../src/modules/catalogue/domain/events";
+import type { Experience } from "../src/modules/catalogue/domain/experience";
 
 const offers = events.experiences as Experience[];
 const concert = offers.find((e) => e.id === "event-afrobeats-concert")!;

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { requireAdmin } from "@/server/identity";
+import { pages } from "@/bootstrap/container";
 import AdminCatalogue from "@/components/admin-catalogue";
 import Link from "next/link";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Staff workspace" };
 export default async function Admin() {
-  const actor = await requireAdmin().catch(() => null);
+  const actor = await pages.requireAdmin().catch(() => null);
   if (!actor)
     return (
       <section className="page">
