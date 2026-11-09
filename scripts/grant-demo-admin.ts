@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db } from "../src/server/db";
-import { user, audit } from "../src/server/schema";
-import { assertDemo } from "../src/server/config";
+import { db } from "../src/database/client";
+import { user, audit } from "../src/database/schema";
+import { assertDemo } from "../src/config/environment";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 assertDemo();

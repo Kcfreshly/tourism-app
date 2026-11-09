@@ -5,12 +5,12 @@ import { BucketButton, BucketTray, ClearBucket } from "./bucket";
 import { useBucket } from "@/hooks/use-bucket";
 import { useActiveTrip } from "@/hooks/use-active-trip";
 import { useTripDates } from "@/hooks/use-trip-dates";
-import { photoById } from "@/domain/photos";
+import { photoById } from "@/modules/catalogue/domain/photos";
 import { WhatsOn, rangeLabel } from "./whats-on";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
 import categories from "../../tourism-v1-handoff/data/categories.json";
-import type { Experience } from "@/server/catalogue";
+import type { Experience } from "@/modules/catalogue/domain/experience";
 import {
   categoryShortLabels,
   displayName,
@@ -19,13 +19,13 @@ import {
   priceBasisLabel,
   storyFor,
   zoneLabel,
-} from "@/domain/experience-content";
+} from "@/modules/catalogue/domain/experience-content";
 import {
   eventTypeLabels,
   eventWhen,
   isEvent,
   lagosToday,
-} from "@/domain/events";
+} from "@/modules/catalogue/domain/events";
 export function money(n: number) {
   return formatMoney(n);
 }

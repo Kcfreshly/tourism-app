@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { nigeriaPhotos } from "@/domain/photos";
+import { nigeriaPhotos } from "@/modules/catalogue/domain/photos";
 export const metadata: Metadata = { title: "Photo credits" };
 
 export default function PhotoCredits() {

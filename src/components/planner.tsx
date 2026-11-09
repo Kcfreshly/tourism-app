@@ -4,8 +4,8 @@ import Link from "next/link";
 import PlannerSplit from "./planner-split";
 import PlannerTimeline from "./planner-timeline";
 import PlannerActivityCard from "./planner-activity-card";
-import type { PlannerDrag } from "@/domain/planner-interactions";
-import type { Profile } from "@/domain/profile";
+import type { PlannerDrag } from "@/modules/trips/domain/planner-interactions";
+import type { Profile } from "@/modules/trips/domain/profile";
 import {
   tripDays,
   minutes,
@@ -17,8 +17,8 @@ import {
   placementMessage,
   availableStarts,
   assistanceFor,
-} from "@/domain/planner";
-import type { Experience } from "@/server/catalogue";
+} from "@/modules/trips/domain/planner";
+import type { Experience } from "@/modules/catalogue/domain/experience";
 import { ClearBucket } from "./bucket";
 import { useBucket } from "@/hooks/use-bucket";
 import Icon from "./icons";
@@ -28,8 +28,13 @@ import {
   formatDuration,
   formatMoney,
   zoneLabel,
-} from "@/domain/experience-content";
-import { eventDates, eventDay, eventWhen, isEvent } from "@/domain/events";
+} from "@/modules/catalogue/domain/experience-content";
+import {
+  eventDates,
+  eventDay,
+  eventWhen,
+  isEvent,
+} from "@/modules/catalogue/domain/events";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
 import TripCost from "./trip-cost";

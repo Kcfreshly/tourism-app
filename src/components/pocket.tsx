@@ -1,10 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Experience } from "@/server/catalogue";
-import type { Profile } from "@/domain/profile";
-import { minutes, tripDays, type Item, type Services } from "@/domain/planner";
-import { displayName, zoneLabel } from "@/domain/experience-content";
+import type { Experience } from "@/modules/catalogue/domain/experience";
+import type { Profile } from "@/modules/trips/domain/profile";
+import {
+  minutes,
+  tripDays,
+  type Item,
+  type Services,
+} from "@/modules/trips/domain/planner";
+import {
+  displayName,
+  zoneLabel,
+} from "@/modules/catalogue/domain/experience-content";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
 

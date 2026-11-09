@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import pricingCases from "../tourism-v1-handoff/qa/pricing-cases.json";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
-import { initialProfile } from "../src/domain/profile";
+import { initialProfile } from "../src/modules/trips/domain/profile";
 import {
   arithmetic,
   availableStarts,
@@ -13,14 +13,17 @@ import {
   feeHalfUp,
   tripDays,
   type Item,
-} from "../src/domain/planner";
+} from "../src/modules/trips/domain/planner";
 import {
   propose,
   lockedItemsUnchanged,
   assertPlannerContract,
-} from "../src/server/planner";
-import { demoPublishIssues, emptyReview } from "../src/domain/catalogue";
-import { extractProfile } from "../src/domain/intake";
+} from "../src/modules/trips/domain/proposal";
+import {
+  demoPublishIssues,
+  emptyReview,
+} from "../src/modules/catalogue/domain/catalogue";
+import { extractProfile } from "../src/modules/trips/domain/intake";
 const profile = {
   ...initialProfile,
   accommodation: "Fictional fixed base",

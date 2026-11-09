@@ -1,7 +1,3 @@
-import { auth } from "@/server/auth";
-export async function GET(request: Request) {
-  return auth().handler(request);
-}
-export async function POST(request: Request) {
-  return auth().handler(request);
-}
+import { api } from "@/bootstrap/container";
+export const GET = api.auth;
+export const POST = api.auth;

@@ -9,7 +9,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import PhotoCredit from "./photo-credit";
-import type { Experience } from "@/server/catalogue";
+import type { Experience } from "@/modules/catalogue/domain/experience";
 import { BucketButton } from "./bucket";
 import Icon from "./icons";
 import {
@@ -20,8 +20,12 @@ import {
   priceBasisLabel,
   storyFor,
   zoneLabel,
-} from "@/domain/experience-content";
-import { eventDates, eventDay, eventTypeLabels } from "@/domain/events";
+} from "@/modules/catalogue/domain/experience-content";
+import {
+  eventDates,
+  eventDay,
+  eventTypeLabels,
+} from "@/modules/catalogue/domain/events";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function openDays(days: number[]) {
   if (days.length === 7) return "Open daily";

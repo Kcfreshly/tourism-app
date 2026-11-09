@@ -2,8 +2,15 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { initialProfile, profileSchema, type Profile } from "@/domain/profile";
-import { formatMoney, zoneLabel } from "@/domain/experience-content";
+import {
+  initialProfile,
+  profileSchema,
+  type Profile,
+} from "@/modules/trips/domain/profile";
+import {
+  formatMoney,
+  zoneLabel,
+} from "@/modules/catalogue/domain/experience-content";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 import { useBucket } from "@/hooks/use-bucket";
 import { activateTrip } from "@/hooks/use-active-trip";

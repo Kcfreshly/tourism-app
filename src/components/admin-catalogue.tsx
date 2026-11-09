@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import categories from "../../tourism-v1-handoff/data/categories.json";
-import type { Experience } from "@/server/catalogue";
-import { emptyReview, type catalogueEditSchema } from "@/domain/catalogue";
+import type { Experience } from "@/modules/catalogue/domain/experience";
+import {
+  emptyReview,
+  type catalogueEditSchema,
+} from "@/modules/catalogue/domain/catalogue";
 import type { z } from "zod";
 type Edit = z.infer<typeof catalogueEditSchema>;
 type Row = {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import CatalogueBrowser from "@/components/catalogue-browser";
-import { listCatalogue } from "@/server/catalogue";
+import { pages } from "@/bootstrap/container";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Explore experiences" };
 export default async function Explore({
@@ -9,7 +9,7 @@ export default async function Explore({
   searchParams: Promise<{ category?: string; trip?: string; view?: string }>;
 }) {
   const { category, trip, view } = await searchParams;
-  const records = await listCatalogue().catch(() => null);
+  const records = await pages.listPublishedExperiences().catch(() => null);
   if (!records)
     return (
       <section className="page">

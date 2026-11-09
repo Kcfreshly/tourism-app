@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { activateTrip } from "@/hooks/use-active-trip";
 import { useSignOut } from "@/hooks/use-sign-out";
 import Icon from "./icons";
-import type { Profile } from "@/domain/profile";
-import type { Item } from "@/domain/planner";
-import { photoForCategory } from "@/domain/photos";
-import { zoneLabel } from "@/domain/experience-content";
+import type { Profile } from "@/modules/trips/domain/profile";
+import type { Item } from "@/modules/trips/domain/planner";
+import { photoForCategory } from "@/modules/catalogue/domain/photos";
+import { zoneLabel } from "@/modules/catalogue/domain/experience-content";
 
 type Trip = { id: string; version: number; profile: Profile; items?: Item[] };
 function shortDate(date: string) {

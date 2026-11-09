@@ -1,4 +1,4 @@
-import { requireSignedIn } from "@/server/page-auth";
+import { pages } from "@/bootstrap/container";
 import Planner from "@/components/planner";
 export default async function ServicesPage({
   params,
@@ -6,6 +6,6 @@ export default async function ServicesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireSignedIn(`/trips/${encodeURIComponent(id)}/services`);
+  await pages.requireSignedIn(`/trips/${encodeURIComponent(id)}/services`);
   return <Planner id={id} servicesOnly />;
 }

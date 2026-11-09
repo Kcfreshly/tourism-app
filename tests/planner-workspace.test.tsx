@@ -9,9 +9,13 @@ import {
 } from "@testing-library/react";
 import Planner from "../src/components/planner";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
-import { initialProfile } from "../src/domain/profile";
-import { assess, defaultServices, type Item } from "../src/domain/planner";
-import { resizedBlock } from "../src/domain/planner-interactions";
+import { initialProfile } from "../src/modules/trips/domain/profile";
+import {
+  assess,
+  defaultServices,
+  type Item,
+} from "../src/modules/trips/domain/planner";
+import { resizedBlock } from "../src/modules/trips/domain/planner-interactions";
 import PlannerActivityCard from "../src/components/planner-activity-card";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));

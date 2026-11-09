@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Icon from "@/components/icons";
-import { photoById, photoForCategory } from "@/domain/photos";
+import { photoById, photoForCategory } from "@/modules/catalogue/domain/photos";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 
 const hero = photoById("fanti-carnival");

@@ -1,6 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
-import { profileSchema } from "@/domain/profile";
+import { profileSchema } from "@/modules/trips/domain/profile";
 import { storeKeys, subscribeToStore } from "./browser-store";
 
 function readProfile() {

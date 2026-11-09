@@ -1,10 +1,10 @@
 import MyTrips from "@/components/my-trips";
-import { requireSignedIn } from "@/server/page-auth";
+import { pages } from "@/bootstrap/container";
 export default async function Trips({
   searchParams,
 }: {
   searchParams: Promise<{ saved?: string }>;
 }) {
-  await requireSignedIn("/trips");
+  await pages.requireSignedIn("/trips");
   return <MyTrips saved={(await searchParams).saved} />;
 }

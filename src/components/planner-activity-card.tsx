@@ -1,14 +1,14 @@
 "use client";
 import { useState } from "react";
-import type { Experience } from "@/server/catalogue";
-import type { PlannerDrag } from "@/domain/planner-interactions";
+import type { Experience } from "@/modules/catalogue/domain/experience";
+import type { PlannerDrag } from "@/modules/trips/domain/planner-interactions";
 import {
   displayName,
   formatDuration,
   formatMoney,
   priceBasisLabel,
   zoneLabel,
-} from "@/domain/experience-content";
+} from "@/modules/catalogue/domain/experience-content";
 import { BucketButton } from "./bucket";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";

@@ -1,13 +1,16 @@
 "use client";
 import { useRef, useState, type PointerEvent } from "react";
-import { minutes, time, type Item } from "@/domain/planner";
+import { minutes, time, type Item } from "@/modules/trips/domain/planner";
 import {
   resizedBlock,
   snapMinutes,
   type PlannerDrag,
-} from "@/domain/planner-interactions";
-import type { Experience } from "@/server/catalogue";
-import { displayName, zoneLabel } from "@/domain/experience-content";
+} from "@/modules/trips/domain/planner-interactions";
+import type { Experience } from "@/modules/catalogue/domain/experience";
+import {
+  displayName,
+  zoneLabel,
+} from "@/modules/catalogue/domain/experience-content";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
 

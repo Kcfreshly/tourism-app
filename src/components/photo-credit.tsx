@@ -1,4 +1,4 @@
-import type { Photo } from "@/domain/photos";
+import type { Photo } from "@/modules/catalogue/domain/photos";
 
 export default function PhotoCredit({ photo }: { photo: Photo }) {
   return (
