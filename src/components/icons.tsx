@@ -88,6 +88,7 @@ const paths = {
   ),
   arrowRight: <path d="M5 12h14M13 6l6 6-6 6" />,
   arrowLeft: <path d="M19 12H5M11 6l-6 6 6 6" />,
+  arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
   external: (
     <path d="M14 4.5h5.5V10M19.5 4.5 11 13M17 14v4.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1H10" />
   ),

@@ -348,6 +348,7 @@ export default function Intake({
   return (
     <section
       className={`intake-page ${embedded ? "intake-page--embedded" : ""}`}
+      data-chat={(stage === "details" && mode === "chat") || undefined}
     >
       <ol className="journey-steps" aria-label="Trip planning steps">
         {steps.map((label, index) => (
@@ -386,29 +387,25 @@ export default function Intake({
       {stage === "details" && (
         <div className="intake-workspace">
           <div
-            className="method-switch"
+            className="method-switch segmented"
             role="group"
             aria-label="How would you like to share your details?"
           >
             <button
               type="button"
-              aria-label="Talk to Kemi"
               aria-pressed={mode === "chat"}
               onClick={() => chooseMode("chat")}
             >
-              <Icon name="mic" size={22} />
+              <Icon name="chat" size={18} />
               Talk to Kemi
-              <small>Speak or type, in your own words</small>
             </button>
             <button
               type="button"
-              aria-label="Enter details manually"
               aria-pressed={mode === "form"}
               onClick={() => chooseMode("form")}
             >
-              <Icon name="list" size={22} />
+              <Icon name="list" size={18} />
               Enter details manually
-              <small>A short form, about two minutes</small>
             </button>
           </div>
           {mode === "chat" ? (
@@ -431,7 +428,7 @@ export default function Intake({
                 </div>
               </div>
               <div className="composer">
-                <label htmlFor="kemi-message">
+                <label htmlFor="kemi-message" className="sr-only">
                   {hasReviewed
                     ? "Ask Kemi to edit your trip"
                     : "Your trip, in your own words"}
@@ -439,16 +436,19 @@ export default function Intake({
                 <div className="composer-box">
                   <textarea
                     id="kemi-message"
+                    rows={2}
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
                     onKeyDown={(event) => {
+                      // Enter sends, as in any chat; Shift+Enter adds a line.
                       if (
                         event.key === "Enter" &&
-                        (event.metaKey || event.ctrlKey) &&
-                        note.trim() &&
-                        !busy
-                      )
-                        void askKemi();
+                        !event.shiftKey &&
+                        !event.nativeEvent.isComposing
+                      ) {
+                        event.preventDefault();
+                        if (note.trim() && !busy) void askKemi();
+                      }
                     }}
                     maxLength={3000}
                     placeholder={
@@ -459,10 +459,12 @@ export default function Intake({
                   />
                   <div className="composer-actions">
                     <button
-                      className="secondary voice-button"
+                      className="voice-button"
                       type="button"
                       disabled={busy}
                       aria-pressed={listening}
+                      aria-label={listening ? "Stop listening" : "Use voice"}
+                      title={listening ? "Stop listening" : "Use voice"}
                       onClick={() => {
                         if (listening) {
                           recognition.current?.stop();
@@ -472,45 +474,54 @@ export default function Intake({
                       }}
                     >
                       <Icon name="mic" size={18} />
-                      {listening ? "Stop listening" : "Use voice"}
                     </button>
+                    <span className="composer-keys">
+                      {busy && "Preparing your summary…"}
+                    </span>
                     <button
                       type="button"
+                      className="composer-send"
                       disabled={busy || !note.trim()}
+                      aria-label={
+                        busy
+                          ? "Preparing summary..."
+                          : hasReviewed
+                            ? "Review Kemi's changes"
+                            : "Review my trip summary"
+                      }
+                      title={
+                        hasReviewed
+                          ? "Review Kemi's changes"
+                          : "Review my trip summary"
+                      }
                       onClick={() => void askKemi()}
                     >
-                      {busy
-                        ? "Preparing summary..."
-                        : hasReviewed
-                          ? "Review Kemi's changes"
-                          : "Review my trip summary"}
-                      <Icon name="arrowRight" size={18} />
+                      <Icon name="arrowUp" size={20} />
                     </button>
                   </div>
                 </div>
+                <div className="suggestion-row" aria-label="Quick additions">
+                  {suggestions.map((text) => (
+                    <button
+                      key={text}
+                      type="button"
+                      className="chip"
+                      onClick={() =>
+                        setNote((previous) =>
+                          `${previous.trim()}${previous.trim() ? ". " : ""}${text}`.trim(),
+                        )
+                      }
+                    >
+                      <Icon name="plus" size={14} />
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                <p className="composer-note">
+                  Write dates as YYYY-MM-DD. Voice uses your browser’s speech
+                  service. You’ll check everything before it’s saved.
+                </p>
               </div>
-              <div className="suggestion-row" aria-label="Quick additions">
-                <span>Add:</span>
-                {suggestions.map((text) => (
-                  <button
-                    key={text}
-                    type="button"
-                    className="chip"
-                    onClick={() =>
-                      setNote((previous) =>
-                        `${previous.trim()}${previous.trim() ? ". " : ""}${text}`.trim(),
-                      )
-                    }
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-              <p className="muted">
-                Kemi recognises dates written as YYYY-MM-DD, party size,
-                interests, your base, budget and pace. Voice uses your browser’s
-                speech service. You’ll check every field next.
-              </p>
               {hasReviewed && (
                 <button
                   type="button"

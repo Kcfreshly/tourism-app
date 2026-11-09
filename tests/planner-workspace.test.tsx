@@ -81,7 +81,7 @@ afterEach(() => {
 
 it("clears only bucket selections after confirmation, supports cancel and undo, and retains the itinerary", async () => {
   const { container } = render(<Planner id="trip-test" />);
-  await screen.findByRole("heading", { name: "Your Lagos trip" });
+  await screen.findByRole("heading", { name: "My trip planner" });
   fireEvent.click(screen.getByRole("button", { name: /My Bucket 2/ }));
   const originalCount = container.querySelectorAll(".schedule-block").length;
   fireEvent.click(screen.getByRole("button", { name: "Clear bucket" }));

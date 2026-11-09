@@ -1,95 +1,158 @@
 /* ===== Planner workspace ===== */
 .planner-page {
+  --planner-line: color-mix(in srgb, var(--c-line) 75%, transparent);
+  --planner-shadow:
+    0 1px 2px rgb(22 26 51 / 4%), 0 12px 32px -18px rgb(22 26 51 / 18%);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+/* Every scrolling panel keeps a visible, quiet scrollbar. */
+.planner-page
+  :is(.library-items, .schedule-scroll, .trip-cost-body, .day-chips) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line-strong) transparent;
 }
 main:has(.planner-page) {
   max-width: 1480px;
   padding-top: var(--space-5);
   padding-bottom: var(--space-8);
 }
+/* Heading: the trip, its save state and anything to sort out on the left;
+   where to go next on the right. */
 .planner-heading {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: var(--space-3) var(--space-6);
+  align-items: center;
+  gap: var(--space-4) var(--space-6);
+}
+.planner-title {
+  min-width: 0;
 }
 .planner-heading h1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0 0 var(--space-2);
-  font-size: clamp(1.625rem, 1.2rem + 1.4vw, 2.25rem);
+  color: var(--c-clay);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
-.planner-heading .eyebrow {
-  margin-bottom: var(--space-1);
+.planner-mode {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--c-indigo-wash);
+  color: var(--c-indigo);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.planner-heading .trip-facts {
+  font-size: var(--text-sm);
+}
+.planner-heading-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3) var(--space-5);
 }
 .planner-links {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
-}
-
-/* Toolbar */
-.workspace-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-lg);
-  background: var(--c-surface);
-  box-shadow: var(--shadow-sm);
-}
-.workspace-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.workspace-actions > button {
-  min-height: 40px;
-  padding: 0 var(--space-4);
   font-size: var(--text-sm);
 }
-.workspace-actions .text-button {
-  padding: 0 var(--space-2);
+.compact-price {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-.save-button:disabled {
-  display: none;
+.compact-price > .button {
+  min-height: 44px;
+}
+
+/* Save state and issues read as one quiet line under the trip facts. */
+.planner-status {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-2);
 }
 .planner-save-state {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  margin: 0 0 0 var(--space-1);
-  padding: 4px var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--c-sunken);
+  margin: 0;
   color: var(--c-ink-2);
   font-size: var(--text-sm);
-  font-weight: 600;
   line-height: 1.35;
 }
-.planner-save-state[data-tone="ok"] {
-  background: var(--c-lagoon-soft);
+.planner-save-state .icon {
+  flex: none;
+}
+.planner-save-state[data-tone="ok"] .icon {
   color: var(--c-lagoon);
 }
 .planner-save-state[data-tone="warn"] {
-  background: var(--c-warning-soft);
   color: var(--c-warning);
+  font-weight: 600;
 }
-.compact-price {
+
+/* Tools sit beside the day ribbon, where the plan is being changed. */
+.workspace-actions {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
+  gap: var(--space-1);
 }
-.compact-price > .button {
-  min-height: 44px;
+.tool-button {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  color: var(--c-ink-2);
+}
+.tool-button:disabled {
+  opacity: 0.35;
+}
+.save-button {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+.save-button:disabled {
+  display: none;
+}
+.suggest-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--c-indigo-wash);
+  color: var(--c-indigo);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+.suggest-button:hover:not(:disabled) {
+  background: var(--c-indigo-tint);
+  color: var(--c-indigo);
+}
+.suggest-button:disabled {
+  opacity: 0.5;
 }
 
 /* Price summary */
@@ -256,139 +319,230 @@ main:has(.planner-page) {
   font-weight: 500;
 }
 
-/* Day strip */
+/* Day ribbon: the trip as one calendar strip. Each day shows its date, how
+   full it is, any dated events and whether something needs sorting out. */
 .day-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   min-width: 0;
 }
 .day-chips {
+  flex: 1;
   display: flex;
-  gap: var(--space-2);
+  gap: 2px;
+  min-width: 0;
+  padding: 5px;
   overflow-x: auto;
-  padding: 2px 2px var(--space-2);
-  scrollbar-width: thin;
+  border: 1px solid var(--planner-line);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    180deg,
+    var(--c-indigo-wash),
+    color-mix(in srgb, var(--c-indigo-wash) 30%, var(--c-surface))
+  );
+  box-shadow: var(--planner-shadow);
 }
-.day-chips button {
-  flex: none;
+.day-cell {
+  position: relative;
+  flex: 1 0 76px;
   display: grid;
-  grid-template-columns: auto auto;
-  justify-items: start;
-  align-items: center;
-  gap: 0 var(--space-2);
-  min-width: 112px;
-  min-height: 52px;
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--c-line-strong);
-  border-radius: var(--radius-md);
-  background: var(--c-surface);
+  justify-items: center;
+  gap: 2px;
+  min-height: 0;
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-radius: calc(var(--radius-xl) - 5px);
+  background: transparent;
   color: var(--c-ink);
-  text-align: left;
+  font-weight: 400;
+  line-height: 1.1;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
-.day-chips button:hover {
+.day-cell + .day-cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  border-left: 1px solid var(--c-line);
+}
+.day-cell[aria-pressed="true"]::before,
+.day-cell[aria-pressed="true"] + .day-cell::before {
+  display: none;
+}
+.day-cell:hover {
   background: var(--c-indigo-wash);
-  border-color: var(--c-indigo);
   color: var(--c-ink);
 }
-.day-chips button[aria-pressed="true"] {
+.day-cell[aria-pressed="true"] {
   background: var(--c-ink);
-  border-color: var(--c-ink);
   color: #fff;
+  box-shadow: 0 8px 18px -10px rgb(22 26 51 / 70%);
+}
+.day-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
 }
 .day-number {
-  grid-column: 1;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.day-weekday {
+  color: var(--c-ink-3);
   font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--c-ink-3);
-  text-transform: uppercase;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .day-date {
-  grid-column: 1;
-  font-weight: 700;
-  font-size: var(--text-sm);
-}
-.day-chips button[aria-pressed="true"] .day-number {
-  color: var(--c-danfo);
-}
-.day-chips b,
-.day-count {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  justify-self: end;
-}
-.day-chips b {
-  padding: 1px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--c-clay);
-  color: #fff;
-  font-size: var(--text-xs);
-}
-.day-count {
-  display: grid;
-  grid-template-columns: repeat(2, 6px);
+  display: flex;
+  align-items: baseline;
   gap: 3px;
 }
-.day-count i {
+.day-date strong {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  letter-spacing: -0.02em;
+}
+.day-date span {
+  display: none;
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.day-date span[data-month] {
+  display: inline;
+}
+.day-cell[aria-pressed="true"] .day-weekday,
+.day-cell[aria-pressed="true"] .day-date span {
+  color: var(--c-danfo);
+}
+/* How full the day is: one bar per planned item, all clay for a full day. */
+.day-load {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+.day-load i {
+  width: 9px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c-line);
+}
+.day-load i[data-on] {
+  background: var(--c-indigo);
+}
+.day-load[data-full] i {
+  background: var(--c-clay);
+}
+.day-cell[aria-pressed="true"] .day-load i {
+  background: rgb(255 255 255 / 22%);
+}
+.day-cell[aria-pressed="true"] .day-load i[data-on] {
+  background: var(--c-danfo);
+}
+/* Beside the weekday: a dot when something needs sorting out, and a clay
+   count of dated events. */
+.day-issue {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--c-indigo);
-}
-.day-chips button[aria-pressed="true"] .day-count i {
   background: var(--c-danfo);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-danfo) 25%, transparent);
+}
+.day-events {
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--c-clay);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.day-cell[aria-pressed="true"] .day-events {
+  background: var(--c-danfo);
+  color: var(--c-ink);
 }
 .day-chips [data-drop="valid"] {
-  border-color: var(--c-lagoon);
-  box-shadow: 0 0 0 2px var(--c-lagoon-soft);
+  background: var(--c-lagoon-soft);
+  box-shadow: inset 0 0 0 2px var(--c-lagoon);
 }
 .day-chips [data-drop="invalid"] {
-  opacity: 0.55;
+  opacity: 0.45;
+}
+.day-strip .workspace-actions {
+  margin-left: auto;
 }
 
-/* Validation */
+/* Issues: a small pill on the status line that opens a list. */
 .planner-validation {
-  border: 1px solid color-mix(in srgb, var(--c-warning) 25%, transparent);
-  border-radius: var(--radius-md);
-  background: var(--c-warning-soft);
-  color: var(--c-warning);
+  position: relative;
   font-size: var(--text-sm);
 }
-.planner-validation[data-blocking="false"] {
-  border-color: var(--c-line);
-  background: var(--c-surface);
-  color: var(--c-ink-2);
-}
 .planner-validation summary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  min-height: 40px;
-  padding: 0 var(--space-4);
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--c-warning-soft);
+  color: var(--c-warning);
   font-weight: 700;
   cursor: pointer;
   list-style: none;
+}
+.planner-validation[data-blocking="false"] summary {
+  background: var(--c-sunken);
+  color: var(--c-ink-2);
 }
 .planner-validation summary::-webkit-details-marker {
   display: none;
 }
 .planner-validation summary .icon:last-child {
-  margin-left: auto;
   transition: transform var(--dur-fast) var(--ease);
 }
 .planner-validation[open] summary .icon:last-child {
   transform: rotate(180deg);
 }
 .planner-validation ul {
+  position: absolute;
+  left: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 30;
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  width: min(440px, calc(100vw - 32px));
   margin: 0;
-  padding: 0 var(--space-4) var(--space-3) calc(var(--space-4) + 24px);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-8);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-lg);
   color: var(--c-ink);
+  animation: pop var(--dur-fast) var(--ease);
 }
 .planner-validation li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+  padding-left: var(--space-1);
+}
+.planner-validation li::marker {
+  color: var(--c-warning);
+}
+.planner-validation li .text-button {
+  margin-left: var(--space-2);
 }
 
 /* Split workspace */
@@ -406,10 +560,10 @@ main:has(.planner-page) {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--planner-line);
+  border-radius: var(--radius-xl);
   background: var(--c-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--planner-shadow);
   overflow: hidden;
 }
 .workspace-divider {
@@ -422,9 +576,9 @@ main:has(.planner-page) {
 .workspace-divider span {
   display: block;
   width: 4px;
-  height: 48px;
+  height: 40px;
   border-radius: 2px;
-  background: var(--c-line-strong);
+  background: var(--c-line);
   color: transparent;
   font-size: 0;
   transition:
@@ -468,8 +622,19 @@ main:has(.planner-page) {
 .library-controls {
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-3);
-  border-bottom: 1px solid var(--c-line);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--planner-line);
+}
+.library-tabs .segmented {
+  border-color: transparent;
+  background: var(--c-indigo-wash);
+}
+.library-tabs .segmented button[aria-pressed="true"] {
+  color: var(--c-indigo);
+  font-weight: 700;
+  box-shadow:
+    0 1px 2px rgb(22 26 51 / 8%),
+    0 2px 8px -2px rgb(22 26 51 / 10%);
 }
 .library-tabs {
   display: flex;
@@ -487,6 +652,7 @@ main:has(.planner-page) {
 .shuffle-button {
   min-height: 40px;
   padding: 0 var(--space-3);
+  border-color: var(--planner-line);
   font-size: var(--text-sm);
 }
 .library-filters {
@@ -497,7 +663,13 @@ main:has(.planner-page) {
 .library-filters input,
 .library-filters select {
   min-height: 40px;
+  border-color: var(--planner-line);
+  background-color: var(--c-paper);
   font-size: var(--text-sm);
+}
+.library-filters input:focus,
+.library-filters select:focus {
+  background-color: var(--c-surface);
 }
 .library-filters select {
   border-radius: var(--radius-pill);
@@ -535,9 +707,9 @@ main:has(.planner-page) {
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: max-content;
   align-content: start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--c-paper);
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--c-surface);
 }
 @container (min-width: 620px) {
   .library-items > .planner-activity-card {
@@ -575,10 +747,11 @@ main:has(.planner-page) {
     "pic actions";
   gap: var(--space-2) var(--space-3);
   padding: var(--space-2);
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
   background: var(--c-surface);
   transition:
+    background var(--dur-fast) var(--ease),
     border-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease);
 }
@@ -589,11 +762,11 @@ main:has(.planner-page) {
   cursor: grabbing;
 }
 .planner-activity-card:hover {
-  border-color: var(--c-line-strong);
-  box-shadow: var(--shadow-md);
+  border-color: var(--planner-line);
+  box-shadow: var(--planner-shadow);
 }
 .planner-activity-card[data-saved="true"] {
-  border-color: color-mix(in srgb, var(--c-danfo) 60%, var(--c-line));
+  background: color-mix(in srgb, var(--c-danfo-soft) 35%, var(--c-surface));
 }
 .planner-activity-card[data-available="false"] {
   background: var(--c-paper);
@@ -606,7 +779,7 @@ main:has(.planner-page) {
   grid-area: pic;
   align-self: stretch;
   min-height: 92px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--c-sunken);
 }
@@ -683,11 +856,11 @@ main:has(.planner-page) {
   visibility: hidden;
 }
 .activity-card-actions .bucket-button--icon {
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
   padding: 0;
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--planner-line);
   background: var(--c-surface);
   color: var(--c-ink-2);
 }
@@ -697,10 +870,18 @@ main:has(.planner-page) {
   color: var(--c-ink);
 }
 .add-to-day {
-  min-height: 36px;
+  min-height: 34px;
   margin-left: auto;
   padding: 0 var(--space-4);
+  border: 0;
+  background: var(--c-indigo-wash);
+  color: var(--c-indigo);
   font-size: var(--text-sm);
+  font-weight: 700;
+}
+.add-to-day:hover:not(:disabled) {
+  background: var(--c-indigo);
+  color: #fff;
 }
 
 /* Schedule */
@@ -713,12 +894,12 @@ main:has(.planner-page) {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--c-line);
+  padding: var(--space-4) var(--space-5) var(--space-2);
 }
 .schedule-heading h2 {
   margin: 0;
   font-size: var(--text-xl);
+  letter-spacing: -0.015em;
 }
 .schedule-heading span {
   color: var(--c-ink-3);
@@ -726,6 +907,7 @@ main:has(.planner-page) {
 }
 .schedule-heading .secondary {
   min-height: 38px;
+  border-color: var(--planner-line);
   font-size: var(--text-sm);
 }
 .day-full-banner {
@@ -743,20 +925,18 @@ main:has(.planner-page) {
 }
 .schedule-feedback {
   min-height: 34px;
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--c-line);
-  background: var(--c-paper);
+  margin: 0 var(--space-5);
+  padding: var(--space-1) 0 var(--space-3);
+  border-bottom: 1px solid var(--planner-line);
   color: var(--c-ink-3);
   font-size: var(--text-xs);
   transition: background var(--dur-fast) var(--ease);
 }
 .schedule-feedback[data-state="valid"] {
-  background: var(--c-lagoon-soft);
   color: var(--c-lagoon);
   font-weight: 700;
 }
 .schedule-feedback[data-state="invalid"] {
-  background: var(--c-danger-soft);
   color: var(--c-danger);
   font-weight: 700;
 }
@@ -782,10 +962,10 @@ main:has(.planner-page) {
   border-top: 1px dashed transparent;
 }
 .time-slot.hour-slot {
-  border-top: 1px solid var(--c-line);
+  border-top: 1px solid var(--planner-line);
 }
 .time-slot:nth-child(4n + 3) {
-  border-top-color: color-mix(in srgb, var(--c-line) 55%, transparent);
+  border-top-color: color-mix(in srgb, var(--c-line) 35%, transparent);
 }
 .time-label {
   position: absolute;
@@ -839,18 +1019,19 @@ main:has(.planner-page) {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  border: 1px solid color-mix(in srgb, var(--block-accent) 22%, transparent);
-  border-left: 4px solid var(--block-accent);
+  border: 1px solid color-mix(in srgb, var(--block-accent) 14%, transparent);
   border-radius: var(--radius-md);
   background: var(--block-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 4px 0 0 var(--block-accent);
   overflow: hidden;
   transition: box-shadow var(--dur-fast) var(--ease);
 }
 .schedule-block:hover,
 .schedule-block:focus-within {
   z-index: 3;
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    inset 4px 0 0 var(--block-accent),
+    var(--planner-shadow);
 }
 .schedule-block[data-type="fixed"] {
   --block-accent: var(--c-clay);
@@ -1147,9 +1328,6 @@ main:has(.planner-page) {
   .compact-price {
     margin-left: 0;
   }
-  .workspace-toolbar {
-    justify-content: flex-start;
-  }
 }
 @media (max-width: 900px) {
   .reset-layout {
@@ -1163,8 +1341,9 @@ main:has(.planner-page) {
     padding: 3px;
     gap: 2px;
     border-radius: var(--radius-pill);
-    background: var(--c-sunken);
-    border: 1px solid var(--c-line);
+    background: var(--c-indigo-wash);
+    border: 1px solid transparent;
+    box-shadow: 0 0 0 4px var(--c-paper);
   }
   .workspace-tabs button {
     flex: 1;
@@ -1176,7 +1355,8 @@ main:has(.planner-page) {
   }
   .workspace-tabs button[aria-pressed="true"] {
     background: var(--c-surface);
-    color: var(--c-ink);
+    color: var(--c-indigo);
+    font-weight: 700;
     box-shadow: var(--shadow-sm);
   }
   .planner-workspace {
@@ -1199,6 +1379,24 @@ main:has(.planner-page) {
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 760px) {
+  .day-strip {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .day-chips {
+    flex: 1 1 100%;
+  }
+  .day-cell {
+    flex-basis: 64px;
+  }
+  .day-strip .workspace-actions {
+    margin-left: 0;
+  }
+  .planner-heading-side {
+    justify-content: flex-start;
+  }
+}
 @media (max-width: 600px) {
   .planner-page {
     gap: var(--space-3);
@@ -1207,13 +1405,6 @@ main:has(.planner-page) {
     align-items: flex-start;
     gap: var(--space-2);
   }
-  .planner-heading .eyebrow {
-    display: none;
-  }
-  .planner-heading h1 {
-    margin-bottom: var(--space-1);
-    font-size: 1.5rem;
-  }
   .planner-heading .trip-facts {
     font-size: var(--text-xs);
     gap: 2px var(--space-3);
@@ -1221,24 +1412,6 @@ main:has(.planner-page) {
   .planner-links {
     gap: var(--space-4);
     font-size: var(--text-sm);
-  }
-  .day-chips button {
-    min-height: 46px;
-  }
-  .workspace-toolbar {
-    padding: var(--space-2);
-    gap: var(--space-2);
-  }
-  .workspace-actions {
-    width: 100%;
-  }
-  .workspace-actions > button {
-    padding: 0 var(--space-3);
-  }
-  .planner-save-state {
-    order: 5;
-    width: 100%;
-    margin: 0;
   }
   .compact-price {
     width: 100%;
@@ -1252,9 +1425,6 @@ main:has(.planner-page) {
     right: var(--space-4);
     top: auto;
     width: auto;
-  }
-  .day-chips button {
-    min-width: 96px;
   }
   .schedule-heading {
     padding: var(--space-3);
@@ -1296,19 +1466,6 @@ main:has(.planner-page) {
 .activity-unavailable {
   flex-wrap: wrap;
 }
-.day-events {
-  grid-column: 1 / span 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--c-clay);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-.day-chips button[aria-pressed="true"] .day-events {
-  color: var(--c-danfo);
-}
-
 /* Trip cost panel beside the workspace. The panel takes a fixed column so the
    day timeline is narrower; below 1200px it moves under the workspace. */
 .planner-with-cost {
@@ -1357,16 +1514,22 @@ main:has(.planner-page) {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--planner-line, var(--c-line));
+  border-radius: var(--radius-xl);
   background: var(--c-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--planner-shadow, var(--shadow-sm));
+  overflow: hidden;
 }
 .trip-cost-head {
   display: grid;
   gap: var(--space-1);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--c-line);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  background: linear-gradient(
+    180deg,
+    var(--c-indigo-wash),
+    color-mix(in srgb, var(--c-indigo-wash) 30%, var(--c-surface))
+  );
+  border-bottom: 1px solid var(--planner-line, var(--c-line));
 }
 .trip-cost-head .eyebrow {
   margin: 0;
@@ -1406,7 +1569,7 @@ main:has(.planner-page) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-2) var(--space-4) var(--space-4);
+  padding: var(--space-2) var(--space-5) var(--space-4);
 }
 .trip-cost-days {
   display: grid;
@@ -1415,7 +1578,7 @@ main:has(.planner-page) {
   list-style: none;
 }
 .trip-cost-days > li {
-  border-bottom: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--planner-line, var(--c-line));
 }
 .trip-cost-days summary {
   display: grid;
@@ -1527,8 +1690,8 @@ main:has(.planner-page) {
   margin-top: 1px;
 }
 .trip-cost-foot {
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  border-top: 1px solid var(--c-line);
+  padding: var(--space-3) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--planner-line, var(--c-line));
 }
 .checkout-button {
   width: 100%;

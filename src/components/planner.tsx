@@ -633,6 +633,15 @@ export default function Planner({
     `Day ${days.indexOf(date) + 1} · ${shortDate(date)}`;
   const issues = price ? [...price.blockers, ...price.warnings] : [];
   const tone = statusTone(status, blocked);
+  // Days with something to sort out, marked on the day ribbon.
+  const issueDays = new Set(
+    issues.flatMap((issue) => {
+      const date =
+        items.find((item) => item.id === issue.itemId)?.localDate ??
+        /^(\d{4}-\d{2}-\d{2}):/.exec(issue.message)?.[1];
+      return date ? [date] : [];
+    }),
+  );
   const modes = guideModes ?? {
     activity: services.guideItemIds.length > 0,
     fullDay: services.guideDays.length > 0,
@@ -930,11 +939,11 @@ export default function Planner({
   return (
     <section className="planner-page planner-refined">
       <header className="planner-heading">
-        <div>
-          <p className="eyebrow">
-            {servicesOnly ? "Services" : "Trip planner"}
-          </p>
-          <h1>{trip.profile.draftName || "Your Lagos trip"}</h1>
+        <div className="planner-title">
+          <h1>
+            My trip planner
+            {servicesOnly && <span className="planner-mode">Services</span>}
+          </h1>
           <ul className="trip-facts">
             <li>
               <Icon name="calendar" size={15} />
@@ -953,22 +962,214 @@ export default function Planner({
                   : "Base not set")}
             </li>
           </ul>
+          <div className="planner-status">
+            <p
+              className="planner-save-state"
+              role="status"
+              aria-live="polite"
+              data-tone={tone}
+            >
+              <Icon
+                name={
+                  tone === "ok" ? "check" : tone === "warn" ? "alert" : "clock"
+                }
+                size={14}
+              />
+              {status}
+            </p>
+            {issues.length > 0 && (
+              <details
+                className="planner-validation"
+                data-blocking={!!price?.blockers.length}
+              >
+                <summary>
+                  <Icon name="alert" size={14} />
+                  {price?.blockers.length
+                    ? `${price.blockers.length} ${price.blockers.length === 1 ? "thing" : "things"} to sort out before booking`
+                    : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
+                  <Icon name="chevronDown" size={14} />
+                </summary>
+                <ul>
+                  {issues.map((issue, index) => {
+                    const target = items.find(
+                      (item) => item.id === issue.itemId,
+                    );
+                    return (
+                      <li key={index}>
+                        {friendlyIssue(issue.message, days)}
+                        {target && target.localDate !== day && (
+                          <button
+                            className="text-button"
+                            onClick={() => setDay(target.localDate)}
+                          >
+                            Show {dayLabel(target.localDate)}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            )}
+          </div>
         </div>
-        <nav className="planner-links" aria-label="Trip">
-          <Link className="text-link" href={`/trips/${id}/profile`}>
-            <Icon name="edit" size={16} />
-            Edit trip profile
-          </Link>
-          <Link className="text-link" href={`/trips/${id}/today`}>
-            <Icon name="sun" size={16} />
-            Day view
-          </Link>
-        </nav>
+        <div className="planner-heading-side">
+          <nav className="planner-links" aria-label="Trip">
+            <Link className="text-link" href={`/trips/${id}/profile`}>
+              <Icon name="edit" size={16} />
+              Edit trip profile
+            </Link>
+            <Link className="text-link" href={`/trips/${id}/today`}>
+              <Icon name="sun" size={16} />
+              Day view
+            </Link>
+          </nav>
+          <div className="compact-price">
+            {priceSummary}
+            <Link
+              className={servicesOnly ? "button secondary" : "button"}
+              href={`/trips/${id}/${servicesOnly ? "plan" : "services"}`}
+            >
+              {servicesOnly ? "Back to planner" : "Review services"}
+              {!servicesOnly && <Icon name="arrowRight" size={16} />}
+            </Link>
+          </div>
+        </div>
       </header>
-      <div className="workspace-toolbar">
-        <div className="workspace-actions">
+      <div className="day-strip">
+        <div className="day-chips compact-days" aria-label="Trip days">
+          {days.map((date, index) => {
+            const count = items.filter(
+              (item) => item.localDate === date,
+            ).length;
+            const full = items.some(
+              (item) =>
+                item.localDate === date &&
+                offers.find((e) => e.offer.id === item.offerId)?.kind ===
+                  "FULL_DAY",
+            );
+            const events = offers.filter(
+              (e) => eventDates(e, date, date).length,
+            ).length;
+            const part = (option: Intl.DateTimeFormatOptions) =>
+              new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
+                ...option,
+                timeZone: "UTC",
+              });
+            // The month shows where the trip starts and where it turns over.
+            const month =
+              index === 0 || date.slice(5, 7) !== days[index - 1].slice(5, 7);
+            return (
+              <button
+                key={date}
+                className="day-cell"
+                title={`Day ${index + 1} · ${part({ weekday: "long", day: "numeric", month: "long" })}`}
+                aria-pressed={date === day}
+                onClick={() => setDay(date)}
+                disabled={busy}
+                data-drop={
+                  dragging?.kind === "item"
+                    ? (() => {
+                        const existing = items.find(
+                          (item) => item.id === dragging.id,
+                        );
+                        const candidate =
+                          existing &&
+                          candidateAt(
+                            dragging,
+                            minutes(existing.startTime),
+                            date,
+                          );
+                        return candidate &&
+                          !placementIssues(
+                            trip.profile,
+                            [
+                              ...items.filter((i) => i.id !== candidate.id),
+                              candidate,
+                            ],
+                            services,
+                            offers,
+                          ).length
+                          ? "valid"
+                          : "invalid";
+                      })()
+                    : undefined
+                }
+                onDragOver={(event) => {
+                  if (dragging) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (dragging?.kind === "item") {
+                    const existing = items.find(
+                      (item) => item.id === dragging.id,
+                    );
+                    if (existing) {
+                      const candidate = candidateAt(
+                        dragging,
+                        minutes(existing.startTime),
+                        date,
+                      );
+                      if (candidate) commitCandidate(candidate);
+                      else
+                        setStatus(
+                          "Choose a valid alternative session using Edit.",
+                        );
+                    }
+                  }
+                  setDragging(null);
+                }}
+              >
+                <span className="day-number">Day {index + 1}</span>
+                <span className="day-top" aria-hidden="true">
+                  <span className="day-weekday">
+                    {part({ weekday: "short" })}
+                  </span>
+                  {issueDays.has(date) && <i className="day-issue" />}
+                  {events > 0 && <b className="day-events">{events}</b>}
+                </span>
+                <span className="day-date">
+                  <strong>{part({ day: "numeric" })}</strong>
+                  <span data-month={month || undefined}>
+                    {part({ month: "short" })}
+                  </span>
+                </span>
+                <span
+                  className="day-load"
+                  data-full={full || undefined}
+                  aria-hidden="true"
+                >
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <i key={i} data-on={full || i < count || undefined} />
+                  ))}
+                </span>
+                <span className="sr-only">
+                  {full ? "Full day" : `${count} planned`}
+                </span>
+                {issueDays.has(date) && (
+                  <span className="sr-only">Something to sort out</span>
+                )}
+                {events > 0 && (
+                  <span className="sr-only">
+                    {events} {events === 1 ? "event" : "events"}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div
+          className="workspace-actions"
+          role="toolbar"
+          aria-label="Plan tools"
+        >
           <button
-            className="secondary"
+            className="icon-button tool-button"
+            aria-label="Undo"
+            title="Undo"
             disabled={busy || !past.length}
             onClick={() => {
               const previous = past.at(-1)!;
@@ -981,18 +1182,16 @@ export default function Planner({
               setStatus("Undo restored. Saving...");
             }}
           >
-            <Icon name="undo" size={16} />
-            Undo
+            <Icon name="undo" size={18} />
           </button>
           {!servicesOnly && (
             <button
-              className="secondary"
-              disabled={busy || dirty}
-              onClick={generate}
-              title="Kemi drafts a plan from your bucket. You review every change first."
+              className="icon-button tool-button reset-layout"
+              aria-label="Reset layout"
+              title="Reset layout"
+              onClick={() => setLayoutReset((n) => n + 1)}
             >
-              <Icon name="sparkle" size={16} />
-              Suggest a plan
+              <Icon name="layout" size={18} />
             </button>
           )}
           <button
@@ -1004,37 +1203,15 @@ export default function Planner({
           </button>
           {!servicesOnly && (
             <button
-              className="text-button reset-layout"
-              onClick={() => setLayoutReset((n) => n + 1)}
+              className="suggest-button"
+              disabled={busy || dirty}
+              onClick={generate}
+              title="Kemi drafts a plan from your bucket. You review every change first."
             >
-              <Icon name="layout" size={16} />
-              Reset layout
+              <Icon name="sparkle" size={16} />
+              Suggest a plan
             </button>
           )}
-          <p
-            className="planner-save-state"
-            role="status"
-            aria-live="polite"
-            data-tone={tone}
-          >
-            <Icon
-              name={
-                tone === "ok" ? "check" : tone === "warn" ? "alert" : "clock"
-              }
-              size={15}
-            />
-            {status}
-          </p>
-        </div>
-        <div className="compact-price">
-          {priceSummary}
-          <Link
-            className={servicesOnly ? "button secondary" : "button"}
-            href={`/trips/${id}/${servicesOnly ? "plan" : "services"}`}
-          >
-            {servicesOnly ? "Back to planner" : "Review services"}
-            {!servicesOnly && <Icon name="arrowRight" size={16} />}
-          </Link>
         </div>
       </div>
       {blocked && (
@@ -1174,144 +1351,6 @@ export default function Planner({
             </button>
           </div>
         </div>
-      )}
-      <div className="day-strip">
-        <div className="day-chips compact-days" aria-label="Trip days">
-          {days.map((date, index) => {
-            const count = items.filter(
-              (item) => item.localDate === date,
-            ).length;
-            const full = items.some(
-              (item) =>
-                item.localDate === date &&
-                offers.find((e) => e.offer.id === item.offerId)?.kind ===
-                  "FULL_DAY",
-            );
-            const events = offers.filter(
-              (e) => eventDates(e, date, date).length,
-            ).length;
-            return (
-              <button
-                key={date}
-                aria-pressed={date === day}
-                onClick={() => setDay(date)}
-                disabled={busy}
-                data-drop={
-                  dragging?.kind === "item"
-                    ? (() => {
-                        const existing = items.find(
-                          (item) => item.id === dragging.id,
-                        );
-                        const candidate =
-                          existing &&
-                          candidateAt(
-                            dragging,
-                            minutes(existing.startTime),
-                            date,
-                          );
-                        return candidate &&
-                          !placementIssues(
-                            trip.profile,
-                            [
-                              ...items.filter((i) => i.id !== candidate.id),
-                              candidate,
-                            ],
-                            services,
-                            offers,
-                          ).length
-                          ? "valid"
-                          : "invalid";
-                      })()
-                    : undefined
-                }
-                onDragOver={(event) => {
-                  if (dragging) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  if (dragging?.kind === "item") {
-                    const existing = items.find(
-                      (item) => item.id === dragging.id,
-                    );
-                    if (existing) {
-                      const candidate = candidateAt(
-                        dragging,
-                        minutes(existing.startTime),
-                        date,
-                      );
-                      if (candidate) commitCandidate(candidate);
-                      else
-                        setStatus(
-                          "Choose a valid alternative session using Edit.",
-                        );
-                    }
-                  }
-                  setDragging(null);
-                }}
-              >
-                <span className="day-number">Day {index + 1}</span>
-                <span className="day-date">
-                  {new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    timeZone: "UTC",
-                  })}
-                </span>
-                {full ? (
-                  <b>Full</b>
-                ) : (
-                  <span className="day-count" aria-label={`${count} planned`}>
-                    {Array.from({ length: Math.min(count, 4) }, (_, i) => (
-                      <i key={i} />
-                    ))}
-                  </span>
-                )}
-                {events > 0 && (
-                  <span className="day-events">
-                    <Icon name="calendar" size={12} />
-                    {events} {events === 1 ? "event" : "events"}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      {issues.length > 0 && (
-        <details
-          className="planner-validation"
-          data-blocking={!!price?.blockers.length}
-        >
-          <summary>
-            <Icon name="alert" size={16} />
-            {price?.blockers.length
-              ? `${price.blockers.length} ${price.blockers.length === 1 ? "thing" : "things"} to sort out before booking`
-              : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
-            <Icon name="chevronDown" size={16} />
-          </summary>
-          <ul>
-            {issues.map((issue, index) => {
-              const target = items.find((item) => item.id === issue.itemId);
-              return (
-                <li key={index}>
-                  {friendlyIssue(issue.message, days)}
-                  {target && target.localDate !== day && (
-                    <button
-                      className="text-button"
-                      onClick={() => setDay(target.localDate)}
-                    >
-                      Show {dayLabel(target.localDate)}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
       )}
       <div className="planner-with-cost" data-services={servicesOnly}>
         {servicesOnly ? (

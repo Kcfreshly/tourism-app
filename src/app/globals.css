@@ -1573,45 +1573,84 @@ body:has(.planner-page) .site-header-inner {
   display: grid;
   gap: var(--space-6);
 }
+/* How to share details: a clear two-way switch, like the planner's
+   My Bucket / All Experiences. */
 .method-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  justify-self: start;
+  max-width: 100%;
+  padding: 4px;
+  border-color: transparent;
+  background: var(--c-indigo-wash);
 }
 .method-switch button {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  display: inline-flex;
   align-items: center;
-  justify-items: start;
-  gap: 2px var(--space-3);
-  min-height: 72px;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--c-line-strong);
-  border-radius: var(--radius-lg);
-  background: var(--c-surface);
-  color: var(--c-ink);
-  text-align: left;
-}
-.method-switch button > .icon {
-  grid-row: span 2;
-  color: var(--c-indigo);
-}
-.method-switch button small {
-  color: var(--c-ink-2);
-  font-weight: 500;
-}
-.method-switch button:hover {
-  background: var(--c-indigo-wash);
-  border-color: var(--c-indigo);
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  font-weight: 600;
 }
 .method-switch button[aria-pressed="true"] {
-  border-color: var(--c-indigo);
-  background: var(--c-indigo-wash);
-  box-shadow: inset 0 0 0 1px var(--c-indigo);
+  color: var(--c-indigo);
+  font-weight: 700;
+  box-shadow:
+    0 1px 2px rgb(22 26 51 / 8%),
+    0 2px 8px -2px rgb(22 26 51 / 12%);
+}
+
+/* Chat mode reads like a chat: a centred column, Kemi's message, then the
+   composer with voice and send inside it. */
+.intake-page[data-chat]:not(.intake-page--embedded) {
+  max-width: 720px;
+  padding-top: var(--space-4);
+}
+/* Steps shrink to a quiet line; Kemi's question replaces the intro. */
+.intake-page[data-chat] .journey-steps {
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+.intake-page[data-chat] .journey-steps li {
+  padding: 0;
+  background: none;
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+}
+.intake-page[data-chat] .journey-steps li::before {
+  width: 18px;
+  height: 18px;
+  background: var(--c-sunken);
+  font-size: 0.625rem;
+}
+.intake-page[data-chat] .journey-steps li[aria-current="step"] {
+  color: var(--c-ink);
+}
+.intake-page[data-chat] .intake-heading {
+  margin-bottom: var(--space-4);
+  text-align: center;
+}
+.intake-page[data-chat] .intake-heading .eyebrow,
+.intake-page[data-chat] .intake-heading .lede {
+  display: none;
+}
+.intake-page[data-chat]:not(.intake-page--embedded) .intake-heading h1 {
+  font-size: clamp(1.625rem, 1.2rem + 1.4vw, 2.125rem);
+}
+.intake-page[data-chat] .intake-workspace {
+  gap: var(--space-8);
+}
+.intake-page[data-chat] .method-switch {
+  justify-self: center;
+  padding: 3px;
+}
+.intake-page[data-chat] .method-switch button {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
 }
 .kemi-conversation {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 .kemi-message {
   display: flex;
@@ -1633,38 +1672,79 @@ body:has(.planner-page) .site-header-inner {
   margin: 0;
   color: var(--c-ink-2);
 }
+/* In the chat, Kemi speaks as plain text beside a small avatar. */
+.kemi-conversation .kemi-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 55%);
+}
+.kemi-conversation .kemi-bubble {
+  padding: 6px 0 0;
+  border: 0;
+  background: none;
+}
+.kemi-conversation .kemi-bubble h2 {
+  font-size: var(--text-md);
+}
 .composer {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 .composer-box {
-  position: relative;
-  border: 1px solid var(--c-line-strong);
-  border-radius: var(--radius-lg);
+  display: grid;
+  padding: var(--space-2);
+  border: 1px solid var(--c-line);
+  border-radius: 28px;
   background: var(--c-surface);
+  box-shadow:
+    0 1px 2px rgb(22 26 51 / 5%),
+    0 14px 36px -18px rgb(22 26 51 / 22%);
   transition:
     border-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease);
 }
 .composer-box:focus-within {
-  border-color: var(--c-indigo);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-indigo) 22%, transparent);
+  border-color: color-mix(in srgb, var(--c-indigo) 45%, var(--c-line));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--c-indigo) 12%, transparent),
+    0 14px 36px -18px rgb(22 26 51 / 22%);
 }
 .composer-box textarea {
-  min-height: 112px;
+  min-height: 64px;
+  max-height: 40vh;
+  padding: var(--space-3) var(--space-4) var(--space-2);
   border: 0 !important;
+  border-radius: 20px;
+  background: transparent;
   box-shadow: none !important;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: var(--space-4);
+  font-size: var(--text-md);
+  resize: none;
 }
 .composer-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-  border-top: 1px solid var(--c-line);
+  min-width: 0;
+  padding: 0 2px 0 var(--space-1);
+}
+.voice-button {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--c-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.voice-button:hover:not(:disabled) {
+  background: var(--c-indigo-wash);
+  color: var(--c-indigo);
 }
 .voice-button[aria-pressed="true"] {
   background: var(--c-danger-soft);
@@ -1679,20 +1759,79 @@ body:has(.planner-page) .site-header-inner {
     opacity: 0.35;
   }
 }
+.composer-keys {
+  flex: 1;
+  min-width: 0;
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+  text-align: right;
+}
+.composer-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c-ink);
+  color: #fff;
+}
+.composer-send:hover:not(:disabled) {
+  background: var(--c-indigo);
+}
+.composer-send:disabled {
+  background: var(--c-line);
+  color: var(--c-ink-3);
+  opacity: 1;
+}
+.composer-note {
+  margin: 0;
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+  text-align: center;
+}
 .suggestion-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
 }
-.suggestion-row > span {
-  color: var(--c-ink-3);
-  font-size: var(--text-xs);
-  font-weight: 600;
+.intake-page[data-chat] .suggestion-row {
+  justify-content: center;
+  gap: 6px;
 }
 .suggestion-row .chip {
-  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  border-color: var(--c-line);
+  background: var(--c-surface);
+  color: var(--c-ink-2);
   font-weight: 500;
+}
+.suggestion-row .chip .icon {
+  color: var(--c-ink-3);
+}
+.suggestion-row .chip:hover {
+  border-color: var(--c-indigo);
+  color: var(--c-indigo);
+}
+@media (max-width: 600px) {
+  .method-switch {
+    justify-self: stretch;
+  }
+  .method-switch button {
+    flex: 1;
+    justify-content: center;
+    padding: 0 var(--space-3);
+  }
 }
 .intake-form {
   display: grid;
@@ -2493,7 +2632,6 @@ main:has(.pocket) {
   }
   .fact-grid,
   .inclusion-columns,
-  .method-switch,
   .next-step-grid {
     grid-template-columns: 1fr;
   }
