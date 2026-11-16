@@ -53,6 +53,7 @@ browser components and hooks can import module domain code only.
 | trips     | Trip profile, itinerary, services, pricing, intake, proposals             |
 | bucket    | Saved activities per account                                              |
 | audit     | Audit event table, written by other modules inside their transactions     |
+| kemi      | BFF proxy to the Kemi service (`services/kemi`), behind `KEMI_ENABLED`    |
 
 Cross-module needs go through a port owned by the consuming module (for
 example `trips/application/ports/offer-catalogue.ts`), wired up in the

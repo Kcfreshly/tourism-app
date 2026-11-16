@@ -17,7 +17,7 @@ Work top to bottom. Write the test or eval case before the code. Every acceptanc
 
 ## Acceptance criteria coverage
 
-| AC | Tasks | Verified by |
-|---|---|---|
-| AC-1 | 1, 2 | `tests/unit/...` |
-| AC-2 | 2, 3 | `tests/integration/...` |
+| AC   | Tasks | Verified by             |
+| ---- | ----- | ----------------------- |
+| AC-1 | 1, 2  | `tests/unit/...`        |
+| AC-2 | 2, 3  | `tests/integration/...` |

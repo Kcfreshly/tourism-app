@@ -28,9 +28,9 @@ Phase: <0–6> · Owner: <name> · Related: <spec / ADR links>
 
 ## Model behaviour thresholds (if this spec involves an LLM)
 
-| Metric | Eval suite | Threshold |
-|---|---|---|
-| <e.g. field accuracy> | <evals/datasets/...> | <≥ 95%> |
+| Metric                | Eval suite           | Threshold |
+| --------------------- | -------------------- | --------- |
+| <e.g. field accuracy> | <evals/datasets/...> | <≥ 95%>   |
 
 ## Constraints
 

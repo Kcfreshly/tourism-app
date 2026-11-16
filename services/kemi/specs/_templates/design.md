@@ -9,8 +9,8 @@ Implements: [requirements.md](requirements.md) · ADRs: <links>
 
 ## Modules touched
 
-| Module | Layer | Change |
-|---|---|---|
+| Module        | Layer                                                  | Change         |
+| ------------- | ------------------------------------------------------ | -------------- |
 | <e.g. memory> | <domain / application / infrastructure / presentation> | <what changes> |
 
 ## Contracts
@@ -39,8 +39,8 @@ sequenceDiagram
 
 ## Failure modes
 
-| Failure | Behaviour |
-|---|---|
+| Failure            | Behaviour                    |
+| ------------------ | ---------------------------- |
 | <provider timeout> | <fallback / message to user> |
 
 ## Testing and evals

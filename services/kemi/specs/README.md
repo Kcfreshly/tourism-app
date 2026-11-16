@@ -1,6 +1,6 @@
 # Spec-driven development for Kemi
 
-Every change to Kemi starts as a written, reviewed spec. Code, tests and evals are produced *from* the spec, and the spec stays true after the code ships. An AI coding agent or a person should be able to implement a spec without asking what was meant.
+Every change to Kemi starts as a written, reviewed spec. Code, tests and evals are produced _from_ the spec, and the spec stays true after the code ships. An AI coding agent or a person should be able to implement a spec without asking what was meant.
 
 ## The loop
 
@@ -9,15 +9,15 @@ Every change to Kemi starts as a written, reviewed spec. Code, tests and evals a
    (what & why)      (how)          (steps)       (the spec made executable)            (smallest diff)    (all green)     (spec = reality)
 ```
 
-| Step | Output | Gate |
-|---|---|---|
-| 1. Requirements | `requirements.md`: user stories plus numbered acceptance criteria | Reviewed and marked `Approved` by the product owner |
-| 2. Design | `design.md`: modules touched, contracts, data, sequence, failure modes, ADR links | Reviewed and marked `Approved` |
-| 3. Tasks | `tasks.md`: ordered checklist; every task cites the acceptance criteria it satisfies | Every acceptance criterion is covered by at least one task |
-| 4. Contracts and tests first | Zod schemas in `contracts/`; failing unit, contract and integration tests; eval cases for model behaviour | Tests fail for the right reason |
-| 5. Implement | Code, one task at a time; tick tasks off | Typecheck, lint and tests pass |
-| 6. Verify | Evals run against the spec's thresholds; manual walkthrough for user-facing flows | Thresholds met; results saved to `evals/reports/` |
-| 7. Close | Spec status `Done`; any design drift written back into `design.md` | No open tasks |
+| Step                         | Output                                                                                                    | Gate                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 1. Requirements              | `requirements.md`: user stories plus numbered acceptance criteria                                         | Reviewed and marked `Approved` by the product owner        |
+| 2. Design                    | `design.md`: modules touched, contracts, data, sequence, failure modes, ADR links                         | Reviewed and marked `Approved`                             |
+| 3. Tasks                     | `tasks.md`: ordered checklist; every task cites the acceptance criteria it satisfies                      | Every acceptance criterion is covered by at least one task |
+| 4. Contracts and tests first | Zod schemas in `contracts/`; failing unit, contract and integration tests; eval cases for model behaviour | Tests fail for the right reason                            |
+| 5. Implement                 | Code, one task at a time; tick tasks off                                                                  | Typecheck, lint and tests pass                             |
+| 6. Verify                    | Evals run against the spec's thresholds; manual walkthrough for user-facing flows                         | Thresholds met; results saved to `evals/reports/`          |
+| 7. Close                     | Spec status `Done`; any design drift written back into `design.md`                                        | No open tasks                                              |
 
 ## Rules
 
@@ -47,6 +47,7 @@ Numbering: the tens digit is the phase from [ROADMAP.md](ROADMAP.md); add `051-â
 ## Working with AI coding agents
 
 Give the agent the spec folder, not a chat description. Ask it to:
+
 1. Read `requirements.md`, `design.md`, `tasks.md` and the linked contracts.
 2. Work on the next unchecked task only, writing the test or eval first.
 3. Stop and report if a requirement is ambiguous or the design doesn't fit the code, instead of guessing.

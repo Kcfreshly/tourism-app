@@ -1,6 +1,6 @@
 // Composition root: the only place that creates infrastructure and hands it to
 // use cases and controllers. Route files and server pages import from here.
-import { allowedOrigins } from "@/config/environment";
+import { allowedOrigins, kemiSettings } from "@/config/environment";
 import { db } from "@/database/client";
 import { GetBucket } from "@/modules/bucket/application/use-cases/get-bucket";
 import { SaveBucket } from "@/modules/bucket/application/use-cases/save-bucket";
@@ -30,6 +30,8 @@ import { authController } from "@/modules/identity/presentation/http/controllers
 import { createEndSessionController } from "@/modules/identity/presentation/http/controllers/end-session-controller";
 import { createMergeGuestDraftsController } from "@/modules/identity/presentation/http/controllers/merge-guest-drafts-controller";
 import { createRequestGuards } from "@/modules/identity/presentation/http/request-guards";
+import { FetchKemiGateway } from "@/modules/kemi/infrastructure/http/fetch-kemi-gateway";
+import { createKemiProxyController } from "@/modules/kemi/presentation/http/controllers/kemi-proxy-controller";
 import { createPageGuards } from "@/modules/identity/presentation/pages/page-guards";
 import type { OfferCatalogue } from "@/modules/trips/application/ports/offer-catalogue";
 import { OfferSelection } from "@/modules/trips/application/services/offer-selection";
@@ -161,6 +163,13 @@ export const api = {
       guards,
       ownedTrip,
       new ApplyProposal(proposals, offers),
+    ),
+  },
+  kemi: {
+    proxy: createKemiProxyController(
+      guards,
+      new FetchKemiGateway(kemiSettings().url),
+      () => kemiSettings().enabled,
     ),
   },
 };

@@ -23,3 +23,12 @@ export function allowedOrigins(host?: string | null) {
   if (host) origins.push(`${configured.protocol}//${host}`);
   return [...new Set(origins)];
 }
+
+// Kemi runs as a separate service (services/kemi). The BFF stays closed
+// unless the flag is exactly "true".
+export function kemiSettings() {
+  return {
+    enabled: process.env.KEMI_ENABLED === "true",
+    url: process.env.KEMI_URL || "http://127.0.0.1:4100",
+  };
+}

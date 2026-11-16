@@ -3,6 +3,7 @@
 Status: Draft, 2026-11-09
 
 **v1 definition.** A signed-in traveller can chat with Kemi:
+
 - Kemi welcomes them, fills the trip profile and captures useful persona facts.
 - After the traveller confirms the summary, the draft is saved through the web app.
 - When the traveller asks Kemi to plan, it hands off to the planner. The planner proposes a valid itinerary and adds more options to the bucket. The traveller accepts or dismisses the proposal.
@@ -13,18 +14,18 @@ Each phase is one or more specs (folder numbers in brackets). A phase starts whe
 
 ---
 
-## Phase 0: Foundations `[000-foundations]`
+## Phase 0: Foundations `[000-foundations]` — Done 2026-11-09
 
-Make an empty service that runs, deploys and is observable.
+The smallest service that streams an agent's answer and traces it.
 
-- Fill in `package.json`, `tsconfig`, lint, format, Vitest, `docker/compose.yaml` (Postgres + pgvector, Redis). Install the libraries listed in the README.
-- Env config schema (Zod) that fails fast on missing settings.
-- Express app with health and readiness endpoints, a request ID, the shared error envelope and pino logging.
-- OpenTelemetry tracing set up. Drizzle connected, with a first migration (`kemi` schema).
+- `package.json`, `tsconfig`, oxlint, Prettier, Vitest.
+- Env schema (Zod) that fails fast on invalid settings.
+- Express app with `/health`, request IDs, the shared error envelope and pino logging.
+- Streaming `POST /v1/chat` route, separate from the agent that answers (`ChatAgent` contract). Model profiles over the AI SDK provider registry. Agent traces to self-hosted Langfuse.
 - **Web app side:** exclude `services/` from the root TypeScript, ESLint and Vitest configs. Add the `/api/v1/kemi/*` BFF proxy behind a feature flag.
-- ADRs: 0001 service boundary, 0002 on-behalf-of auth, 0003 AI SDK v7.
+- ADRs: 0001 service boundary, 0002 on-behalf-of auth, 0003 AI SDK v7, 0004 Langfuse tracing.
 
-**Exit criteria:** `npm run dev`, `typecheck`, `lint` and `test` pass; compose stack starts; a request through the BFF reaches Kemi and is traced end to end.
+**Exit criteria:** `npm run dev`, `typecheck`, `lint` and `test` pass; a chat message through the BFF streams Kemi's answer back, and the run appears in Langfuse.
 
 ## Phase 1: Contracts and model gateway `[010-contracts]` `[020-model-gateway]`
 
@@ -46,7 +47,7 @@ Fix the shapes everything else depends on, and the way models are called.
 Streamed conversations with a deterministic supervisor.
 
 - `POST /v1/conversations`, `POST /v1/conversations/:id/messages` (SSE, AI SDK UI message stream), stream resume, paged history, `POST …/actions`.
-- Postgres `conversations` and `messages`. Redis per-conversation lock, so only one turn runs at a time.
+- Add Postgres (Drizzle, `kemi` schema, `docker/compose.yaml`) and Redis now: `conversations` and `messages` tables, and a Redis per-conversation lock so only one turn runs at a time.
 - Supervisor state machine: Welcome → Intake → ConfirmProfile → ProfileSaved → Concierge or Planning → ProposalReview. Transitions are pure functions with full unit-test coverage.
 - Intent router agent (structured output) feeding the state machine.
 - Playbook registry: load versioned YAML, record the playbook version on every run.
@@ -66,6 +67,7 @@ The first user-visible value: Kemi fills the profile through conversation.
 - **Web app side:** chat UI with `useChat` on the existing intake screen behind the flag; the manual form stays.
 
 **Exit criteria (intake eval):**
+
 - Field accuracy ≥ 95%.
 - Invented values = 0.
 - Median turns to a complete profile ≤ 6.
@@ -83,6 +85,7 @@ Kemi remembers.
 - A returning user's known facts are used without being asked again.
 
 **Exit criteria:**
+
 - Memory eval precision ≥ 90% and recall ≥ 80%.
 - Contradictions are superseded correctly.
 - Deleted facts never reappear in context (tested).
@@ -101,6 +104,7 @@ Kemi remembers.
 - Itinerary pattern library: ops-curated templates only for v1.
 
 **Exit criteria (planner eval):**
+
 - 100% of presented proposals pass validation.
 - Budget adherence ≥ 95%.
 - Interest coverage ≥ 90%.
@@ -118,6 +122,7 @@ Safe to turn on for real users.
 - Staged rollout: internal → 10% → 100% of signed-in users.
 
 **Exit criteria (v1 done):**
+
 - All suites meet their thresholds for 7 consecutive nightly runs.
 - The kill switch has been drilled.
 - Cost per completed profile is within the agreed budget.
@@ -131,10 +136,10 @@ Itinerary patterns learned from accepted plans (with consent) · user standing r
 
 ## Open decisions (resolve via ADR before the phase that needs them)
 
-| Decision | Needed by |
-|---|---|
-| Second model provider and embeddings provider | Phase 1 |
-| Observability backend (Langfuse, Phoenix or another) | Phase 0 |
-| Separate Postgres cluster or schema on the app cluster | Phase 0 |
-| Retention period and data residency for conversations and memory | Phase 4 |
-| Cost budget per completed profile and per accepted plan | Phase 6 |
+| Decision                                                                                                                | Needed by |
+| ----------------------------------------------------------------------------------------------------------------------- | --------- |
+| Second model provider and embeddings provider                                                                           | Phase 1   |
+| ~~Observability backend~~: self-hosted Langfuse ([ADR 0004](../docs/adr/0004-langfuse-tracing.md))                      | Decided   |
+| ~~Separate Postgres cluster or schema~~: own database, `kemi` schema ([ADR 0001](../docs/adr/0001-service-boundary.md)) | Decided   |
+| Retention period and data residency for conversations and memory                                                        | Phase 4   |
+| Cost budget per completed profile and per accepted plan                                                                 | Phase 6   |

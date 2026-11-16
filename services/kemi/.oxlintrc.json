@@ -1,0 +1,63 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "node", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "ignorePatterns": ["dist/**", "coverage/**"],
+  "rules": {
+    "no-console": [
+      "error",
+      {
+        "allow": ["error"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/routes/**", "src/http.ts", "src/app.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@ai-sdk/*", "@langfuse/*", "**/ai/*"],
+                "message": "Routes do not touch models, providers or Langfuse. Call a ChatAgent and stream its result."
+              },
+              {
+                "group": ["**/agents/*", "!**/agents/types*"],
+                "message": "Routes depend on the agent contract (agents/types) only. Agents are created in server.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/agents/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["express", "express/*", "**/routes/*", "**/http*", "**/app*"],
+                "message": "Agents know nothing about HTTP. Return a stream; the route sends it."
+              },
+              {
+                "group": ["@ai-sdk/*", "@langfuse/*"],
+                "message": "Use model profiles (ai/models) and ai/langfuse, not provider or Langfuse packages."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
