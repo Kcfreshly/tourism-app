@@ -2,6 +2,7 @@ import Link from "next/link";
 import Icon from "@/components/icons";
 import DestinationSearch from "@/components/destination-search";
 import HomeSections from "@/components/home-sections";
+import StartHere from "@/components/start-here";
 import { pages } from "@/bootstrap/container";
 import { photoById, photoForCategory } from "@/modules/catalogue/domain/photos";
 import { lagosToday } from "@/modules/catalogue/domain/events";
@@ -53,9 +54,12 @@ export default async function Home() {
         </p>
       </section>
 
+      <StartHere />
+
       <HomeSections
         records={records}
         weekend={weekendDates(today)}
+        today={today}
         city="lagos"
       />
 

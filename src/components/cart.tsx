@@ -103,7 +103,9 @@ function view(line: CartLine, catalogue: Listing[], today: string): LineView {
   const when = `${shortDay(line.date)} · ${line.time}`;
   const guests = [
     plural(line.adults, "adult", "adults"),
-    line.children ? plural(line.children, "child", "children") : "",
+    line.children
+      ? `${plural(line.children, "child", "children")}${line.childAges.length ? ` (aged ${line.childAges.join(", ")})` : ""}`
+      : "",
   ]
     .filter(Boolean)
     .join(", ");
@@ -151,7 +153,9 @@ function view(line: CartLine, catalogue: Listing[], today: string): LineView {
     problem:
       line.date < today || !runsOn(e, line.date)
         ? `No longer runs on ${shortDay(line.date)}.`
-        : undefined,
+        : line.childAges.length !== line.children
+          ? "Add each child’s age before checkout."
+          : undefined,
   };
 }
 
@@ -254,7 +258,9 @@ function LineCard({ v, onRemove }: { v: LineView; onRemove: () => void }) {
             </p>
             <div className="actions">
               <Link className="button secondary" href={v.editHref}>
-                Choose another date
+                {v.problem.startsWith("Add each child")
+                  ? "Add ages"
+                  : "Choose another date"}
               </Link>
               {v.saveId && (
                 <button

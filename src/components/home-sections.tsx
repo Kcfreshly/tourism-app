@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { PublishedExperience } from "@/modules/catalogue/domain/experience";
 import { listingDetails } from "@/modules/catalogue/domain/listing-details";
 import { runsOn, shortDay } from "@/modules/catalogue/domain/schedule";
+import { upcomingEvents } from "@/modules/catalogue/domain/events";
 import { packages } from "@/modules/catalogue/domain/packages";
 import { ExperienceCard } from "./catalogue-browser";
 import PackageCard from "./package-card";
@@ -46,12 +47,16 @@ function Rail({
 export default function HomeSections({
   records,
   weekend,
+  today,
   city,
 }: {
   records: PublishedExperience[];
   weekend: string[];
+  today: string;
   city: string;
 }) {
+  // For someone who just wants one dated event: concerts, festivals and more.
+  const events = upcomingEvents(records, today).slice(0, 8);
   const thisWeekend = records
     .filter((e) => weekend.some((d) => runsOn(e, d)))
     .slice(0, 8);
@@ -72,6 +77,17 @@ export default function HomeSections({
               experience={e}
               date={weekend.find((d) => runsOn(e, d))}
             />
+          ))}
+        </Rail>
+      )}
+      {events.length > 0 && (
+        <Rail
+          eyebrow="Book a ticket"
+          title="Events coming up"
+          href={`/explore?city=${city}&category=events`}
+        >
+          {events.map((e) => (
+            <ExperienceCard key={e.id} experience={e} start={today} />
           ))}
         </Rail>
       )}

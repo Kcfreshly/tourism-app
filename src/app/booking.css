@@ -1358,3 +1358,115 @@ body:has(.booking-panel) .toast-region {
     justify-self: center;
   }
 }
+
+/* ===== Start here ===== */
+.start-here {
+  margin-top: var(--space-10);
+}
+.start-here h2 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xl);
+}
+.start-here ul {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.start-tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  height: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--c-ink);
+  text-decoration: none;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+.start-tile:hover {
+  border-color: var(--c-indigo);
+  box-shadow: var(--shadow-md);
+}
+.start-icon {
+  grid-row: 1 / span 2;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--c-indigo-wash);
+  color: var(--c-indigo);
+}
+.start-tile strong {
+  font-size: var(--text-md);
+  line-height: 1.3;
+}
+.start-tile > span:not(.start-icon) {
+  grid-column: 2;
+  color: var(--c-ink-2);
+  font-size: var(--text-sm);
+}
+.start-tile > .icon {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--c-indigo);
+}
+@media (max-width: 1080px) {
+  .start-here ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .start-here ul {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Visit dates ===== */
+.visit-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2) var(--space-3);
+}
+.visit-dates .field {
+  flex: 0 1 180px;
+}
+.visit-dates .field > span {
+  color: rgb(255 255 255 / 85%);
+}
+.visit-dates input {
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+.visit-dates p {
+  flex: 1 1 220px;
+  margin: 0;
+  color: rgb(255 255 255 / 90%);
+  font-size: var(--text-sm);
+}
+.destination-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.destination-range .destination-date {
+  margin: 0;
+  color: rgb(255 255 255 / 85%);
+  font-size: var(--text-xs);
+}
+.child-ages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--space-2);
+}

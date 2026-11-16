@@ -93,3 +93,33 @@ export function weeklyPattern(e: Scheduled) {
       ? "Weekends"
       : days.map((d) => dayNames[d]).join(", ");
 }
+
+// The days of a visit, for browsing "what's on while I'm here". Capped so a
+// mistyped year can't produce thousands of days.
+export const maxRangeDays = 62;
+export function rangeDays(from: string, to: string) {
+  if (!isoDate.test(from) || !isoDate.test(to) || to < from) return [];
+  const days: string[] = [];
+  for (let d = from; d <= to && days.length < maxRangeDays; d = addDays(d, 1))
+    days.push(d);
+  return days;
+}
+
+export function rangeText(from: string, to: string) {
+  return from === to ? shortDay(from) : `${shortDay(from)} – ${shortDay(to)}`;
+}
+
+// Price bands for browsing, on the listed price (per adult or per group).
+export const priceBands = [
+  { id: "under-10k", label: "Under ₦10,000", max: 1000000 },
+  { id: "10k-25k", label: "₦10,000–₦25,000", min: 1000000, max: 2500000 },
+  { id: "over-25k", label: "Over ₦25,000", min: 2500000 },
+] as const;
+export function inPriceBand(rateMinor: number, band: string) {
+  const b = priceBands.find((p) => p.id === band);
+  if (!b) return true;
+  return (
+    (!("min" in b) || rateMinor >= b.min) &&
+    (!("max" in b) || rateMinor < b.max)
+  );
+}

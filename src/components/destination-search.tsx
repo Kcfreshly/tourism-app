@@ -9,11 +9,15 @@ export default function DestinationSearch({ today }: { today: string }) {
   const router = useRouter();
   const [city, setCity] = useState(destinations[0].id);
   const [when, setWhen] = useState("");
-  const [picked, setPicked] = useState("");
-  const date = when === "pick" ? picked : when;
+  // "My dates": a visit, or a single day when both dates match.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   function explore() {
     const query = new URLSearchParams({ city });
-    if (date) query.set("date", date);
+    if (when === "range") {
+      if (from) query.set("from", from);
+      query.set(from ? "to" : "when", from ? to || from : "range");
+    } else if (when) query.set("date", when);
     router.push(`/explore?${query}`);
   }
   return (
@@ -46,7 +50,7 @@ export default function DestinationSearch({ today }: { today: string }) {
               ["", "Any date"],
               [today, "Today"],
               ["weekend", "This weekend"],
-              ["pick", "Pick a date"],
+              ["range", "My dates"],
             ].map(([value, label]) => (
               <button
                 type="button"
@@ -59,16 +63,30 @@ export default function DestinationSearch({ today }: { today: string }) {
               </button>
             ))}
           </div>
-          {when === "pick" && (
-            <label className="destination-date">
-              <span className="sr-only">Date</span>
-              <input
-                type="date"
-                min={today}
-                value={picked}
-                onChange={(e) => setPicked(e.target.value)}
-              />
-            </label>
+          {when === "range" && (
+            <div className="destination-range">
+              <label className="destination-date">
+                <span>From</span>
+                <input
+                  type="date"
+                  min={today}
+                  value={from}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    if (to && e.target.value > to) setTo(e.target.value);
+                  }}
+                />
+              </label>
+              <label className="destination-date">
+                <span>Until</span>
+                <input
+                  type="date"
+                  min={from || today}
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </label>
+            </div>
           )}
         </fieldset>
       </div>

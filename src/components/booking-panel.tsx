@@ -14,6 +14,8 @@ import {
 } from "@/modules/catalogue/domain/experience-content";
 import {
   nextRunDates,
+  rangeDays,
+  rangeText,
   runsOn,
   shortDay,
   startTimesOn,
@@ -39,6 +41,8 @@ export default function BookingPanel(props: {
   details: ListingDetails;
   today: string;
   initialDate?: string;
+  // The dates of a visit, from browsing: the date chips stay inside it.
+  visit?: { from: string; to: string };
   editId?: string;
   startOpen?: boolean;
 }) {
@@ -110,6 +114,7 @@ function Panel({
   details,
   today,
   initialDate,
+  visit,
   editing,
   startOpen = false,
 }: {
@@ -117,6 +122,7 @@ function Panel({
   details: ListingDetails;
   today: string;
   initialDate?: string;
+  visit?: { from: string; to: string };
   editing?: ExperienceLine;
   startOpen?: boolean;
 }) {
@@ -125,7 +131,12 @@ function Panel({
   const formId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const name = e.name.replace(/\s*[—-]\s*DEMO$/, "");
-  const upcoming = nextRunDates(e, today, 4);
+  const visitDays = visit
+    ? rangeDays(visit.from, visit.to).filter((d) => d >= today && runsOn(e, d))
+    : [];
+  const upcoming = visitDays.length
+    ? visitDays.slice(0, 6)
+    : nextRunDates(e, today, 4);
   // A date chosen elsewhere (a card, an edit) stays visible as a chip.
   const chips = (d: string) =>
     d && !upcoming.includes(d) && runsOn(e, d) ? [...upcoming, d] : upcoming;
@@ -145,6 +156,10 @@ function Panel({
     editing?.adults ?? Math.max(1, e.offer.minParty),
   );
   const [children, setChildren] = useState(editing?.children ?? 0);
+  // "" until chosen; one entry per child.
+  const [ages, setAges] = useState<(number | "")[]>(editing?.childAges ?? []);
+  const childAges = Array.from({ length: children }, (_, i) => ages[i] ?? "");
+  const youngest = Math.max(details.minAge, 0);
   const [pickup, setPickup] = useState(
     editing?.pickup ?? details.arrival === "PICKUP_REQUIRED",
   );
@@ -163,6 +178,7 @@ function Panel({
     times.length > 0 && !time && "Choose a start time.",
     guests < e.offer.minParty && `At least ${e.offer.minParty} guests.`,
     guests > e.offer.maxParty && `At most ${e.offer.maxParty} guests.`,
+    childAges.some((a) => a === "") && "Add each child’s age.",
     needsAddress && !address.trim() && "Add the pickup address.",
   ].filter((p): p is string => !!p);
   useEffect(() => {
@@ -184,6 +200,7 @@ function Panel({
       time,
       adults,
       children,
+      childAges: childAges.filter((a): a is number => a !== ""),
       pickup: needsAddress,
       pickupAddress: needsAddress ? address.trim() : "",
     };
@@ -262,6 +279,13 @@ function Panel({
           </ul>
           <fieldset className="booking-field">
             <legend>Date</legend>
+            {visitDays.length > 0 && (
+              <p className="muted">
+                Runs on {visitDays.length}{" "}
+                {visitDays.length === 1 ? "day" : "days"} of your visit,{" "}
+                {rangeText(visit!.from, visit!.to)}.
+              </p>
+            )}
             <div className="chip-row">
               {chips(date).map((d) => (
                 <button
@@ -331,6 +355,36 @@ function Panel({
               />
             ) : (
               <p className="muted">Adults only (18+).</p>
+            )}
+            {children > 0 && (
+              <div className="child-ages">
+                {childAges.map((age, i) => (
+                  <label className="field" key={i}>
+                    <span>Child {i + 1} age</span>
+                    <select
+                      value={age}
+                      onChange={(event) => {
+                        const next = [...childAges];
+                        next[i] =
+                          event.target.value === ""
+                            ? ""
+                            : Number(event.target.value);
+                        setAges(next);
+                      }}
+                    >
+                      <option value="">Age</option>
+                      {Array.from(
+                        { length: 18 - youngest },
+                        (_, n) => youngest + n,
+                      ).map((n) => (
+                        <option key={n} value={n}>
+                          {n === 0 ? "Under 1" : n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
             )}
           </fieldset>
           <fieldset className="booking-field">

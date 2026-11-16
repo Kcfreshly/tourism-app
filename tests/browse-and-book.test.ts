@@ -6,7 +6,10 @@ import {
   type PublishedExperience,
 } from "../src/modules/catalogue/domain/experience";
 import {
+  inPriceBand,
+  maxRangeDays,
   nextRunDates,
+  rangeDays,
   runsOn,
   startTimesOn,
   weekendDates,
@@ -54,6 +57,37 @@ describe("browsing by date", () => {
     expect(runsOn(concert, "2026-11-14")).toBe(true);
     expect(runsOn(concert, "2026-11-15")).toBe(false);
     expect(nextRunDates(concert, "2026-11-16")).toEqual([]);
+  });
+});
+
+describe("browsing a visit and by price", () => {
+  it("lists the days of a visit and caps a runaway range", () => {
+    expect(rangeDays("2026-12-30", "2027-01-02")).toEqual([
+      "2026-12-30",
+      "2026-12-31",
+      "2027-01-01",
+      "2027-01-02",
+    ]);
+    expect(rangeDays("2026-12-02", "2026-12-01")).toEqual([]);
+    expect(rangeDays("2026-01-01", "2036-01-01")).toHaveLength(maxRangeDays);
+  });
+
+  it("finds events that fall inside a visit", () => {
+    const festival = listing("event-food-music-festival");
+    expect(
+      rangeDays("2026-12-15", "2027-01-05").some((d) => runsOn(festival, d)),
+    ).toBe(true);
+    expect(
+      rangeDays("2026-11-20", "2026-11-30").some((d) => runsOn(festival, d)),
+    ).toBe(false);
+  });
+
+  it("sorts listed prices into bands", () => {
+    expect(inPriceBand(900000, "under-10k")).toBe(true);
+    expect(inPriceBand(1000000, "under-10k")).toBe(false);
+    expect(inPriceBand(1000000, "10k-25k")).toBe(true);
+    expect(inPriceBand(2500000, "over-25k")).toBe(true);
+    expect(inPriceBand(2500000, "")).toBe(true);
   });
 });
 
@@ -114,6 +148,11 @@ describe("cart", () => {
       pickupAddress: "",
     };
     expect(cartLineSchema.safeParse(line).success).toBe(true);
+    // Lines saved before child ages existed still load, with no ages yet.
+    expect(cartLineSchema.parse(line)).toMatchObject({ childAges: [] });
+    expect(cartLineSchema.safeParse({ ...line, childAges: [18] }).success).toBe(
+      false,
+    );
     expect(
       cartLineSchema.safeParse({ ...line, accommodation: "Lekki" }).success,
     ).toBe(false);

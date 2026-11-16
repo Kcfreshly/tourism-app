@@ -17,6 +17,8 @@ export const cartLineSchema = z.discriminatedUnion("kind", [
       time: z.string().regex(/^\d{2}:\d{2}$/),
       adults: z.number().int().min(0).max(20),
       children: z.number().int().min(0).max(20),
+      // One age per child, for partner age rules and child pricing.
+      childAges: z.array(z.number().int().min(0).max(17)).max(20).default([]),
       pickup: z.boolean(),
       pickupAddress: z.string().max(300),
     })

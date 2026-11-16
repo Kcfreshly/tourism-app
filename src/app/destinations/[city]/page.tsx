@@ -76,6 +76,7 @@ export default async function DestinationPage({
       <HomeSections
         records={records}
         weekend={weekendDates(lagosToday())}
+        today={lagosToday()}
         city={d.id}
       />
     </>

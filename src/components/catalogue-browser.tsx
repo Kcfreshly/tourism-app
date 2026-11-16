@@ -30,7 +30,11 @@ import {
   listingDetails,
 } from "@/modules/catalogue/domain/listing-details";
 import {
+  inPriceBand,
   isoDate,
+  priceBands,
+  rangeDays,
+  rangeText,
   runsOn,
   shortDay,
   startTimesOn,
@@ -51,6 +55,7 @@ export function ExperienceCard({
   start,
   end,
   date,
+  visit,
 }: {
   experience: Experience & { seedKey?: string };
   // Dated events show their first date inside this window.
@@ -58,6 +63,8 @@ export function ExperienceCard({
   end?: string;
   // A browse date: the card shows its start times that day.
   date?: string;
+  // A visit range, carried to the booking panel so it suggests those dates.
+  visit?: { from: string; to: string };
 }) {
   const { ids } = useBucket();
   const saved = ids.includes(e.offer.id);
@@ -128,7 +135,7 @@ export function ExperienceCard({
         {date && times.length > 0 && (
           <Link
             className="text-link tile-book"
-            href={`/experiences/${e.seedKey ?? e.id}?date=${date}&book=1`}
+            href={`/experiences/${e.seedKey ?? e.id}?date=${date}&book=1${visit ? `&from=${visit.from}&to=${visit.to}` : ""}`}
           >
             Book for {shortDay(date)}
             <Icon name="arrowRight" size={14} />
@@ -143,6 +150,10 @@ export type ExploreFilters = {
   category?: string;
   view?: string;
   date?: string;
+  from?: string;
+  to?: string;
+  when?: string;
+  price?: string;
   family?: string;
   arrival?: string;
   area?: string;
@@ -167,22 +178,41 @@ export default function CatalogueBrowser({
     [search, setSearch] = useState(""),
     [kind, setKind] = useState(""),
     [accessible, setAccessible] = useState(false),
+    // "", "weekend", a day, or "range" for the dates of a visit.
     [date, setDate] = useState(
-      initial.date === "weekend" || isoDate.test(initial.date ?? "")
-        ? initial.date!
-        : "",
+      (initial.from && initial.to) || initial.when === "range"
+        ? "range"
+        : initial.date === "weekend" || isoDate.test(initial.date ?? "")
+          ? initial.date!
+          : "",
     ),
+    [from, setFrom] = useState(
+      isoDate.test(initial.from ?? "") ? initial.from! : "",
+    ),
+    [to, setTo] = useState(isoDate.test(initial.to ?? "") ? initial.to! : ""),
+    [price, setPrice] = useState(initial.price ?? ""),
     [family, setFamily] = useState(initial.family === "1"),
     [arrival, setArrival] = useState(initial.arrival ?? ""),
     [area, setArea] = useState(initial.area ?? "");
   const weekend = weekendDates(today);
-  const days = date === "weekend" ? weekend : date ? [date] : [];
+  const days =
+    date === "range"
+      ? rangeDays(from, to)
+      : date === "weekend"
+        ? weekend
+        : date
+          ? [date]
+          : [];
+  const visit = date === "range" && days.length ? { from, to } : undefined;
   // Keep the filters in the address so back, reload and sharing keep them.
   useEffect(() => {
     const query = new URLSearchParams(
       Object.entries({
         category,
-        date,
+        date: date === "range" ? "" : date,
+        from: date === "range" ? from : "",
+        to: date === "range" ? to : "",
+        price,
         family: family ? "1" : "",
         arrival,
         area,
@@ -195,14 +225,26 @@ export default function CatalogueBrowser({
       "",
       `${window.location.pathname}${query ? `?${query}` : ""}`,
     );
-  }, [category, date, family, arrival, area, bucketOnly, tripId]);
+  }, [
+    category,
+    date,
+    from,
+    to,
+    price,
+    family,
+    arrival,
+    area,
+    bucketOnly,
+    tripId,
+  ]);
   const query = search.trim().toLowerCase();
   const filtering = !!(
     category ||
     query ||
     kind ||
     accessible ||
-    date ||
+    days.length ||
+    price ||
     family ||
     arrival ||
     area
@@ -221,6 +263,7 @@ export default function CatalogueBrowser({
           ? details.arrival !== "PICKUP_REQUIRED"
           : details.arrival !== "SELF")) &&
       (!area || e.zoneId === area) &&
+      inPriceBand(e.offer.rateMinor, price) &&
       (!category ||
         (category === "events" ? isEvent(e) : e.categoryId === category)) &&
       (!query ||
@@ -243,6 +286,9 @@ export default function CatalogueBrowser({
     setKind("");
     setAccessible(false);
     setDate("");
+    setFrom("");
+    setTo("");
+    setPrice("");
     setFamily(false);
     setArrival("");
     setArea("");
@@ -278,16 +324,19 @@ export default function CatalogueBrowser({
                 placeholder="Search art, food, beach, Lekki…"
               />
             </label>
-            <label className="explore-date-field">
-              <Icon name="calendar" size={18} />
-              <span className="sr-only">Pick a date</span>
-              <input
-                type="date"
-                min={today}
-                value={isoDate.test(date) ? date : ""}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </label>
+            {/* One date, or the visit fields below, never both. */}
+            {date !== "range" && (
+              <label className="explore-date-field">
+                <Icon name="calendar" size={18} />
+                <span className="sr-only">Pick a date</span>
+                <input
+                  type="date"
+                  min={today}
+                  value={isoDate.test(date) ? date : ""}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </label>
+            )}
           </div>
           <div className="chip-row date-chips" role="group" aria-label="When">
             <button
@@ -314,7 +363,47 @@ export default function CatalogueBrowser({
             >
               This weekend
             </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={date === "range"}
+              aria-expanded={date === "range"}
+              aria-controls="visit-dates"
+              onClick={() => setDate("range")}
+            >
+              My dates
+            </button>
           </div>
+          {date === "range" && (
+            <div className="visit-dates" id="visit-dates">
+              <label className="field">
+                <span>Here from</span>
+                <input
+                  type="date"
+                  min={today}
+                  value={from}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    if (to && e.target.value > to) setTo(e.target.value);
+                  }}
+                />
+              </label>
+              <label className="field">
+                <span>Until</span>
+                <input
+                  type="date"
+                  min={from || today}
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </label>
+              <p>
+                {days.length
+                  ? `Showing what runs during your ${days.length} ${days.length === 1 ? "day" : "days"}, including events.`
+                  : "Add the dates you’re in Lagos to see what runs while you’re here."}
+              </p>
+            </div>
+          )}
         </div>
         <p className="explore-banner-credit">
           Photo: {banner.author} / {banner.license}
@@ -336,7 +425,7 @@ export default function CatalogueBrowser({
           onClick={() => setCategory("events")}
         >
           <Icon name="calendar" size={14} />
-          What’s on
+          Events
         </button>
         {categories.map((c) => (
           <button
@@ -356,11 +445,13 @@ export default function CatalogueBrowser({
           <h2>
             {bucketOnly
               ? "Your Bucket"
-              : date
-                ? `On ${days.map(shortDay).join(" or ")}`
-                : filtering
-                  ? "Results"
-                  : "All experiences"}
+              : visit
+                ? `During your dates: ${rangeText(from, to)}`
+                : days.length && date !== "range"
+                  ? `On ${days.map(shortDay).join(" or ")}`
+                  : filtering
+                    ? "Results"
+                    : "All experiences"}
           </h2>
           <p aria-live="polite">
             <strong>
@@ -421,6 +512,17 @@ export default function CatalogueBrowser({
             </select>
           </label>
           <label className="select-field">
+            <span className="sr-only">Price</span>
+            <select value={price} onChange={(e) => setPrice(e.target.value)}>
+              <option value="">Any price</option>
+              {priceBands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="select-field">
             <span className="sr-only">Area</span>
             <select value={area} onChange={(e) => setArea(e.target.value)}>
               <option value="">All areas</option>
@@ -478,7 +580,7 @@ export default function CatalogueBrowser({
               ? "Save ideas as you browse. Saving doesn’t hold a date or book anything."
               : accessible
                 ? "We only show access we have confirmed, and none of these experiences are confirmed yet. We won’t relax this filter for you."
-                : date
+                : days.length
                   ? "Nothing runs then with these filters. Try another date or clear filters."
                   : "Try a different category or search term."}
           </p>
@@ -500,6 +602,7 @@ export default function CatalogueBrowser({
               key={e.id}
               experience={e}
               date={days.find((d) => runsOn(e, d))}
+              visit={visit}
             />
           ))}
         </div>

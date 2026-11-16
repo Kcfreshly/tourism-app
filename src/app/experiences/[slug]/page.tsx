@@ -41,10 +41,16 @@ export default async function Detail({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ date?: string; edit?: string; book?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    edit?: string;
+    book?: string;
+    from?: string;
+    to?: string;
+  }>;
 }) {
   const { slug } = await params;
-  const { date, edit, book } = await searchParams;
+  const { date, edit, book, from, to } = await searchParams;
   const e = await find(slug);
   if (!e) notFound();
   const story = storyFor(e.seedKey, e.categoryId);
@@ -187,6 +193,7 @@ export default async function Detail({
           details={details}
           today={lagosToday()}
           initialDate={date}
+          visit={from && to ? { from, to } : undefined}
           editId={edit}
           startOpen={book === "1"}
         />

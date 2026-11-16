@@ -15,6 +15,10 @@ export default async function Explore({
     view?: string;
     city?: string;
     date?: string;
+    from?: string;
+    to?: string;
+    when?: string;
+    price?: string;
     family?: string;
     arrival?: string;
     area?: string;
