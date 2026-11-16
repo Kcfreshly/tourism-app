@@ -10,8 +10,16 @@ import {
 import { createPortal } from "react-dom";
 import PhotoCredit from "./photo-credit";
 import type { Experience } from "@/modules/catalogue/domain/experience";
+import Link from "next/link";
 import { BucketButton } from "./bucket";
+import AddToTrip from "./add-to-trip";
 import Icon from "./icons";
+import {
+  ageLabel,
+  arrivalLabel,
+  confirmationLabel,
+  listingDetails,
+} from "@/modules/catalogue/domain/listing-details";
 import {
   categoryShortLabels,
   displayName,
@@ -99,6 +107,7 @@ function ActivityDialog({
   const photos = e.photos?.length ? e.photos : [e.imagePath],
     selectedPhoto = photos[photoIndex] ?? photos[0];
   const story = storyFor(e.seedKey, e.categoryId);
+  const details = listingDetails(e);
   useLayoutEffect(() => {
     const x = window.scrollX,
       y = window.scrollY,
@@ -307,10 +316,10 @@ function ActivityDialog({
             </div>
             <div>
               <dt>
-                <Icon name="users" size={16} /> Group size
+                <Icon name="users" size={16} /> Who it suits
               </dt>
               <dd>
-                {e.offer.minParty}–{e.offer.maxParty} adults
+                {ageLabel(details)} · up to {e.offer.maxParty}
               </dd>
             </div>
           </dl>
@@ -418,7 +427,9 @@ function ActivityDialog({
           <section className="info-section">
             <h3>Good to know</h3>
             <ul className="plain-list">
-              <li>For adults {e.offer.minAge}+.</li>
+              <li>{ageLabel(details)}.</li>
+              <li>Getting there: {arrivalLabel(details).toLowerCase()}.</li>
+              <li>{confirmationLabel(details)}.</li>
               <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
               <li>Wheelchair access: not confirmed.</li>
               {e.offer.hostIncluded && <li>A local host joins you.</li>}
@@ -428,7 +439,7 @@ function ActivityDialog({
                   is confirmed.
                 </li>
               )}
-              <li>Meeting point shared once booked.</li>
+              <li>Run by {details.operator}.</li>
             </ul>
           </section>
           {e.videoUrl && (
@@ -437,8 +448,8 @@ function ActivityDialog({
           {e.inspirationPhoto && <PhotoCredit photo={e.inspirationPhoto} />}
           <p className="sample-note">
             <Icon name="info" size={16} />
-            Sample listing. Adding it to your bucket saves the idea only — no
-            time is assigned and nothing is booked.
+            Sample listing. Save keeps the idea in your Bucket; booking starts
+            when you choose a date.
           </p>
         </div>
       </div>
@@ -458,7 +469,7 @@ function ActivityDialog({
             <Icon name="external" size={16} />
           </a>
           <BucketButton id={e.offer.id} />
-          {onAdd && (
+          {onAdd ? (
             <button
               onClick={() => {
                 ref.current?.close();
@@ -466,8 +477,20 @@ function ActivityDialog({
               }}
             >
               <Icon name="plus" size={18} />
-              Add to itinerary
+              Add to this trip
             </button>
+          ) : (
+            <>
+              <AddToTrip offerId={e.offer.id} title={displayName(e.name)} />
+              <Link
+                className="button"
+                href={`/experiences/${e.seedKey ?? e.id}?book=1`}
+                onClick={() => ref.current?.close()}
+              >
+                Choose date
+                <Icon name="arrowRight" size={16} />
+              </Link>
+            </>
           )}
         </div>
       </div>

@@ -8,6 +8,26 @@ import { useBackdropDismiss } from "@/hooks/use-backdrop-dismiss";
 import { useBucket } from "@/hooks/use-bucket";
 import { useActiveTrip } from "@/hooks/use-active-trip";
 import { authClient } from "./auth-client";
+import { showToast } from "./toast";
+
+// Save puts an idea in the Bucket. It holds no date and books nothing.
+function useSave(id: string) {
+  const { ids, toggle } = useBucket();
+  const saved = ids.includes(id);
+  return {
+    saved,
+    full: !saved && ids.length >= 30,
+    toggle() {
+      toggle(id);
+      if (!saved)
+        showToast({
+          message: "Saved to Bucket. Saving doesn’t hold a date.",
+          href: "/explore?view=bucket",
+          action: "View Bucket",
+        });
+    },
+  };
+}
 
 export function BucketButton({
   id,
@@ -16,19 +36,17 @@ export function BucketButton({
   id: string;
   variant?: "full" | "compact" | "icon";
 }) {
-  const { ids, toggle } = useBucket();
-  const saved = ids.includes(id);
-  const full = !saved && ids.length >= 30;
+  const { saved, full, toggle } = useSave(id);
   if (variant === "icon")
     return (
       <button
         type="button"
         className="bucket-button bucket-button--icon icon-button"
         disabled={full}
-        title={saved ? "Remove from bucket" : "Add to bucket"}
-        aria-label={saved ? "Remove from bucket" : "Add to bucket"}
+        title={saved ? "Remove from Bucket" : "Save to Bucket"}
+        aria-label={saved ? "Remove from Bucket" : "Save to Bucket"}
         aria-pressed={saved}
-        onClick={() => toggle(id)}
+        onClick={toggle}
       >
         <Icon name={saved ? "bookmarkFilled" : "bookmark"} size={18} />
       </button>
@@ -40,22 +58,23 @@ export function BucketButton({
       disabled={full}
       title={
         full
-          ? "Your bucket holds up to 30 activities. Remove one to save another."
+          ? "Your Bucket holds up to 30 activities. Remove one to save another."
           : undefined
       }
       aria-pressed={saved}
-      onClick={() => toggle(id)}
+      onClick={toggle}
     >
       <span className="bucket-button-icon">
-        <Icon name={saved ? "check" : "plus"} size={16} />
+        <Icon name={saved ? "bookmarkFilled" : "bookmark"} size={16} />
       </span>
       {saved ? (
-        <span>
-          {variant === "compact" ? "Saved" : "In your bucket"}
-          <span className="sr-only"> · Remove from bucket</span>
+        <span
+          aria-label={`${variant === "compact" ? "Saved" : "Saved to Bucket"} · Remove from Bucket`}
+        >
+          {variant === "compact" ? "Saved" : "Saved to Bucket"}
         </span>
       ) : (
-        <span>Add to bucket</span>
+        <span aria-label="Save to Bucket">Save</span>
       )}
     </button>
   );

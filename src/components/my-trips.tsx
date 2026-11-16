@@ -58,16 +58,17 @@ export default function MyTrips({ saved }: { saved?: string }) {
     <section className="trips-page">
       <div className="page-header-row">
         <div className="page-intro">
-          <p className="eyebrow">My trips</p>
+          <p className="eyebrow">My plans</p>
           <h1>Pick up where you left off</h1>
           <p className="lede">
-            Keep separate drafts for different dates, budgets or travel styles.
-            Each has its own profile and itinerary.
+            Plans are day-by-day drafts you shape before booking. Keep separate
+            plans for different dates or travel styles. Things you’ve chosen to
+            buy are in your <Link href="/cart">cart</Link>.
           </p>
         </div>
         <Link className="button" href="/plan/new?fresh=1">
           <Icon name="plus" size={18} />
-          Start a new trip
+          Start a new plan
         </Link>
       </div>
       {justSaved && (

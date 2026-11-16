@@ -23,18 +23,18 @@ try {
   const cards = page.locator(".experience.card");
   await cards
     .nth(0)
-    .getByRole("button", { name: /Add to bucket/ })
+    .getByRole("button", { name: /Save to Bucket/ })
     .click();
   await cards
     .nth(1)
-    .getByRole("button", { name: /Add to bucket/ })
+    .getByRole("button", { name: /Save to Bucket/ })
     .click();
   await expect(page.locator(".bucket-pill .bucket-count")).toHaveText("2");
   const tray = page.getByRole("region", { name: "Your bucket" });
   await expect(tray).toContainText("2");
   await tray.getByRole("button", { name: "View bucket" }).click();
   await expect(page.locator(".results-bar")).toContainText(
-    "2 experiences in your bucket",
+    "2 experiences in your Bucket",
   );
   await page.getByRole("button", { name: "Clear bucket" }).click();
   const clear = page.getByRole("dialog", { name: "Clear your bucket" });

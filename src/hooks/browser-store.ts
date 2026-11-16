@@ -11,6 +11,8 @@ export const storeKeys = {
   bucketPending: "tourism.bucket.pending",
   activeTrip: "tourism.onboardedTrip",
   profile: "tourism.profile",
+  // Dated selections to buy. Browser-only in the preview.
+  cart: "tourism.cart.v1",
 } as const;
 
 export function subscribeToStore(fn: () => void) {

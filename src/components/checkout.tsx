@@ -174,8 +174,8 @@ export default function Checkout({ id }: { id: string }) {
               pay.
             </li>
             <li>
-              Payment confirms every activity, driver and guide at once, at
-              these prices.
+              Each activity, driver and guide is confirmed on its own, at these
+              prices. You’ll see each one’s status.
             </li>
             <li>
               You get your confirmation straight away, and your driver’s details

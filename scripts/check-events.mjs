@@ -56,7 +56,7 @@ try {
   ]);
   await tripEvents
     .locator(".event-card", { hasText: "Afrobeats" })
-    .getByRole("button", { name: /Add to bucket/ })
+    .getByRole("button", { name: /Save to Bucket/ })
     .click();
   await expect(page.locator(".bucket-pill .bucket-count")).toHaveText("1");
   await page.getByLabel("Arrival date").fill("2026-12-18");
@@ -121,7 +121,7 @@ try {
   const lastBox = await last.boundingBox();
   expect(lastBox.x + lastBox.width).toBeLessThanOrEqual(390);
   await expect(
-    last.getByRole("button", { name: /Add to bucket|Saved/ }),
+    last.getByRole("button", { name: /Save to Bucket|Saved/ }),
   ).toBeInViewport();
   expect(
     await m.evaluate(() => document.documentElement.scrollWidth - innerWidth),

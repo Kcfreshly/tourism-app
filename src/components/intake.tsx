@@ -64,6 +64,7 @@ export default function Intake({
   offer,
   fresh = false,
   embedded = false,
+  seed,
   onContinue,
   onSaved,
 }: {
@@ -72,6 +73,13 @@ export default function Intake({
   offer?: string;
   fresh?: boolean;
   embedded?: boolean;
+  // Starts a custom plan from a ready-made trip's dates and name.
+  seed?: {
+    title: string;
+    draftName: string;
+    startDate: string;
+    endDate: string;
+  };
   onContinue?: () => void;
   onSaved?: (id: string) => void;
 }) {
@@ -79,7 +87,8 @@ export default function Intake({
   const { ids: bucket } = useBucket();
   const [profile, setProfile] = useState<Profile>({
     ...initialProfile,
-    draftName: "",
+    draftName: seed?.draftName ?? "",
+    ...(seed && { startDate: seed.startDate, endDate: seed.endDate }),
     selectedOfferIds: offer ? [offer] : [],
   });
   const [mode, setMode] = useState(entry === "form" ? "form" : "chat");
@@ -391,6 +400,15 @@ export default function Intake({
               : "Your dates, who’s coming and what you love. You’ll check a summary before anything is saved."}
         </p>
       </div>
+      {seed && stage === "details" && (
+        <div className="notice intake-seed">
+          <Icon name="compass" size={16} />
+          <p>
+            Starting from <strong>{seed.title}</strong>: same dates and length.
+            Change anything you like.
+          </p>
+        </div>
+      )}
       {stage === "details" && (
         <div className="intake-workspace">
           <div

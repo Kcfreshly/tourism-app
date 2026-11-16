@@ -126,6 +126,7 @@ export default function Planner({
   } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null),
     library = useRef<HTMLDialogElement>(null);
+  const pendingAdd = useRef<string | null>(null);
   const libraryDismiss = useBackdropDismiss(library),
     editDismiss = useBackdropDismiss(dialog);
   useEffect(() => {
@@ -147,10 +148,11 @@ export default function Planner({
         if (!active) return;
         receive(data);
         setOffers(data.offers);
-        // A link may open a particular day, e.g. from the checkout prompt.
-        const requested = new URLSearchParams(window.location.search).get(
-          "day",
-        );
+        // A link may open a particular day, e.g. from the checkout prompt,
+        // and ask to add an activity, e.g. from "Add to trip".
+        const query = new URLSearchParams(window.location.search);
+        const requested = query.get("day");
+        pendingAdd.current = query.get("add");
         setDay(
           requested && tripDays(data.trip.profile).includes(requested)
             ? requested
@@ -165,6 +167,17 @@ export default function Planner({
       active = false;
     };
   }, [root, receive]);
+  useEffect(() => {
+    const offerId = pendingAdd.current;
+    if (!offerId || !day || !services) return;
+    pendingAdd.current = null;
+    window.history.replaceState(null, "", window.location.pathname);
+    const offer = offers.find((o) => o.offer.id === offerId);
+    if (offer) add(offer);
+    else setStatus("That activity is no longer listed.");
+    // Runs once the plan and its offers have loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day, services, offers]);
   const save = useCallback(async () => {
     if (!trip || !services) return false;
     setBusy(true);

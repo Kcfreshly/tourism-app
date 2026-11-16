@@ -554,7 +554,8 @@ body:has(.planner-page) .site-header-inner {
   align-items: center;
   gap: var(--space-2);
 }
-.bucket-pill {
+.bucket-pill,
+.cart-pill {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -567,10 +568,12 @@ body:has(.planner-page) .site-header-inner {
   font-weight: 600;
   text-decoration: none;
 }
-.bucket-pill:hover {
+.bucket-pill:hover,
+.cart-pill:hover {
   border-color: var(--c-indigo);
 }
-.bucket-pill .bucket-count {
+.bucket-pill .bucket-count,
+.cart-pill .cart-count {
   display: inline-grid;
   place-items: center;
   min-width: 28px;
@@ -582,7 +585,8 @@ body:has(.planner-page) .site-header-inner {
   font-size: var(--text-sm);
   font-weight: 800;
 }
-.bucket-pill[data-empty="true"] .bucket-count {
+.bucket-pill[data-empty="true"] .bucket-count,
+.cart-pill[data-empty="true"] .cart-count {
   background: var(--c-sunken);
   color: var(--c-ink-2);
 }
@@ -2596,7 +2600,8 @@ main:has(.pocket) {
   .brand-word {
     font-size: 1.625rem;
   }
-  .bucket-pill-label {
+  .bucket-pill-label,
+  .cart-pill-label {
     display: none;
   }
   .home-hero {

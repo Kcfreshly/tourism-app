@@ -27,7 +27,7 @@ function secret() {
 }
 function createAuth() {
   return betterAuth({
-    appName: "Ọ̀nà — local demo",
+    appName: "Fastlife — local demo",
     baseURL: process.env.PUBLIC_APP_URL ?? "http://127.0.0.1:3000",
     secret: secret(),
     trustedOrigins: allowedOrigins(),

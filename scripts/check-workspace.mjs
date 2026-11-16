@@ -437,10 +437,10 @@ try {
   const add = page
     .locator(".experience.card")
     .filter({
-      has: page.getByRole("button", { name: "Add to bucket", exact: false }),
+      has: page.getByRole("button", { name: "Save to Bucket", exact: false }),
     })
     .first();
-  await add.getByRole("button", { name: /Add to bucket/ }).click();
+  await add.getByRole("button", { name: /Save to Bucket/ }).click();
   await page.getByRole("button", { name: "Open trip planner" }).click();
   await expect(page.locator(".planner-workspace")).toBeVisible();
   expect(

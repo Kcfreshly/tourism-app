@@ -33,7 +33,7 @@ export function rangeLabel(start: string, end: string) {
 }
 
 let cataloguePromise: Promise<Record[]> | null = null;
-function loadCatalogue() {
+export function loadCatalogue() {
   cataloguePromise ??= fetch("/api/v1/experiences")
     .then(async (response) => {
       const body = await response.json();

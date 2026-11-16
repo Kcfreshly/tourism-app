@@ -1,12 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BucketButton, BucketTray, ClearBucket } from "./bucket";
 import { useBucket } from "@/hooks/use-bucket";
 import { useActiveTrip } from "@/hooks/use-active-trip";
-import { useTripDates } from "@/hooks/use-trip-dates";
 import { photoById } from "@/modules/catalogue/domain/photos";
-import { WhatsOn, rangeLabel } from "./whats-on";
+import { WhatsOn } from "./whats-on";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
 import categories from "../../tourism-v1-handoff/data/categories.json";
@@ -26,6 +25,19 @@ import {
   isEvent,
   lagosToday,
 } from "@/modules/catalogue/domain/events";
+import {
+  ageLabel,
+  listingDetails,
+} from "@/modules/catalogue/domain/listing-details";
+import {
+  isoDate,
+  runsOn,
+  shortDay,
+  startTimesOn,
+  weekendDates,
+  weeklyPattern,
+} from "@/modules/catalogue/domain/schedule";
+import { defaultDestination } from "@/modules/catalogue/domain/destinations";
 export function money(n: number) {
   return formatMoney(n);
 }
@@ -33,27 +45,35 @@ type Record = Experience & { seedKey: string };
 const banner = photoById("lekki-link-bridge");
 
 // One calm card for every listing: photo, a quiet meta line, the name, at
-// most one highlight and the price. The bucket toggle sits on the photo.
+// most one highlight and the price. The Save toggle sits on the photo.
 export function ExperienceCard({
   experience: e,
   start,
   end,
+  date,
 }: {
   experience: Experience & { seedKey?: string };
   // Dated events show their first date inside this window.
   start?: string;
   end?: string;
+  // A browse date: the card shows its start times that day.
+  date?: string;
 }) {
   const { ids } = useBucket();
   const saved = ids.includes(e.offer.id);
   const name = displayName(e.name);
-  const highlight = e.event
-    ? eventWhen(e, start ?? lagosToday(), end)
-    : e.offer.hostIncluded
-      ? "Local host included"
-      : e.kind === "FULL_DAY"
-        ? "Full day"
-        : undefined;
+  const details = listingDetails(e);
+  const times = date ? startTimesOn(e, date) : [];
+  const highlight =
+    date && times.length
+      ? `${shortDay(date)} · ${times.slice(0, 3).join(", ")}${times.length > 3 ? " +more" : ""}`
+      : e.event
+        ? eventWhen(e, start ?? lagosToday(), end)
+        : e.offer.hostIncluded
+          ? "Local host included"
+          : e.kind === "FULL_DAY"
+            ? "Full day"
+            : weeklyPattern(e);
   return (
     <article className="experience card tile" data-saved={saved}>
       <div className="tile-media card-media">
@@ -79,7 +99,8 @@ export function ExperienceCard({
         <p className="tile-meta">
           {categoryShortLabels[e.categoryId] ?? e.categoryId} ·{" "}
           {zoneLabel(e.zoneId)} ·{" "}
-          {formatDuration(e.durationMinMinutes, e.durationMaxMinutes)}
+          {formatDuration(e.durationMinMinutes, e.durationMaxMinutes)} ·{" "}
+          {ageLabel(details)}
         </p>
         <h3>
           <ExperienceOverlay
@@ -89,8 +110,8 @@ export function ExperienceCard({
           />
         </h3>
         {highlight && (
-          <p className="tile-highlight" data-event={!!e.event}>
-            {e.event && <Icon name="calendar" size={14} />}
+          <p className="tile-highlight" data-event={!!e.event || !!date}>
+            {(e.event || date) && <Icon name="calendar" size={14} />}
             {highlight}
           </p>
         )}
@@ -98,38 +119,108 @@ export function ExperienceCard({
           <strong>{formatMoney(e.offer.rateMinor)}</strong>{" "}
           {priceBasisLabel(e.offer.priceBasis)}
         </p>
+        {details.confirmation === "INSTANT" && (
+          <p className="tile-flag">
+            <Icon name="check" size={14} />
+            Instant confirmation
+          </p>
+        )}
+        {date && times.length > 0 && (
+          <Link
+            className="text-link tile-book"
+            href={`/experiences/${e.seedKey ?? e.id}?date=${date}&book=1`}
+          >
+            Book for {shortDay(date)}
+            <Icon name="arrowRight" size={14} />
+          </Link>
+        )}
       </div>
     </article>
   );
 }
 
+export type ExploreFilters = {
+  category?: string;
+  view?: string;
+  date?: string;
+  family?: string;
+  arrival?: string;
+  area?: string;
+};
+
 export default function CatalogueBrowser({
   records,
-  initialCategory = "",
-  initialView = "all",
+  initial = {},
   tripId,
+  today,
 }: {
   records: Record[];
-  initialCategory?: string;
-  initialView?: string;
+  initial?: ExploreFilters;
   tripId?: string;
+  today: string;
 }) {
   const { ids } = useBucket();
   const activeTrip = useActiveTrip();
   const currentTrip = tripId || activeTrip;
-  const [bucketOnly, setBucketOnly] = useState(initialView === "bucket");
-  const [category, setCategory] = useState(initialCategory),
+  const [bucketOnly, setBucketOnly] = useState(initial.view === "bucket");
+  const [category, setCategory] = useState(initial.category ?? ""),
     [search, setSearch] = useState(""),
     [kind, setKind] = useState(""),
-    [accessible, setAccessible] = useState(false);
+    [accessible, setAccessible] = useState(false),
+    [date, setDate] = useState(
+      initial.date === "weekend" || isoDate.test(initial.date ?? "")
+        ? initial.date!
+        : "",
+    ),
+    [family, setFamily] = useState(initial.family === "1"),
+    [arrival, setArrival] = useState(initial.arrival ?? ""),
+    [area, setArea] = useState(initial.area ?? "");
+  const weekend = weekendDates(today);
+  const days = date === "weekend" ? weekend : date ? [date] : [];
+  // Keep the filters in the address so back, reload and sharing keep them.
+  useEffect(() => {
+    const query = new URLSearchParams(
+      Object.entries({
+        category,
+        date,
+        family: family ? "1" : "",
+        arrival,
+        area,
+        view: bucketOnly ? "bucket" : "",
+        trip: tripId ?? "",
+      }).filter(([, value]) => value),
+    ).toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+  }, [category, date, family, arrival, area, bucketOnly, tripId]);
   const query = search.trim().toLowerCase();
-  const filtering = !!(category || query || kind || accessible);
-  const filtered = records.filter(
-    (e) =>
+  const filtering = !!(
+    category ||
+    query ||
+    kind ||
+    accessible ||
+    date ||
+    family ||
+    arrival ||
+    area
+  );
+  const filtered = records.filter((e) => {
+    const details = listingDetails(e);
+    return (
       (!bucketOnly || ids.includes(e.offer.id)) &&
       // Dated events have their own row above; list them here only when the
       // traveller is filtering, searching or viewing their bucket.
       (filtering || bucketOnly || !isEvent(e)) &&
+      (!days.length || days.some((d) => runsOn(e, d))) &&
+      (!family || details.familySuitable) &&
+      (!arrival ||
+        (arrival === "SELF"
+          ? details.arrival !== "PICKUP_REQUIRED"
+          : details.arrival !== "SELF")) &&
+      (!area || e.zoneId === area) &&
       (!category ||
         (category === "events" ? isEvent(e) : e.categoryId === category)) &&
       (!query ||
@@ -143,15 +234,19 @@ export default function CatalogueBrowser({
         zoneLabel(e.zoneId).toLowerCase().includes(query)) &&
       (!kind || e.kind === kind) &&
       // Accessibility is unconfirmed for every listing; never relax this filter.
-      !accessible,
-  );
+      !accessible
+    );
+  });
   function resetFilters() {
     setCategory("");
     setSearch("");
     setKind("");
     setAccessible(false);
+    setDate("");
+    setFamily(false);
+    setArrival("");
+    setArea("");
   }
-  const dates = useTripDates();
   function showBucket() {
     resetFilters();
     setBucketOnly(true);
@@ -168,8 +263,10 @@ export default function CatalogueBrowser({
           height={banner.height}
         />
         <div className="explore-banner-inner">
-          <p className="explore-banner-kicker">Explore Lagos</p>
-          <h1>Things to do in Lagos</h1>
+          <p className="explore-banner-kicker">
+            {defaultDestination.name}, Nigeria
+          </p>
+          <h1>Things to do in {defaultDestination.name}</h1>
           <div className="explore-banner-search">
             <label className="search-field explore-search">
               <Icon name="search" size={20} />
@@ -181,17 +278,42 @@ export default function CatalogueBrowser({
                 placeholder="Search art, food, beach, Lekki…"
               />
             </label>
-            <Link
-              className="explore-dates"
-              href={
-                currentTrip
-                  ? `/trips/${encodeURIComponent(currentTrip)}/profile`
-                  : "/plan/new?mode=form"
-              }
-            >
+            <label className="explore-date-field">
               <Icon name="calendar" size={18} />
-              {dates ? rangeLabel(dates.start, dates.end) : "Add your dates"}
-            </Link>
+              <span className="sr-only">Pick a date</span>
+              <input
+                type="date"
+                min={today}
+                value={isoDate.test(date) ? date : ""}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="chip-row date-chips" role="group" aria-label="When">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={!date}
+              onClick={() => setDate("")}
+            >
+              Any date
+            </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={date === today}
+              onClick={() => setDate(today)}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={date === "weekend"}
+              onClick={() => setDate("weekend")}
+            >
+              This weekend
+            </button>
           </div>
         </div>
         <p className="explore-banner-credit">
@@ -233,17 +355,19 @@ export default function CatalogueBrowser({
         <div className="results-title">
           <h2>
             {bucketOnly
-              ? "Your bucket"
-              : filtering
-                ? "Results"
-                : "All experiences"}
+              ? "Your Bucket"
+              : date
+                ? `On ${days.map(shortDay).join(" or ")}`
+                : filtering
+                  ? "Results"
+                  : "All experiences"}
           </h2>
           <p aria-live="polite">
             <strong>
               {filtered.length}{" "}
               {filtered.length === 1 ? "experience" : "experiences"}
             </strong>
-            {bucketOnly ? " in your bucket" : ""}
+            {bucketOnly ? " in your Bucket" : ""}
             {filtering && (
               <button
                 type="button"
@@ -277,6 +401,36 @@ export default function CatalogueBrowser({
               My Bucket <span className="count">{ids.length}</span>
             </button>
           </div>
+          <label className="toggle-field">
+            <input
+              type="checkbox"
+              checked={family}
+              onChange={(e) => setFamily(e.target.checked)}
+            />
+            Good for kids
+          </label>
+          <label className="select-field">
+            <span className="sr-only">Getting there</span>
+            <select
+              value={arrival}
+              onChange={(e) => setArrival(e.target.value)}
+            >
+              <option value="">Any way of getting there</option>
+              <option value="SELF">I’ll make my own way</option>
+              <option value="PICKUP">Pickup available</option>
+            </select>
+          </label>
+          <label className="select-field">
+            <span className="sr-only">Area</span>
+            <select value={area} onChange={(e) => setArea(e.target.value)}>
+              <option value="">All areas</option>
+              {defaultDestination.areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="select-field">
             <span className="sr-only">Length</span>
             <select value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -314,17 +468,19 @@ export default function CatalogueBrowser({
           <Icon name={bucketOnly ? "bookmark" : "search"} size={28} />
           <h2>
             {bucketOnly && !ids.length
-              ? "Your bucket is empty"
+              ? "Your Bucket is empty"
               : accessible
                 ? "No confirmed wheelchair access yet"
                 : "Nothing matches those filters"}
           </h2>
           <p>
             {bucketOnly && !ids.length
-              ? "Add experiences you like as you browse. They’ll be waiting in your planner."
+              ? "Save ideas as you browse. Saving doesn’t hold a date or book anything."
               : accessible
                 ? "We only show access we have confirmed, and none of these experiences are confirmed yet. We won’t relax this filter for you."
-                : "Try a different category or search term."}
+                : date
+                  ? "Nothing runs then with these filters. Try another date or clear filters."
+                  : "Try a different category or search term."}
           </p>
           <button
             type="button"
@@ -340,7 +496,11 @@ export default function CatalogueBrowser({
       ) : (
         <div className="experience-grid">
           {filtered.map((e) => (
-            <ExperienceCard key={e.id} experience={e} />
+            <ExperienceCard
+              key={e.id}
+              experience={e}
+              date={days.find((d) => runsOn(e, d))}
+            />
           ))}
         </div>
       )}

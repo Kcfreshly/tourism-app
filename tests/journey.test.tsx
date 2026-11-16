@@ -48,7 +48,7 @@ describe("trip journey", () => {
         <Intake mode="chat" fresh />
       </>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Add to bucket/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Save to Bucket/ }));
     expect(screen.queryByLabelText("Arrival date")).toBeNull();
     fireEvent.change(screen.getByLabelText("Your trip, in your own words"), {
       target: {
@@ -154,19 +154,19 @@ describe("trip journey", () => {
         <BucketButton id="offer-gallery" />
       </>,
     );
-    const buttons = screen.getAllByRole("button", { name: /Add to bucket/ });
+    const buttons = screen.getAllByRole("button", { name: /Save to Bucket/ });
     fireEvent.click(buttons[0]);
     expect(
       screen
-        .getAllByRole("button", { name: /Remove from bucket/ })
+        .getAllByRole("button", { name: /Remove from Bucket/ })
         .every((button) => button.getAttribute("aria-pressed") === "true"),
     ).toBe(true);
     fireEvent.click(
-      screen.getAllByRole("button", { name: /Remove from bucket/ })[1],
+      screen.getAllByRole("button", { name: /Remove from Bucket/ })[1],
     );
     expect(
       screen
-        .getAllByRole("button", { name: /Add to bucket/ })
+        .getAllByRole("button", { name: /Save to Bucket/ })
         .every((button) => button.getAttribute("aria-pressed") === "false"),
     ).toBe(true);
     expect(localStorage.getItem("tourism.bucket.v1")).toBe("[]");
