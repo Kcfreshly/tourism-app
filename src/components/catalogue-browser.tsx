@@ -174,6 +174,8 @@ export default function CatalogueBrowser({
   const activeTrip = useActiveTrip();
   const currentTrip = tripId || activeTrip;
   const [bucketOnly, setBucketOnly] = useState(initial.view === "bucket");
+  // Small screens fold the refining controls behind a Filters button.
+  const [showFilters, setShowFilters] = useState(false);
   const [category, setCategory] = useState(initial.category ?? ""),
     [search, setSearch] = useState(""),
     [kind, setKind] = useState(""),
@@ -237,6 +239,9 @@ export default function CatalogueBrowser({
     bucketOnly,
     tripId,
   ]);
+  const activeFilters = [family, arrival, area, price, kind, accessible].filter(
+    Boolean,
+  ).length;
   const query = search.trim().toLowerCase();
   const filtering = !!(
     category ||
@@ -492,64 +497,85 @@ export default function CatalogueBrowser({
               My Bucket <span className="count">{ids.length}</span>
             </button>
           </div>
-          <label className="toggle-field">
-            <input
-              type="checkbox"
-              checked={family}
-              onChange={(e) => setFamily(e.target.checked)}
-            />
-            Good for kids
-          </label>
-          <label className="select-field">
-            <span className="sr-only">Getting there</span>
-            <select
-              value={arrival}
-              onChange={(e) => setArrival(e.target.value)}
-            >
-              <option value="">Any way of getting there</option>
-              <option value="SELF">I’ll make my own way</option>
-              <option value="PICKUP">Pickup available</option>
-            </select>
-          </label>
-          <label className="select-field">
-            <span className="sr-only">Price</span>
-            <select value={price} onChange={(e) => setPrice(e.target.value)}>
-              <option value="">Any price</option>
-              {priceBands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="select-field">
-            <span className="sr-only">Area</span>
-            <select value={area} onChange={(e) => setArea(e.target.value)}>
-              <option value="">All areas</option>
-              {defaultDestination.areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="select-field">
-            <span className="sr-only">Length</span>
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="">Any length</option>
-              <option value="MAIN">Main activities</option>
-              <option value="LIGHT">Light activities</option>
-              <option value="FULL_DAY">Full days</option>
-            </select>
-          </label>
-          <label className="toggle-field">
-            <input
-              type="checkbox"
-              checked={accessible}
-              onChange={(e) => setAccessible(e.target.checked)}
-            />
-            Confirmed wheelchair access
-          </label>
+          <button
+            type="button"
+            className="secondary filters-toggle"
+            aria-expanded={showFilters}
+            aria-controls="explore-filters"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Icon name="layout" size={16} />
+            Filters
+            {activeFilters > 0 && (
+              <span className="count">{activeFilters}</span>
+            )}
+            <Icon name="chevronDown" size={16} />
+          </button>
+          <div
+            className="explore-filters"
+            id="explore-filters"
+            data-open={showFilters}
+          >
+            <label className="toggle-field">
+              <input
+                type="checkbox"
+                checked={family}
+                onChange={(e) => setFamily(e.target.checked)}
+              />
+              Good for kids
+            </label>
+            <label className="select-field">
+              <span className="sr-only">Getting there</span>
+              <select
+                value={arrival}
+                onChange={(e) => setArrival(e.target.value)}
+              >
+                <option value="">Getting there</option>
+                <option value="SELF">I’ll make my own way</option>
+                <option value="PICKUP">Pickup available</option>
+              </select>
+            </label>
+            <label className="select-field">
+              <span className="sr-only">Price</span>
+              <select value={price} onChange={(e) => setPrice(e.target.value)}>
+                <option value="">Any price</option>
+                {priceBands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="select-field">
+              <span className="sr-only">Area</span>
+              <select value={area} onChange={(e) => setArea(e.target.value)}>
+                <option value="">All areas</option>
+                {defaultDestination.areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="select-field">
+              <span className="sr-only">Length</span>
+              <select value={kind} onChange={(e) => setKind(e.target.value)}>
+                <option value="">Any length</option>
+                <option value="MAIN">Main activities</option>
+                <option value="LIGHT">Light activities</option>
+                <option value="FULL_DAY">Full days</option>
+              </select>
+            </label>
+            <label className="toggle-field">
+              <input
+                type="checkbox"
+                checked={accessible}
+                onChange={(e) => setAccessible(e.target.checked)}
+              />
+              Wheelchair access
+              <span className="sr-only"> (confirmed only)</span>
+            </label>
+          </div>
         </div>
         {bucketOnly && (
           <div className="results-actions">

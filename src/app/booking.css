@@ -1470,3 +1470,87 @@ body:has(.booking-panel) .toast-region {
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: var(--space-2);
 }
+
+/* ===== Explore filters =====
+   Wide screens: the controls sit in the toolbar row. Small screens: a
+   Filters button opens them as a two-column grid under the Bucket switch. */
+.explore-filters {
+  display: contents;
+}
+/* The toolbar sits under the results heading, left-aligned, so wrapping
+   rows line up instead of hanging off the right edge. */
+.results-bar .explore-toolbar {
+  justify-content: flex-start;
+  width: 100%;
+  margin-left: 0;
+}
+/* Dropdowns as wide as their text, so the row fits on wide screens. */
+@media (min-width: 901px) {
+  .results-bar .explore-toolbar {
+    column-gap: var(--space-2);
+  }
+  .results-bar .select-field {
+    flex: 0 0 auto;
+  }
+  .results-bar .select-field select {
+    width: auto;
+  }
+}
+.filters-toggle {
+  display: none !important;
+}
+@media (max-width: 900px) {
+  .results-bar .explore-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+  .results-bar .explore-toolbar .segmented {
+    width: 100%;
+  }
+  .results-bar .explore-toolbar .segmented button {
+    flex: 1;
+  }
+  .filters-toggle {
+    display: inline-flex !important;
+    justify-self: start;
+    min-height: 40px;
+    padding: 0 var(--space-4);
+    font-size: var(--text-sm);
+  }
+  .filters-toggle .icon:last-child {
+    transition: rotate var(--dur-fast) var(--ease);
+  }
+  .filters-toggle[aria-expanded="true"] .icon:last-child {
+    rotate: 180deg;
+  }
+  .explore-filters {
+    display: none;
+  }
+  .explore-filters[data-open="true"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
+    background: var(--c-surface);
+  }
+  .explore-filters .select-field {
+    min-width: 0;
+  }
+  .explore-filters .select-field select {
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+  /* Checkboxes take full rows, after the dropdowns. */
+  .explore-filters .toggle-field {
+    grid-column: 1 / -1;
+    order: 1;
+    padding: 0;
+    white-space: normal;
+  }
+}
