@@ -7,6 +7,7 @@ import { useActiveTrip } from "@/hooks/use-active-trip";
 import { photoById } from "@/modules/catalogue/domain/photos";
 import { WhatsOn } from "./whats-on";
 import ExperienceOverlay from "./experience-overlay";
+import Rail from "./rail";
 import Icon from "./icons";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 import type { Experience } from "@/modules/catalogue/domain/experience";
@@ -414,7 +415,7 @@ export default function CatalogueBrowser({
           Photo: {banner.author} / {banner.license}
         </p>
       </header>
-      <div className="chip-row" role="group" aria-label="Category">
+      <Rail label="Categories" trackClassName="chip-row chip-track" compact>
         <button
           type="button"
           className="chip"
@@ -443,7 +444,7 @@ export default function CatalogueBrowser({
             {c.label}
           </button>
         ))}
-      </div>
+      </Rail>
       {!filtering && !bucketOnly && <WhatsOn records={records} />}
       <div className="results-bar" id="results">
         <div className="results-title">

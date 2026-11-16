@@ -2,15 +2,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Icon from "./icons";
 
-// A row of cards moved with side arrows instead of a scrollbar. Swipe and
-// trackpad scrolling still work; "See all" in the section head lists
-// everything.
+// A row of cards (or chips) moved with side arrows instead of a scrollbar.
+// Swipe and trackpad scrolling still work.
 export default function Rail({
   label,
   children,
+  trackClassName = "rail",
+  compact = false,
 }: {
   label: string;
   children: ReactNode;
+  trackClassName?: string;
+  // Smaller arrows for a row of chips.
+  compact?: boolean;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: true });
@@ -40,8 +44,13 @@ export default function Rail({
     el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: "smooth" });
   }
   return (
-    <div className="rail-frame" role="region" aria-label={label}>
-      <div className="rail" ref={track}>
+    <div
+      className="rail-frame"
+      role="region"
+      aria-label={label}
+      data-compact={compact || undefined}
+    >
+      <div className={trackClassName} ref={track}>
         {children}
       </div>
       {!edges.start && (

@@ -373,6 +373,8 @@ body:has(.booking-panel) .toast-region {
    card. */
 .rail-frame {
   position: relative;
+  /* Stays inside its grid column instead of growing to the row's width. */
+  min-width: 0;
 }
 .rail {
   display: grid;
@@ -1553,4 +1555,67 @@ body:has(.booking-panel) .toast-region {
     padding: 0;
     white-space: normal;
   }
+}
+
+/* ===== Chip rows without scrollbars =====
+   Categories scroll sideways on small screens with arrows, not a scrollbar.
+   The When chips are few, so they wrap instead of scrolling. */
+.explore-page .chip-track {
+  scrollbar-width: none;
+}
+@media (max-width: 640px) {
+  .explore-page .chip-track {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+}
+.explore-page .chip-track::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 640px) {
+  .explore-page .date-chips {
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  .explore-page .chip-track {
+    padding-bottom: 0;
+  }
+}
+.rail-frame[data-compact] .rail-arrow {
+  top: 50%;
+  translate: 0 -50%;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+.rail-frame[data-compact] .rail-arrow--prev {
+  left: -4px;
+}
+.rail-frame[data-compact] .rail-arrow--next {
+  right: -4px;
+}
+
+/* Date and select text stays dark inside the dark home search card. */
+.destination-search input,
+.destination-search select {
+  color: var(--c-ink);
+}
+
+/* Home search: both columns start at the top, so "Where" and "When" line
+   up and the dropdown keeps its normal height when the date fields open. */
+.destination-search-fields {
+  align-items: start;
+}
+.destination-field {
+  align-content: start;
+}
+.destination-field select {
+  height: var(--control-h);
+}
+.destination-field > span,
+.destination-when legend {
+  min-height: 24px;
+  margin-bottom: var(--space-2);
 }
