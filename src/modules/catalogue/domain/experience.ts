@@ -107,6 +107,8 @@ export function editedRecord(old: Experience, edit: CatalogueEdit) {
       ...old.offer,
       rateMinor: edit.rateMinor,
       capacityPerSlot: edit.capacityPerSlot,
+      bookingCutoffHours:
+        edit.bookingCutoffHours ?? old.offer.bookingCutoffHours,
     },
   };
 }

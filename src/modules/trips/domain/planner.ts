@@ -236,7 +236,13 @@ export function assess(
       Date.parse(`${item.localDate}T${item.startTime}:00+01:00`) - now <
       offer.offer.bookingCutoffHours * 3600000
     )
-      add("CUTOFF", "This experience is inside its booking cutoff.", item.id);
+      add(
+        "CUTOFF",
+        offer.offer.bookingCutoffHours
+          ? `This experience needs booking at least ${offer.offer.bookingCutoffHours} hours before it starts.`
+          : "This start time has already passed.",
+        item.id,
+      );
     const quantity =
       offer.offer.priceBasis === "PER_ADULT" ? profile.adults : 1;
     if (
@@ -547,6 +553,34 @@ export function placementMessage(issue: Issue) {
   return issue.code === "OVERLAP"
     ? "This time is already occupied. Choose another time or day."
     : issue.message;
+}
+
+// True when every start an experience could have on `day` is already inside
+// its booking cutoff: the day is too soon, rather than too full.
+export function pastBookingCutoff(
+  offer: Experience,
+  day: string,
+  now = Date.now(),
+) {
+  const latest = (
+    offer.schedulingType === "FIXED"
+      ? (offer.sessions ?? [])
+          .filter((s) => !s.dates || s.dates.includes(day))
+          .map((s) => s.startTime)
+      : [
+          time(
+            minutes(offer.availabilityLocal.closesAt) -
+              offer.durationMinMinutes,
+          ),
+        ]
+  )
+    .sort()
+    .at(-1);
+  return (
+    !!latest &&
+    Date.parse(`${day}T${latest}:00+01:00`) - now <
+      offer.offer.bookingCutoffHours * 3600000
+  );
 }
 
 export function availableStarts(

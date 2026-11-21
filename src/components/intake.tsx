@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   initialProfile,
   profileSchema,
+  upcomingTrip,
   type Profile,
 } from "@/modules/trips/domain/profile";
+import { lagosToday } from "@/modules/catalogue/domain/events";
 import {
   formatMoney,
   zoneLabel,
@@ -42,6 +44,8 @@ const paceLabels: Record<Profile["pace"], string> = {
   BALANCED: "balanced",
   FULL: "full",
 };
+const pastArrival =
+  "That arrival date has passed. Edit the details to choose today or later.";
 const assistanceLabels: Record<Profile["assistance"], string> = {
   DRIVER_ONLY: "No guide",
   ACTIVITY_GUIDE: "Guide for selected activities",
@@ -87,6 +91,7 @@ export default function Intake({
   const { ids: bucket } = useBucket();
   const [profile, setProfile] = useState<Profile>({
     ...initialProfile,
+    ...upcomingTrip(lagosToday()),
     draftName: seed?.draftName ?? "",
     ...(seed && { startDate: seed.startDate, endDate: seed.endDate }),
     selectedOfferIds: offer ? [offer] : [],
@@ -140,6 +145,8 @@ export default function Intake({
           if (active && draft.success)
             setProfile({
               ...draft.data,
+              ...(draft.data.startDate < lagosToday() &&
+                upcomingTrip(lagosToday())),
               draftName: "",
               selectedOfferIds: offer
                 ? [...new Set([...draft.data.selectedOfferIds, offer])]
@@ -175,6 +182,10 @@ export default function Intake({
     const result = profileSchema.safeParse(profile);
     if (!result.success) {
       setStatus(result.error.issues.map((issue) => issue.message).join(" "));
+      return;
+    }
+    if (profile.startDate < lagosToday()) {
+      setStatus(pastArrival);
       return;
     }
     recognition.current?.stop();
@@ -244,9 +255,11 @@ export default function Intake({
       setHasReviewed(true);
       setStage("review");
       setStatus(
-        body.data.changes.length
-          ? "Kemi updated your summary. Check every detail before saving."
-          : "Kemi didn’t find new details. Review the summary or edit it yourself.",
+        body.data.profile.startDate < lagosToday()
+          ? pastArrival
+          : body.data.changes.length
+            ? "Kemi updated your summary. Check every detail before saving."
+            : "Kemi didn’t find new details. Review the summary or edit it yourself.",
       );
       setNote("");
     } catch (error) {
@@ -260,6 +273,10 @@ export default function Intake({
     }
   }
   async function save(asNew = false) {
+    if (profile.startDate < lagosToday()) {
+      setStatus(pastArrival);
+      return;
+    }
     setBusy(true);
     setStatus("Saving your trip…");
     try {
@@ -573,6 +590,7 @@ export default function Intake({
                     <input
                       required
                       type="date"
+                      min={lagosToday()}
                       value={profile.startDate}
                       onChange={(e) => update("startDate", e.target.value)}
                     />
@@ -582,6 +600,7 @@ export default function Intake({
                     <input
                       required
                       type="date"
+                      min={profile.startDate}
                       value={profile.endDate}
                       onChange={(e) => update("endDate", e.target.value)}
                     />
@@ -989,7 +1008,11 @@ export default function Intake({
               className="text-button"
               onClick={() => {
                 setSaved(null);
-                setProfile({ ...initialProfile, draftName: "" });
+                setProfile({
+                  ...initialProfile,
+                  ...upcomingTrip(lagosToday()),
+                  draftName: "",
+                });
                 setHasReviewed(false);
                 setMode("chat");
                 setStage("details");

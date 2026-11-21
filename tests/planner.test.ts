@@ -15,6 +15,7 @@ import {
   defaultServices,
   feeHalfUp,
   tripDays,
+  pastBookingCutoff,
   type Item,
 } from "../src/modules/trips/domain/planner";
 import {
@@ -256,6 +257,56 @@ describe("schedule constraints and proposals", () => {
     expect(full.mains).toBeLessThanOrEqual(3);
     expect(full.arrivalLights).toBe(2);
     expect(balanced.arrivalLights).toBe(1);
+  });
+  it("books the same day up to the start, unless the listing asks for notice", () => {
+    const day = "2027-05-10";
+    const trip = { ...profile, startDate: day, endDate: day };
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    const codes = (offerId: string, now: number) =>
+      assess(
+        trip,
+        [{ ...item(offerId, "13:00", "14:30"), localDate: day }],
+        services,
+        fixture.experiences,
+        now,
+      ).blockers.map((b) => b.message);
+    // No notice needed: bookable an hour before, refused once started.
+    expect(codes("offer-gallery", at("12:00")).join()).not.toMatch(
+      /passed|needs booking/,
+    );
+    expect(codes("offer-gallery", at("13:30"))).toContain(
+      "This start time has already passed.",
+    );
+    // The cooking host asks for 24 hours' notice.
+    expect(
+      codes("offer-cooking", at("09:00")).some((m) =>
+        m.includes("at least 24 hours"),
+      ),
+    ).toBe(true);
+  });
+  it("closes a day only once its last start is inside the booking cutoff", () => {
+    const gallery = fixture.experiences.find(
+      (e) => e.offer.id === "offer-gallery",
+    )!;
+    const day = "2027-05-10";
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    // Same-day booking works while a later start is still far enough ahead.
+    expect(pastBookingCutoff(gallery, day, at("06:00") - 86400000)).toBe(false);
+    expect(pastBookingCutoff(gallery, day, at("23:00"))).toBe(true);
+    // A day without sessions isn't "too late"; it simply doesn't run.
+    expect(
+      pastBookingCutoff(
+        {
+          ...gallery,
+          schedulingType: "FIXED",
+          sessions: [
+            { startTime: "18:00", durationMinutes: 60, dates: ["2027-01-01"] },
+          ],
+        } as never,
+        day,
+        at("23:00"),
+      ),
+    ).toBe(false);
   });
   it("warns when a day is busier than the chosen pace", () => {
     const relaxed = assess(

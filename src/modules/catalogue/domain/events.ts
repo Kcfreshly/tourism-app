@@ -2,6 +2,7 @@
 // fixed-session experiences whose sessions only run on listed dates. The
 // planner's session rules already enforce those dates; this module only finds
 // and describes the events that fall inside a traveller's dates.
+import { addDays } from "./schedule";
 
 export type EventType =
   "CONCERT" | "FESTIVAL" | "CARNIVAL" | "CONFERENCE" | "STUDIO";
@@ -81,4 +82,36 @@ export function eventWhen(e: Dated, start?: string, end?: string) {
 
 export function lagosToday(now = Date.now()) {
   return new Date(now + 3600000).toISOString().slice(0, 10);
+}
+
+// Session dates listed across these records, earliest first.
+export function sessionDates(records: { sessions?: { dates?: string[] }[] }[]) {
+  return records
+    .flatMap((r) => r.sessions ?? [])
+    .flatMap((s) => s.dates ?? [])
+    .sort();
+}
+
+// Demo event dates drift into the past during development. This many days
+// moves the earliest one to tomorrow or later, in whole weeks so every session
+// keeps its weekday and stays inside the listing's opening days.
+export function demoDateShift(dates: string[], today: string) {
+  const earliest = [...dates].sort()[0];
+  if (!earliest) return 0;
+  const behind =
+    (Date.parse(addDays(today, 1) + "T12:00:00Z") -
+      Date.parse(earliest + "T12:00:00Z")) /
+    86400000;
+  return behind > 0 ? Math.ceil(behind / 7) * 7 : 0;
+}
+
+export function shiftSessionDates<
+  T extends { sessions?: { dates?: string[] }[] },
+>(record: T, days: number): T {
+  return {
+    ...record,
+    sessions: record.sessions?.map((s) =>
+      s.dates ? { ...s, dates: s.dates.map((d) => addDays(d, days)) } : s,
+    ),
+  };
 }

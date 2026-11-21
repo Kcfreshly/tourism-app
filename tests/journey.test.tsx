@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import Intake from "../src/components/intake";
+import { lagosToday } from "../src/modules/catalogue/domain/events";
 import { BucketButton } from "../src/components/bucket";
 import { extractProfile } from "../src/modules/trips/domain/intake";
 import type { Profile } from "../src/modules/trips/domain/profile";
@@ -53,7 +54,7 @@ describe("trip journey", () => {
     fireEvent.change(screen.getByLabelText("Your trip, in your own words"), {
       target: {
         value:
-          "2026-11-10 to 2026-11-16, 3 adults. We love art and nature. Budget: NGN 500000.",
+          "2027-11-10 to 2027-11-16, 3 adults. We love art and nature. Budget: NGN 500000.",
       },
     });
     fireEvent.click(
@@ -145,6 +146,30 @@ describe("trip journey", () => {
       screen.getByRole("heading", { name: "Does this feel like your trip?" }),
     ).toBeTruthy();
     expect(writes).toHaveLength(0);
+  });
+
+  it("opens on upcoming dates and refuses an arrival that has passed", async () => {
+    render(<Intake mode="chat" fresh />);
+    // Dates from the conversation skip the form's date picker.
+    fireEvent.change(screen.getByLabelText("Your trip, in your own words"), {
+      target: { value: "2020-01-01 to 2020-01-03, 2 adults. We love art." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review my trip summary" }),
+    );
+    expect(
+      await screen.findByText(/That arrival date has passed/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+    expect(writes.some((w) => w.path === "/api/v1/trips")).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit details manually" }),
+    );
+    const arrival = screen.getByLabelText("Arrival date") as HTMLInputElement;
+    const today = lagosToday();
+    expect(arrival.min).toBe(today);
+    fireEvent.change(arrival, { target: { value: "2020-01-01" } });
+    expect(arrival.validity.rangeUnderflow).toBe(true);
   });
 
   it("explains each way of getting around and carries it to the summary", () => {

@@ -28,6 +28,7 @@ function editRow(row: Row): Edit {
     durationMaxMinutes: row.record.durationMaxMinutes,
     rateMinor: row.record.offer.rateMinor,
     capacityPerSlot: row.record.offer.capacityPerSlot,
+    bookingCutoffHours: row.record.offer.bookingCutoffHours,
     status: row.status as Edit["status"],
     review: row.review ?? emptyReview,
   };
@@ -226,6 +227,23 @@ export default function AdminCatalogue() {
                         field("rateMinor", Number(e.target.value))
                       }
                     />
+                  </label>
+                  <label>
+                    Minimum booking notice (hours)
+                    <input
+                      required
+                      type="number"
+                      min={0}
+                      max={168}
+                      step={1}
+                      value={edit.bookingCutoffHours ?? 0}
+                      onChange={(e) =>
+                        field("bookingCutoffHours", Number(e.target.value))
+                      }
+                    />
+                    <small className="form-hint">
+                      0 lets travellers book until the session starts.
+                    </small>
                   </label>
                   <label>
                     Minimum minutes

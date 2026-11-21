@@ -28,6 +28,9 @@ export const catalogueEditSchema = z
     durationMaxMinutes: z.number().int().min(30).max(480),
     rateMinor: z.number().int().min(0).max(100000000),
     capacityPerSlot: z.number().int().min(1).max(100),
+    // Minimum notice the operator needs before a session starts; 0 means it
+    // can be booked right up to the start time.
+    bookingCutoffHours: z.number().int().min(0).max(168).optional(),
     status: z.enum([
       "DRAFT",
       "RESEARCHED",

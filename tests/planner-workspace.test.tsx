@@ -17,6 +17,8 @@ import {
 } from "../src/modules/trips/domain/planner";
 import { resizedBlock } from "../src/modules/trips/domain/planner-interactions";
 import PlannerActivityCard from "../src/components/planner-activity-card";
+import { lagosToday } from "../src/modules/catalogue/domain/events";
+import { addDays } from "../src/modules/catalogue/domain/schedule";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 const profile = {
@@ -193,4 +195,70 @@ it("shows travellers making their own way no vehicle to book or pay for", async 
   expect(screen.queryByLabelText("Vehicle from")).toBeNull();
   expect(screen.queryByText("Car and driver")).toBeNull();
   expect(screen.getAllByText("Your own").length).toBeGreaterThan(0);
+});
+
+it("says why nothing fits once the trip dates have passed", async () => {
+  const past = { ...profile, startDate: "2020-01-10", endDate: "2020-01-10" };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          trip: {
+            id: "trip-test",
+            version: 1,
+            profile: past,
+            items: [],
+            services,
+          },
+          offers: fixture.experiences,
+          price: assess(past, [], services, fixture.experiences),
+        },
+      }),
+    })),
+  );
+  render(<Planner id="trip-test" />);
+  expect(
+    (await screen.findAllByText(/These trip dates have passed/)).length,
+  ).toBeGreaterThan(0);
+  expect(screen.getAllByText("This day has passed.").length).toBeGreaterThan(0);
+  expect(screen.queryByText(/Doesn’t fit this day/)).toBeNull();
+  expect(
+    screen.getAllByRole("link", { name: "Change trip dates" })[0],
+  ).toHaveProperty("href", expect.stringContaining("/trips/trip-test/profile"));
+});
+
+it("opens a trip that starts today on today, judging each experience by its cutoff", async () => {
+  const today = lagosToday();
+  const now = { ...profile, startDate: today, endDate: addDays(today, 2) };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          trip: {
+            id: "trip-test",
+            version: 1,
+            profile: now,
+            items: [],
+            services,
+          },
+          offers: fixture.experiences,
+          price: assess(now, [], services, fixture.experiences),
+        },
+      }),
+    })),
+  );
+  render(<Planner id="trip-test" />);
+  await screen.findByRole("heading", { name: "My trip planner" });
+  const date = new Date(today + "T12:00:00Z").getUTCDate();
+  expect(
+    screen
+      .getAllByRole("button", { pressed: true })
+      .some((b) => b.textContent?.includes(String(date))),
+  ).toBe(true);
+  // No blanket "day closed" notice: today stays open for later slots.
+  expect(screen.queryByText(/This day has passed/)).toBeNull();
 });

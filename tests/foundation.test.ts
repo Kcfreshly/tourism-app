@@ -6,7 +6,11 @@ import {
 } from "../src/modules/trips/domain/profile";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
 import contract from "../tourism-v1-handoff/contracts/catalogue.schema.json";
-import { publishBlockers } from "../src/modules/catalogue/domain/experience";
+import {
+  editedRecord,
+  publishBlockers,
+} from "../src/modules/catalogue/domain/experience";
+import { catalogueEditSchema } from "../src/modules/catalogue/domain/catalogue";
 import { assertDemo } from "../src/config/environment";
 describe("foundation trust boundaries", () => {
   it("fully validates supplied catalogue fixture schema", () =>
@@ -37,5 +41,42 @@ describe("foundation trust boundaries", () => {
     expect(assertDemo).toThrow("Live operation refused");
     if (old === undefined) delete process.env.LIVE_CHECKOUT_ENABLED;
     else process.env.LIVE_CHECKOUT_ENABLED = old;
+  });
+});
+
+describe("minimum booking notice", () => {
+  const old = fixture.experiences.find((e) => e.offer.id === "offer-cooking")!;
+  const edit = {
+    id: "00000000-0000-4000-8000-000000000001",
+    expectedVersion: 1,
+    name: old.name,
+    categoryId: old.categoryId as "food",
+    zoneId: old.zoneId as "LEKKI",
+    kind: old.kind as "MAIN",
+    durationMinMinutes: old.durationMinMinutes,
+    durationMaxMinutes: old.durationMaxMinutes,
+    rateMinor: old.offer.rateMinor,
+    capacityPerSlot: old.offer.capacityPerSlot,
+    status: "DEMO_PUBLISHED" as const,
+    review: {
+      content: true,
+      rates: true,
+      capacity: true,
+      policy: true,
+      media: true,
+    },
+  };
+  it("lets staff set it, and keeps it when an edit leaves it out", () => {
+    expect(
+      catalogueEditSchema.parse({ ...edit, bookingCutoffHours: 0 }),
+    ).toBeTruthy();
+    expect(() =>
+      catalogueEditSchema.parse({ ...edit, bookingCutoffHours: -1 }),
+    ).toThrow();
+    expect(
+      editedRecord(old as never, { ...edit, bookingCutoffHours: 2 }).offer
+        .bookingCutoffHours,
+    ).toBe(2);
+    expect(editedRecord(old as never, edit).offer.bookingCutoffHours).toBe(24);
   });
 });

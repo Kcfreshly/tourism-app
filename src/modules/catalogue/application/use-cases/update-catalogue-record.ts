@@ -38,6 +38,7 @@ export class UpdateCatalogueRecord {
               status: edit.status,
               rateMinor: edit.rateMinor,
               capacityPerSlot: edit.capacityPerSlot,
+              bookingCutoffHours: edit.bookingCutoffHours,
               review: edit.review,
             },
           },

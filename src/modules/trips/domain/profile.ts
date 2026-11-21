@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addDays } from "../../catalogue/domain/schedule";
 export const categoryIds = [
   "nature",
   "waterfront",
@@ -52,6 +53,12 @@ export const profileSchema = z
       });
   });
 export type Profile = z.infer<typeof profileSchema>;
+// A new trip starts two weeks out and runs a week, so the form never opens on
+// dates that have already passed.
+export function upcomingTrip(today: string) {
+  const startDate = addDays(today, 14);
+  return { startDate, endDate: addDays(startDate, 6) };
+}
 export const initialProfile: Profile = {
   cityId: "lagos",
   startDate: "2026-11-10",

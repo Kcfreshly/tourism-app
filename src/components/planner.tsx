@@ -17,6 +17,7 @@ import {
   placementMessage,
   availableStarts,
   assistanceFor,
+  pastBookingCutoff,
 } from "@/modules/trips/domain/planner";
 import type { Experience } from "@/modules/catalogue/domain/experience";
 import { ClearBucket } from "./bucket";
@@ -34,6 +35,7 @@ import {
   eventDay,
   eventWhen,
   isEvent,
+  lagosToday,
 } from "@/modules/catalogue/domain/events";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
@@ -153,10 +155,13 @@ export default function Planner({
         const query = new URLSearchParams(window.location.search);
         const requested = query.get("day");
         pendingAdd.current = query.get("add");
+        const days = tripDays(data.trip.profile);
+        // Open on today or later, so a trip already under way doesn't land
+        // on a day that has passed.
         setDay(
-          requested && tripDays(data.trip.profile).includes(requested)
+          requested && days.includes(requested)
             ? requested
-            : data.trip.profile.startDate,
+            : (days.find((d) => d >= lagosToday()) ?? days[0]),
         );
         setStatus("Saved · nothing is booked yet");
       })
@@ -470,6 +475,9 @@ export default function Planner({
       nextServices,
     );
   }
+  // Days before today can't take bookings; today is judged per experience by
+  // its own booking cutoff.
+  const dayClosed = day < lagosToday();
   const libraryContents = (
     <div className="library-shell compact-library">
       <div className="library-controls">
@@ -533,6 +541,16 @@ export default function Planner({
             </select>
           </label>
         </div>
+        {dayClosed && (
+          <p className="notice" role="status">
+            {trip && trip.profile.endDate < lagosToday()
+              ? "These trip dates have passed, so nothing can be booked for them."
+              : "This day has passed, so nothing can be booked for it."}{" "}
+            <Link className="text-link" href={`/trips/${id}/profile`}>
+              Change trip dates
+            </Link>
+          </p>
+        )}
         {view === "bucket" ? (
           <div className="bucket-navigation">
             <Link
@@ -616,6 +634,15 @@ export default function Planner({
             busy={busy}
             available={!!starts.length}
             note={note}
+            unavailableReason={
+              dayClosed
+                ? "This day has passed."
+                : pastBookingCutoff(e, day)
+                  ? e.offer.bookingCutoffHours
+                    ? `Too late for this day: book at least ${e.offer.bookingCutoffHours} hours ahead.`
+                    : "Too late to book for this day."
+                  : undefined
+            }
             when={when}
             otherDay={
               !starts.length && otherDay

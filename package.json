@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed:demo": "tsx scripts/seed.ts",
+    "db:refresh-dates": "tsx scripts/refresh-demo-dates.ts",
     "demo:grant-admin": "tsx scripts/grant-demo-admin.ts",
     "test:integration": "node scripts/check-api.mjs && node scripts/check-planner.mjs && node scripts/check-account.mjs",
     "test:admin": "node scripts/check-admin.mjs",
