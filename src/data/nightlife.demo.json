@@ -1,0 +1,58 @@
+{
+  "warning": "FICTIONAL LATE-NIGHT LISTINGS FOR INTERFACE TESTING. Not real venues, guest lists or supplier offers.",
+  "experiences": [
+    {
+      "id": "club-night",
+      "isDemo": true,
+      "name": "Late-night club night — DEMO",
+      "cityId": "lagos",
+      "categoryId": "nightlife",
+      "tags": ["nightlife", "music", "late"],
+      "zoneId": "VI",
+      "kind": "MAIN",
+      "description": "Fictional late-night listing for interface testing. Not a real venue, guest list or supplier offer.",
+      "supplierId": "demo-supplier-club-night",
+      "supplierName": "Fictional demo partner",
+      "status": "DEMO_PUBLISHED",
+      "verifiedAt": null,
+      "verificationExpiresAt": null,
+      "durationMinMinutes": 180,
+      "durationMaxMinutes": 300,
+      "availabilityLocal": {
+        "days": [4, 5, 6, 7],
+        "opensAt": "22:00",
+        "closesAt": "28:00"
+      },
+      "offer": {
+        "id": "offer-club-night",
+        "currency": "NGN",
+        "priceBasis": "PER_ADULT",
+        "rateMinor": 2000000,
+        "minParty": 1,
+        "maxParty": 8,
+        "minAge": 18,
+        "hostIncluded": false,
+        "policyId": "demo-48h",
+        "capacityUnit": "PERSON",
+        "capacityPerSlot": 8,
+        "bookingCutoffHours": 0
+      },
+      "mobility": {
+        "intensity": "MODERATE",
+        "wheelchairAccess": "UNKNOWN"
+      },
+      "imagePath": "/assets/illustrations/category-nightlife.svg",
+      "photoId": "lagoon-dusk",
+      "inclusions": ["Demo entry", "Reserved table for your group"],
+      "exclusions": ["Transport priced separately", "Food and drinks"],
+      "evidence": [],
+      "schedulingType": "FLEXIBLE",
+      "nightVisitAllowed": true,
+      "story": {
+        "teaser": "A reserved table on Victoria Island from 22:00 until the early hours.",
+        "summary": "Arrive from 22:00 and stay three to five hours with a reserved table for your group. Open Thursday to Sunday until 04:00. Book a night car to be collected at the door, or confirm you'll arrange your own way back.",
+        "why": "Lagos nightlife at its best, with the trip home planned."
+      }
+    }
+  ]
+}

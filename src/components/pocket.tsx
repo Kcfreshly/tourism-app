@@ -15,6 +15,7 @@ import {
 } from "@/modules/catalogue/domain/experience-content";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
 
 type Trip = {
   id: string;
@@ -22,9 +23,11 @@ type Trip = {
   items: Item[];
   services: Services;
 };
+// The trip day runs 06:00 to 06:00, so at 02:00 a night out that began the
+// evening before is still "today".
 function lagosToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(
-    new Date(),
+    new Date(Date.now() - 6 * 3600000),
   );
 }
 function gapLabel(total: number) {
@@ -93,7 +96,8 @@ export default function Pocket({ id }: { id: string }) {
           .format(new Date())
           .split(":")
           .map(Number);
-        return h * 60 + m;
+        // After midnight the clock continues the service day: 02:00 is 26:00.
+        return (h < 6 ? h + 24 : h) * 60 + m;
       })()
     : -1;
   const dayItems = trip.items
@@ -103,7 +107,7 @@ export default function Pocket({ id }: { id: string }) {
     dayItems.find((item) => minutes(item.endTime) > now) ?? dayItems[0];
   const nextOffer = offers.find((o) => o.offer.id === next?.offerId);
   const vehicle =
-    trip.profile.transport === "OWN" || trip.profile.transport === "RIDES"
+    trip.profile.transport === "OWN"
       ? undefined
       : trip.services.vehicleWindows[day];
   const index = days.indexOf(day);
@@ -154,7 +158,7 @@ export default function Pocket({ id }: { id: string }) {
           <p className="eyebrow">{isToday ? "Next up" : "First up"}</p>
           <p className="next-time">
             {next.startTime}
-            <span>until {next.endTime}</span>
+            <span>until {clockLabel(next.endTime)}</span>
           </p>
           <h2>{displayName(next.title)}</h2>
           <ul className="trip-facts">
@@ -240,7 +244,7 @@ export default function Pocket({ id }: { id: string }) {
                         )}
                       </strong>
                       <span>
-                        {item.startTime}–{item.endTime}
+                        {clockLabel(item.startTime)}–{clockLabel(item.endTime)}
                         {offer
                           ? ` · ${zoneLabel(offer.zoneId)}${offer.schedulingType === "FIXED" ? " · Set session" : ""}`
                           : " · Personal time"}

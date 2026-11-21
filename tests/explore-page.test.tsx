@@ -6,7 +6,10 @@ import { toPublishedExperience } from "../src/modules/catalogue/domain/experienc
 
 const listPublishedExperiences = vi.fn();
 vi.mock("@/bootstrap/container", () => ({
-  pages: { listPublishedExperiences: () => listPublishedExperiences() },
+  pages: {
+    listPublishedExperiences: () => listPublishedExperiences(),
+    transportSettings: async () => ({ lateReturnFrom: "22:00" }),
+  },
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),

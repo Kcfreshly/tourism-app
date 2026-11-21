@@ -67,8 +67,17 @@ export function shortestVisit(
 }
 
 // Milliseconds at a Lagos (UTC+1) wall-clock time.
+// Times may run past 24:00: a night out on Saturday that ends at 03:00 on
+// Sunday is stored on Saturday as 27:00. The service day runs to 06:00.
+export const serviceDayEnd = "30:00";
 export function lagosInstant(date: string, time: string) {
-  return Date.parse(`${date}T${time}:00+01:00`);
+  return Date.parse(`${date}T00:00:00+01:00`) + minutes(time) * 60000;
+}
+
+// "03:00 next day" for a time past midnight; plain "14:30" otherwise.
+export function clockLabel(time: string) {
+  const value = minutes(time);
+  return value >= 1440 ? `${clock(value - 1440)} next day` : time;
 }
 
 // Start times offered on a date: fixed sessions, the opening time for a full

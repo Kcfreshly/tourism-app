@@ -1871,17 +1871,61 @@ div.assistance-card {
 div.assistance-card:hover {
   border-color: var(--c-indigo);
 }
-.ride-legs {
+.night-car {
   display: grid;
   gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
 }
-.ride-legs li {
-  display: grid;
-  gap: var(--space-1);
-}
-.ride-legs small {
+
+/* The day's driver times above the timeline, and bands beside the hours. */
+.day-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 var(--space-3) var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--c-indigo-wash);
+  color: var(--c-ink-2);
   font-size: var(--text-sm);
+}
+.day-transport > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.day-transport .icon {
+  color: var(--c-indigo);
+}
+.car-band {
+  position: absolute;
+  left: 64px;
+  width: 4px;
+  z-index: 1;
+  border-radius: var(--radius-pill);
+  background: var(--c-indigo);
+}
+.car-band[data-kind="night"] {
+  background: var(--c-ink-2);
+}
+
+/* Fixing the accommodation from the warnings list. */
+.issue-base form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.issue-base label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.issue-base input,
+.issue-base select {
+  width: 100%;
+  min-width: 0;
+}
+.issue-base button {
+  justify-self: start;
 }

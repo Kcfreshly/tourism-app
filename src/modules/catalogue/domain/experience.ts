@@ -1,7 +1,6 @@
 import { photoById, photoForExperience, type Photo } from "./photos";
 import type { EventInfo } from "./events";
 import type { CatalogueEdit } from "./catalogue";
-import type { ReturnRide } from "./return-ride";
 import type { ListingDetails } from "./listing-details";
 import fixture from "../../../../tourism-v1-handoff/data/experiences.demo.json";
 export type Experience = (typeof fixture.experiences)[number] & {
@@ -18,7 +17,8 @@ export type Experience = (typeof fixture.experiences)[number] & {
   inspirationPhoto?: Photo;
   photoId?: string;
   event?: EventInfo;
-  returnRide?: ReturnRide;
+  // Passed the night-time security review (see catalogue.ts).
+  nightVisitAllowed?: boolean;
   // Staff-written copy and booking details. Listings without them fall back
   // to the labelled samples in experience-content.ts and listing-details.ts.
   story?: { teaser: string; summary: string; why: string };
@@ -110,7 +110,7 @@ export function editedRecord(old: Experience, edit: CatalogueEdit) {
     durationMinMinutes: edit.durationMinMinutes,
     durationMaxMinutes: edit.durationMaxMinutes,
     status: edit.status,
-    returnRide: edit.returnRide ?? old.returnRide,
+    nightVisitAllowed: edit.nightVisitAllowed ?? old.nightVisitAllowed,
     imagePath: `/assets/illustrations/category-${edit.categoryId}.svg`,
     story: edit.story ?? old.story,
     details: edit.details ?? old.details,

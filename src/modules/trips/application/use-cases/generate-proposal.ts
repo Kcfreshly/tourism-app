@@ -4,6 +4,7 @@ import { propose } from "../../domain/proposal";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { ProposalRepository } from "../ports/proposal-repository";
 import type { OfferSelection } from "../services/offer-selection";
+import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
 
 // Proposals are previews: they are stored for 15 minutes and change nothing
@@ -15,6 +16,7 @@ export class GenerateProposal {
     private readonly proposals: ProposalRepository,
     private readonly offers: OfferCatalogue,
     private readonly selection: OfferSelection,
+    private readonly transport: TransportSettingsRepository,
   ) {}
 
   async execute(context: TripContext, selectedOfferIds?: string[]) {
@@ -24,7 +26,14 @@ export class GenerateProposal {
       ...context.profile,
       selectedOfferIds: selectedOfferIds ?? context.profile.selectedOfferIds,
     };
-    const proposal = propose(profile, context.items, context.services, offers);
+    const { settings } = await this.transport.get();
+    const proposal = propose(
+      profile,
+      context.items,
+      context.services,
+      offers,
+      settings,
+    );
     const id = randomUUID();
     await this.proposals.save({
       id,
@@ -37,7 +46,14 @@ export class GenerateProposal {
       id,
       expectedVersion: context.trip.version,
       ...proposal,
-      price: assess(context.profile, proposal.items, proposal.services, offers),
+      price: assess(
+        context.profile,
+        proposal.items,
+        proposal.services,
+        offers,
+        undefined,
+        settings,
+      ),
       diff: {
         removed: context.items.filter(
           (i) => !proposal.items.some((p) => p.id === i.id),

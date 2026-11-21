@@ -31,3 +31,11 @@ export const proposals = pgTable("planner_proposals", {
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   appliedAt: timestamp({ withTimezone: true }),
 });
+// One row ("default") of staff-editable transport and guide rules. No row
+// means the defaults in transport-settings.ts apply.
+export const transportSettings = pgTable("transport_settings", {
+  id: text().primaryKey(),
+  settings: jsonb().notNull(),
+  version: integer().notNull().default(1),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

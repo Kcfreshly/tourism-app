@@ -4,6 +4,8 @@ import addFormats from "ajv-formats";
 import contract from "../../../../tourism-v1-handoff/contracts/planner-output.schema.json";
 import {
   assess,
+  dayTransport,
+  fitCar,
   paceRules,
   placementIssues,
   minutes,
@@ -15,22 +17,30 @@ import {
 } from "./planner";
 import type { Profile } from "./profile";
 import type { Experience } from "../../catalogue/domain/experience";
+import {
+  defaultTransportSettings,
+  type TransportSettings,
+} from "./transport-settings";
 const ajv = new Ajv();
 addFormats(ajv);
 const valid = ajv.compile(contract);
 export function assertPlannerContract(items: Item[]) {
   const payload = {
-    items: items.map(
-      ({ localDate, startTime, endTime, kind, offerId, title, reason }) => ({
-        localDate,
-        startTime,
-        endTime,
-        kind,
-        offerId,
-        title,
-        reason: reason ?? "Kept from your existing plan.",
-      }),
-    ),
+    // The V1 contract predates times past midnight; night items are only ever
+    // kept from the traveller's plan, never generated, so they are exempt.
+    items: items
+      .filter((i) => i.startTime < "24:00" && i.endTime < "24:00")
+      .map(
+        ({ localDate, startTime, endTime, kind, offerId, title, reason }) => ({
+          localDate,
+          startTime,
+          endTime,
+          kind,
+          offerId,
+          title,
+          reason: reason ?? "Kept from your existing plan.",
+        }),
+      ),
     assumptions: [],
     questions: [],
   };
@@ -49,6 +59,7 @@ export function propose(
   existing: Item[],
   services: Services,
   offers: Experience[],
+  settings: TransportSettings = defaultTransportSettings,
 ) {
   const days = tripDays(profile),
     items = existing.filter((i) => i.locked || i.kind === "CUSTOM"),
@@ -141,19 +152,34 @@ export function propose(
         ...items.filter((i) => i.localDate === day && i.kind === "EXPERIENCE"),
         candidate,
       ].sort((a, b) => a.startTime.localeCompare(b.startTime));
-      const first = offers.find((o) => o.offer.id === dayItems[0].offerId)!;
-      const outbound = travelMinutes(profile.zoneId, first.zoneId, 480) ?? 60;
-      nextServices.vehicleWindows[day] = {
-        startTime: time(
-          Math.max(0, minutes(dayItems[0].startTime) - outbound - 15),
-        ),
-        hours: 8,
-      };
+      // The car that fits the day so far; the 8-hour default only when
+      // no block fits, so the check below rejects the candidate.
+      if (dayTransport(profile, nextServices, day) === "CAR") {
+        const offerFor = (id: string) =>
+          offers.find(
+            (o) => o.offer.id === dayItems.find((i) => i.id === id)!.offerId,
+          )!;
+        const first = offerFor(dayItems[0].id);
+        const outbound = travelMinutes(profile.zoneId, first.zoneId, 480) ?? 60;
+        nextServices.vehicleWindows[day] = fitCar(
+          profile.zoneId,
+          dayItems,
+          offerFor,
+          settings,
+        ) ?? {
+          startTime: time(
+            Math.max(0, minutes(dayItems[0].startTime) - outbound - 15),
+          ),
+          hours: 8,
+        };
+      }
       const trial = assess(
         profile,
         [...items, candidate],
         nextServices,
         offers,
+        undefined,
+        settings,
       );
       if (
         placementIssues(profile, [...items, candidate], nextServices, offers)

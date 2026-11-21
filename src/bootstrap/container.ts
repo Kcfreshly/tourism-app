@@ -47,6 +47,13 @@ import { SuggestProfile } from "@/modules/trips/application/use-cases/suggest-pr
 import { UpdateTripProfile } from "@/modules/trips/application/use-cases/update-trip-profile";
 import { DrizzleProposalRepository } from "@/modules/trips/infrastructure/persistence/drizzle-proposal-repository";
 import { DrizzleTripRepository } from "@/modules/trips/infrastructure/persistence/drizzle-trip-repository";
+import { DrizzleTransportSettingsRepository } from "@/modules/trips/infrastructure/persistence/drizzle-transport-settings-repository";
+import { GetTransportSettings } from "@/modules/trips/application/use-cases/get-transport-settings";
+import { UpdateTransportSettings } from "@/modules/trips/application/use-cases/update-transport-settings";
+import {
+  createGetTransportSettingsController,
+  createUpdateTransportSettingsController,
+} from "@/modules/trips/presentation/http/controllers/transport-settings-controllers";
 import { createIntakeController } from "@/modules/trips/presentation/http/controllers/intake-controller";
 import { createCreateTripController } from "@/modules/trips/presentation/http/controllers/create-trip-controller";
 import { createGetTripController } from "@/modules/trips/presentation/http/controllers/get-trip-controller";
@@ -64,6 +71,8 @@ const sessions = new BetterAuthSessionReader();
 const guestSessions = new DrizzleGuestSessionRepository(db);
 const catalogueRepository = new DrizzleCatalogueRepository(db);
 const tripRepository = new DrizzleTripRepository(db);
+const transportSettings = new DrizzleTransportSettingsRepository(db);
+const getTransportSettings = new GetTransportSettings(transportSettings);
 
 // Identity
 const resolveActor = new ResolveActor(sessions, new DrizzleActorRepository(db));
@@ -123,6 +132,13 @@ export const api = {
       new UpdateCatalogueRecord(catalogueRepository),
     ),
   },
+  adminTransportSettings: {
+    get: createGetTransportSettingsController(guards, getTransportSettings),
+    update: createUpdateTransportSettingsController(
+      guards,
+      new UpdateTransportSettings(transportSettings),
+    ),
+  },
   bucket: {
     get: createGetBucketController(
       guards,
@@ -147,22 +163,22 @@ export const api = {
     ),
     getWorkspace: createGetWorkspaceController(
       ownedTrip,
-      new GetWorkspace(offers),
+      new GetWorkspace(offers, transportSettings),
     ),
     saveWorkspace: createSaveWorkspaceController(
       guards,
       ownedTrip,
-      new SaveWorkspace(tripRepository, offers),
+      new SaveWorkspace(tripRepository, offers, transportSettings),
     ),
     generateProposal: createGenerateProposalController(
       guards,
       ownedTrip,
-      new GenerateProposal(proposals, offers, selection),
+      new GenerateProposal(proposals, offers, selection, transportSettings),
     ),
     applyProposal: createApplyProposalController(
       guards,
       ownedTrip,
-      new ApplyProposal(proposals, offers),
+      new ApplyProposal(proposals, offers, transportSettings),
     ),
   },
   kemi: {
@@ -179,4 +195,6 @@ export const pages = {
   ...createPageGuards(sessions),
   requireAdmin: guards.requireAdmin,
   listPublishedExperiences: () => listPublished.execute(),
+  transportSettings: async () =>
+    (await getTransportSettings.execute()).settings,
 };

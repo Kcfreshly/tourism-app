@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { categoryIds } from "../../trips/domain/profile";
-import { returnRides } from "./return-ride";
 import { eventTypes } from "./events";
 export const reviewSchema = z
   .object({
@@ -42,6 +41,9 @@ export const arrivalModes = [
 export const confirmationModes = ["INSTANT", "PARTNER"] as const;
 
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM times");
+const lateClock = z
+  .string()
+  .regex(/^(?:([01]\d|2\d):[0-5]\d|30:00)$/, "Use HH:MM, up to 30:00");
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD dates");
 const minor = z.number().int().min(0).max(100000000);
 const lines = z.array(z.string().trim().min(1).max(160)).max(20);
@@ -73,8 +75,9 @@ export const catalogueEditSchema = z
     // Minimum notice the operator needs before a session starts; 0 means it
     // can be booked right up to the start time.
     bookingCutoffHours: z.number().int().min(0).max(168).optional(),
-    // Whether travellers on rides can get back without a car for the day.
-    returnRide: z.enum(returnRides).optional(),
+    // The framework's night-time security review passed: required before a
+    // listing that runs past midnight can be verified or published.
+    nightVisitAllowed: z.boolean().optional(),
     status: z.enum(listingStatuses),
     review: reviewSchema,
     // Customer-facing copy shown on cards, the overlay and the detail page.
@@ -113,7 +116,8 @@ export const catalogueEditSchema = z
       .object({
         days: z.array(z.number().int().min(1).max(7)).min(1).max(7),
         opensAt: clock,
-        closesAt: clock,
+        // Past 24:00 means the early hours of the next day, e.g. 28:00.
+        closesAt: lateClock,
       })
       .strict()
       .optional(),
@@ -176,6 +180,35 @@ export function demoPublishIssues(review: z.infer<typeof reviewSchema>) {
 export type CatalogueReview = z.infer<typeof reviewSchema>;
 export type CatalogueEdit = z.infer<typeof catalogueEditSchema>;
 const reviewedStatuses = ["DEMO_VERIFIED", "DEMO_PUBLISHED"];
+// Runs into the early hours: closes after midnight, or a session ends after it.
+export function runsPastMidnight(e: {
+  availabilityLocal: { closesAt: string };
+  sessions?: { startTime: string; durationMinutes: number }[];
+}) {
+  const at = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  return (
+    at(e.availabilityLocal.closesAt) > 1440 ||
+    (e.sessions ?? []).some((s) => at(s.startTime) + s.durationMinutes > 1440)
+  );
+}
+// The onboarding framework's night-time security review must be recorded
+// before a late-night listing is verified or published.
+export function nightReviewIssue(
+  record: Parameters<typeof runsPastMidnight>[0] & {
+    nightVisitAllowed?: boolean;
+  },
+  status: string,
+) {
+  return reviewedStatuses.includes(status) &&
+    runsPastMidnight(record) &&
+    !record.nightVisitAllowed
+    ? {
+        code: "NIGHT_REVIEW_REQUIRED",
+        message:
+          "This listing runs past midnight. Tick “Night visit allowed” once the night-time security review has passed.",
+      }
+    : null;
+}
 // Review rules for a staff edit. Returns the first reason the edit is refused.
 export function catalogueEditIssue(
   current: { status: string; isDemo: boolean },

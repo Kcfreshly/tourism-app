@@ -20,6 +20,7 @@ import {
   runsOn,
   shortDay,
   shortestVisit,
+  clockLabel,
   startTimesOn,
 } from "@/modules/catalogue/domain/schedule";
 import {
@@ -34,6 +35,10 @@ import { showToast } from "./toast";
 import Icon from "./icons";
 
 type Listing = Experience & { seedKey: string };
+const minutesOf = (t: string) =>
+  Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const clockOf = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 type ExperienceLine = CartLine & { kind: "EXPERIENCE" };
 
 // Wraps the panel so that editing a cart line remounts it with that line's
@@ -44,6 +49,9 @@ export default function BookingPanel(props: {
   today: string;
   // The page's clock, so today only offers starts that can still be booked.
   now: number;
+  // From the transport settings: a visit ending at or after this time asks
+  // the traveller to confirm they'll get back on their own.
+  lateReturnFrom: string;
   initialDate?: string;
   // The dates of a visit, from browsing: the date chips stay inside it.
   visit?: { from: string; to: string };
@@ -118,6 +126,7 @@ function Panel({
   details,
   today,
   now,
+  lateReturnFrom,
   initialDate,
   visit,
   editing,
@@ -127,6 +136,7 @@ function Panel({
   details: ListingDetails;
   today: string;
   now: number;
+  lateReturnFrom: string;
   initialDate?: string;
   visit?: { from: string; to: string };
   editing?: ExperienceLine;
@@ -162,6 +172,16 @@ function Panel({
     : times.length === 1
       ? times[0]
       : "";
+  // When the visit ends: the session's length, or the listed shortest visit.
+  const endsAt = time
+    ? clockOf(
+        minutesOf(time) +
+          (e.sessions?.find((s) => s.startTime === time)?.durationMinutes ??
+            e.durationMinMinutes),
+      )
+    : "";
+  const lateReturn = !!endsAt && endsAt >= lateReturnFrom;
+  const [ownWayBack, setOwnWayBack] = useState(!!editing);
   const kids = details.minAge < 18;
   const [adults, setAdults] = useState(
     editing?.adults ?? Math.max(1, e.offer.minParty),
@@ -195,6 +215,7 @@ function Panel({
     guests > e.offer.maxParty && `At most ${e.offer.maxParty} guests.`,
     childAges.some((a) => a === "") && "Add each child’s age.",
     needsAddress && !address.trim() && "Add the pickup address.",
+    lateReturn && !ownWayBack && "Confirm how you’ll get back.",
   ].filter((p): p is string => !!p);
   useEffect(() => {
     if (!open) return;
@@ -339,7 +360,7 @@ function Panel({
                   Arrive when you like and stay from{" "}
                   {formatDuration(shortestVisit(e))} up to{" "}
                   {formatDuration(e.durationMaxMinutes)}. Leave by{" "}
-                  {e.availabilityLocal.closesAt}.
+                  {clockLabel(e.availabilityLocal.closesAt)}.
                 </p>
               )}
               <div className="chip-row">
@@ -449,6 +470,17 @@ function Panel({
                   placeholder="Street, area"
                   onChange={(event) => setAddress(event.target.value)}
                 />
+              </label>
+            )}
+            {lateReturn && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={ownWayBack}
+                  onChange={(event) => setOwnWayBack(event.target.checked)}
+                />
+                This ends around {clockLabel(endsAt)}. We’ll arrange our own way
+                back; Fastlife transport isn’t included with a single booking.
               </label>
             )}
           </fieldset>

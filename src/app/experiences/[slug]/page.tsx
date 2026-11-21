@@ -23,6 +23,7 @@ import {
 } from "@/modules/catalogue/domain/listing-details";
 import { lagosToday } from "@/modules/catalogue/domain/events";
 import { safeExploreHref } from "@/modules/catalogue/domain/explore-link";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
 export const dynamic = "force-dynamic";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 async function find(slug: string) {
@@ -103,7 +104,8 @@ export default async function Detail({
                     : e.availabilityLocal.days
                         .map((d) => dayNames[d])
                         .join(", ")}
-                  , {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt}
+                  , {e.availabilityLocal.opensAt}–
+                  {clockLabel(e.availabilityLocal.closesAt)}
                 </dd>
               </div>
               <div>
@@ -149,7 +151,7 @@ export default async function Detail({
                   ? `Runs at set times: ${e.sessions?.map((s) => s.startTime).join(", ")}. Session times can’t be changed.`
                   : e.kind === "FULL_DAY"
                     ? "Takes up the main part of your day."
-                    : `Choose your own start time. The whole visit must finish by ${e.availabilityLocal.closesAt}, Lagos time.`}
+                    : `Choose your own start time. The whole visit must finish by ${clockLabel(e.availabilityLocal.closesAt)}, Lagos time.`}
               </p>
             </section>
             <div className="inclusion-columns">
@@ -198,6 +200,7 @@ export default async function Detail({
           // A force-dynamic server page renders once per request.
           // eslint-disable-next-line react-hooks/purity
           now={Date.now()}
+          lateReturnFrom={(await pages.transportSettings()).lateReturnFrom}
           initialDate={date}
           visit={from && to ? { from, to } : undefined}
           editId={edit}

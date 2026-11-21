@@ -48,7 +48,6 @@ const pastArrival =
   "That arrival date has passed. Edit the details to choose today or later.";
 const transportLabels: Record<NonNullable<Profile["transport"]>, string> = {
   DEDICATED: "Car and driver for the day",
-  RIDES: "Rides to and from each activity",
   OWN: "We’ll make our own way",
 };
 const assistanceLabels: Record<Profile["assistance"], string> = {
@@ -717,7 +716,7 @@ export default function Intake({
                         )
                       }
                     >
-                      {(["DEDICATED", "RIDES", "OWN"] as const).map((t) => (
+                      {(["DEDICATED", "OWN"] as const).map((t) => (
                         <option key={t} value={t}>
                           {transportLabels[t]}
                         </option>
@@ -746,9 +745,7 @@ export default function Intake({
                 <p className="form-hint">
                   {profile.transport === "OWN"
                     ? "You get yourselves between activities, so there’s no transport charge. Allow the travel times shown in your plan."
-                    : profile.transport === "RIDES"
-                      ? "A booked car for each trip: to your first activity, between activities and back. Usually cheaper than a car for the day. Where cars are hard to find, or late at night, the ride back is booked for a set time."
-                      : "A private car and driver on each day with activities, covering pickup, waiting time and your return."}
+                    : "A private car and driver on each day with activities, covering pickup, waiting time and your return. You can choose your own way on any day in the planner."}
                 </p>
               </fieldset>
               <fieldset className="form-section" disabled={busy}>

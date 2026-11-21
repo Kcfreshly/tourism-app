@@ -1,8 +1,16 @@
 import { z } from "zod";
 import type { Profile } from "./profile";
 import type { Experience } from "../../catalogue/domain/experience";
-import { lagosInstant, shortestVisit } from "../../catalogue/domain/schedule";
-import { returnRideFor } from "../../catalogue/domain/return-ride";
+import {
+  clockLabel,
+  lagosInstant,
+  serviceDayEnd,
+  shortestVisit,
+} from "../../catalogue/domain/schedule";
+import {
+  defaultTransportSettings,
+  type TransportSettings,
+} from "./transport-settings";
 import rules from "../../../../tourism-v1-handoff/data/pricing.demo.json";
 const date = z
   .string()
@@ -12,7 +20,11 @@ const date = z
       !Number.isNaN(Date.parse(v)) &&
       new Date(v).toISOString().slice(0, 10) === v,
   );
-export const localTime = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+// 00:00 to 30:00: times past 24:00 are the early hours of the next morning,
+// kept on the day the night out started.
+export const localTime = z
+  .string()
+  .regex(/^(?:([01][0-9]|2[0-9]):[0-5][0-9]|30:00)$/);
 export const itemSchema = z
   .object({
     id: z.uuid(),
@@ -34,12 +46,21 @@ export const servicesSchema = z
       z
         .object({
           startTime: localTime,
-          hours: z.union([z.literal(4), z.literal(8)]),
+          // One of the car blocks in the transport settings.
+          hours: z.number().int().min(1).max(16),
         })
         .strict(),
     ),
     guideItemIds: z.array(z.uuid()).max(240),
     guideDays: z.array(date).max(30),
+    // Days that differ from the trip's transport choice.
+    dayTransport: z.record(date, z.enum(["CAR", "OWN"])).optional(),
+    // A night car on a day, for the configured night block.
+    nightWindows: z
+      .record(date, z.object({ startTime: localTime }).strict())
+      .optional(),
+    // Late activities the traveller will get back from on their own.
+    ownWayBack: z.array(z.uuid()).max(240).optional(),
   })
   .strict();
 export type Item = z.infer<typeof itemSchema>;
@@ -50,131 +71,111 @@ export const defaultServices: Services = {
   guideItemIds: [],
   guideDays: [],
 };
-// Rides: a booked car for each leg instead of a car for the day. Demo rates,
-// not yet in the handoff pricing file: a fixed charge plus a per-minute rate
-// on the off-peak travel time, per car.
-export const rideRules = {
-  baseMinor: 600000,
-  perMinuteMinor: 10000,
-  // A ride back at or after this time is always booked in advance.
-  lateFrom: "20:00",
-  // How long a booked ride waits before extra waiting is charged.
-  freeWaitMinutes: 15,
-};
-export type RideLeg = {
-  kind: "OUT" | "BETWEEN" | "HOME";
-  fromZone: string;
-  toZone: string;
-  // Pickup time: before the first activity, or as an activity ends.
-  at: string;
-  // false: the traveller messages us when ready instead.
-  booked: boolean;
-  priceMinor: number;
-  // Whether the area pair has a configured route and rate.
-  routed: boolean;
-  // The activity the car collects from (none for the first leg).
-  itemId?: string;
-};
+// A day's transport: a car for the day or the traveller's own way. The trip
+// sets the default; each day can differ.
+export function dayTransport(
+  profile: Pick<Profile, "transport">,
+  services: Pick<Services, "dayTransport">,
+  day: string,
+): "CAR" | "OWN" {
+  return (
+    services.dayTransport?.[day] ??
+    (profile.transport === "OWN" ? "OWN" : "CAR")
+  );
+}
 function zonePair(from: string, to: string) {
   return rules.travelMatrixMinutes.find(
     (r) => (r.from === from && r.to === to) || (r.from === to && r.to === from),
   );
 }
-// The rides a day needs: base to the first activity, between activities in
-// order, and back to base after the last. A ride away from an activity is
-// booked ahead unless the listing is rated easy and it's not late or an event.
-export function rideLegs(
-  base: string,
-  schedule: Pick<Item, "id" | "startTime" | "endTime">[],
-  offerFor: (itemId: string) => Experience,
-  adults: number,
+// The activities a night car covers: those starting from the night start
+// time, on a day that has a night car. Everything else is the day's.
+export function nightGroup<T extends Pick<Item, "startTime">>(
+  schedule: T[],
+  services: Pick<Services, "nightWindows">,
+  day: string,
+  settings: TransportSettings,
 ) {
-  const cars = Math.ceil(adults / rules.vehiclePassengerCapacity);
-  const leg = (
-    from: string,
-    to: string,
-    rest: Omit<RideLeg, "fromZone" | "toZone" | "priceMinor" | "routed">,
-  ): RideLeg => {
-    const pair = zonePair(from, to);
-    return {
-      ...rest,
-      fromZone: from,
-      toZone: to,
-      priceMinor: pair
-        ? cars * (rideRules.baseMinor + rideRules.perMinuteMinor * pair.offPeak)
-        : 0,
-      routed: !!pair,
-    };
-  };
-  if (!schedule.length) return [];
-  const firstZone = offerFor(schedule[0].id).zoneId;
-  const out = zonePair(base, firstZone);
-  return [
-    leg(base, firstZone, {
-      kind: "OUT",
-      at: time(
-        Math.max(
-          0,
-          minutes(schedule[0].startTime) -
-            (out ? Math.max(out.peak, out.offPeak) : 0),
-        ),
-      ),
-      booked: true,
-    }),
-    ...schedule.map((item, i) => {
-      const offer = offerFor(item.id);
-      const next = schedule[i + 1];
-      return leg(offer.zoneId, next ? offerFor(next.id).zoneId : base, {
-        kind: next ? "BETWEEN" : "HOME",
-        at: item.endTime,
-        booked:
-          returnRideFor(offer) !== "EASY" ||
-          !!offer.event ||
-          item.endTime >= rideRules.lateFrom,
-        itemId: item.id,
-      });
-    }),
-  ];
+  return services.nightWindows?.[day]
+    ? schedule.filter(
+        (i) => minutes(i.startTime) >= minutes(settings.night.startsFrom),
+      )
+    : [];
 }
-// The smallest car-for-the-day block that covers the same schedule: pickup
-// in time for the first activity in traffic, and the trip back after the
-// last. Null when the day needs more than the longest block.
-export function dayCarQuote(
+// The car that covers a run of activities: pickup in time for the first in
+// traffic, and the trip back after the last. A day car uses the shortest
+// block that fits; a night car starts no earlier than the night start time.
+// Null when nothing fits or a route isn't configured.
+export function fitCar(
   base: string,
   schedule: Pick<Item, "id" | "startTime" | "endTime">[],
-  offerFor: (itemId: string) => Experience,
-  adults: number,
+  offerFor: (itemId: string) => Pick<Experience, "zoneId">,
+  settings: TransportSettings,
+  kind: "DAY" | "NIGHT" = "DAY",
 ) {
   if (!schedule.length) return null;
-  const firstZone = offerFor(schedule[0].id).zoneId;
-  const last = schedule.at(-1)!;
-  const lastZone = offerFor(last.id).zoneId;
-  const out = zonePair(base, firstZone);
-  const back = travelMinutes(lastZone, base, minutes(last.endTime));
+  const first = schedule[0],
+    last = schedule.at(-1)!;
+  const out = zonePair(base, offerFor(first.id).zoneId);
+  const back = travelMinutes(
+    offerFor(last.id).zoneId,
+    base,
+    minutes(last.endTime),
+  );
   if (!out || back === null) return null;
-  const start =
-    minutes(schedule[0].startTime) - Math.max(out.peak, out.offPeak);
-  const span = minutes(last.endTime) + back - start;
-  const block = rules.vehicleBlocks.find((b) => b.hours * 60 >= span);
-  if (!block) return null;
-  const cars = Math.ceil(adults / rules.vehiclePassengerCapacity);
-  const zones = new Set([base, ...schedule.map((i) => offerFor(i.id).zoneId)]);
-  return {
-    startTime: time(start),
-    hours: block.hours,
-    totalMinor:
-      cars *
-      (block.rateMinor +
-        (zones.size > 1 ? rules.crossZoneSurchargePerVehicleMinor : 0)),
-  };
+  const pickup = minutes(first.startTime) - Math.max(out.peak, out.offPeak);
+  const end = minutes(last.endTime) + back;
+  if (end > minutes(serviceDayEnd)) return null;
+  if (kind === "NIGHT") {
+    const start = Math.max(
+      Math.floor(pickup / 15) * 15,
+      minutes(settings.night.startsFrom),
+    );
+    return start <= pickup && end <= start + settings.night.hours * 60
+      ? { startTime: time(start), hours: settings.night.hours }
+      : null;
+  }
+  const start = Math.max(0, Math.floor(pickup / 15) * 15);
+  const block = settings.dayBlocks.find((b) => start + b.hours * 60 >= end);
+  return block ? { startTime: time(start), hours: block.hours } : null;
 }
-// Guides are arranged with a local partner, so they need this much notice
-// before the activity (or the start of a full-day guide's day).
-export const guideNoticeHours = 24;
-export function guideTooLate(day: string, startTime: string, now = Date.now()) {
-  return lagosInstant(day, startTime) - now < guideNoticeHours * 3600000;
+// Whether a car window covers pickup for the first activity in traffic and
+// the trip back after the last. Unconfigured routes are reported elsewhere.
+export function carCovers(
+  base: string,
+  schedule: Pick<Item, "id" | "startTime" | "endTime">[],
+  offerFor: (itemId: string) => Pick<Experience, "zoneId">,
+  window: { startTime: string; hours: number },
+) {
+  if (!schedule.length) return true;
+  const first = schedule[0],
+    last = schedule.at(-1)!;
+  const out = zonePair(base, offerFor(first.id).zoneId);
+  const back = travelMinutes(
+    offerFor(last.id).zoneId,
+    base,
+    minutes(last.endTime),
+  );
+  if (!out || back === null) return true;
+  const from = minutes(window.startTime);
+  return (
+    from + Math.max(out.peak, out.offPeak) <= minutes(first.startTime) &&
+    minutes(last.endTime) + back <= from + window.hours * 60
+  );
 }
-export const guideNoticeMessage = `Guides need booking at least ${guideNoticeHours} hours ahead.`;
+// Guides are arranged with a local partner, so they need notice before the
+// activity (or the start of a full-day guide's day).
+export function guideTooLate(
+  day: string,
+  startTime: string,
+  now = Date.now(),
+  noticeHours = defaultTransportSettings.guideNoticeHours,
+) {
+  return lagosInstant(day, startTime) - now < noticeHours * 3600000;
+}
+export function guideNoticeMessage(noticeHours: number) {
+  return `Guides need booking at least ${noticeHours} hours ahead.`;
+}
 // Guides are add-ons that combine freely: full-day guides on chosen days and
 // activity guides on chosen experiences. The legacy single choice is derived
 // so saved profiles and planner proposals keep a sensible summary.
@@ -279,6 +280,7 @@ export function assess(
   services: Services,
   offers: Experience[],
   now = Date.now(),
+  settings: TransportSettings = defaultTransportSettings,
 ) {
   const blockers: Issue[] = [],
     warnings: Issue[] = [],
@@ -294,11 +296,7 @@ export function assess(
       add("OUTSIDE_TRIP", "Move this item within your trip dates.", item.id);
     const duration = minutes(item.endTime) - minutes(item.startTime);
     if (duration <= 0)
-      add(
-        "INVALID_TIME",
-        "End time must be after start time on the same day.",
-        item.id,
-      );
+      add("INVALID_TIME", "End time must be after start time.", item.id);
     if (item.kind !== "EXPERIENCE") {
       if (item.offerId !== null)
         add(
@@ -389,8 +387,8 @@ export function assess(
       rule: `offer:${offer.offer.id}; demo-48h`,
     });
   }
-  const vehicles = Math.ceil(profile.adults / rules.vehiclePassengerCapacity);
-  for (const day of days) {
+  const cars = Math.ceil(profile.adults / settings.seatsPerCar);
+  for (const [index, day] of days.entries()) {
     const schedule = items
       .filter((i) => i.localDate === day)
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -401,6 +399,17 @@ export function assess(
             "OVERLAP",
             `Overlaps with “${schedule[a].title}”.`,
             schedule[b].id,
+          );
+    // A night out from the day before may still be running this morning.
+    for (const night of items.filter(
+      (i) => i.localDate === days[index - 1] && minutes(i.endTime) > 1440,
+    ))
+      for (const block of schedule)
+        if (minutes(night.endTime) - 1440 > minutes(block.startTime))
+          add(
+            "OVERLAP",
+            `Overlaps with “${night.title}” from the night before.`,
+            block.id,
           );
     const experiences = schedule.filter((i) => resolved.has(i.id));
     if (
@@ -458,150 +467,157 @@ export function assess(
       });
     const first = experiences[0],
       last = experiences.at(-1)!;
-    let start: number;
-    if (profile.transport === "RIDES") {
-      if (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
-        add(
-          "MISSING_BASE",
-          "Confirm your accommodation and service zone before booking rides.",
-        );
-      for (const item of experiences)
-        if (returnRideFor(resolved.get(item.id)!) === "DRIVER_REQUIRED")
-          add(
-            "RIDE_UNAVAILABLE",
-            `Rides can’t reliably collect you from “${item.title}”. Choose a car for the day for this trip.`,
-            item.id,
-          );
-      const legs = rideLegs(
-        profile.zoneId,
-        experiences,
-        (id) => resolved.get(id)!,
-        profile.adults,
+    const offerFor = (id: string) => resolved.get(id)!;
+    const mode = dayTransport(profile, services, day);
+    const night = nightGroup(experiences, services, day, settings);
+    const daytime = experiences.filter((i) => !night.includes(i));
+    const nightWindow = services.nightWindows?.[day];
+    const dayWindow =
+      mode === "CAR" && daytime.length
+        ? services.vehicleWindows[day]
+        : undefined;
+    // A full-day guide starts with the day car, or at the first activity.
+    const start = dayWindow
+      ? minutes(dayWindow.startTime)
+      : minutes(first.startTime);
+    if (
+      ((mode === "CAR" && daytime.length) || nightWindow) &&
+      (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
+    )
+      add(
+        "MISSING_BASE",
+        "Add where you’re staying, so your driver knows where to pick you up.",
       );
-      if (legs.some((l) => !l.routed))
+    if (mode === "CAR" && daytime.length && !dayWindow)
+      add(
+        "MISSING_WINDOW",
+        `${day}: choose when your driver starts and for how many hours.`,
+      );
+    // Checks one car against the activities it covers, then prices it.
+    const cover = (
+      group: Item[],
+      window: { startTime: string; hours: number },
+      label: string,
+      key: "vehicle" | "night",
+      rateMinor: number | undefined,
+    ) => {
+      if (rateMinor === undefined) {
         add(
-          "ROUTE_UNSUPPORTED",
-          `${day}: a ride on this day uses a route that isn’t configured.`,
+          "SERVICE_WINDOW",
+          `${day}: a ${window.hours}-hour ${label} isn’t offered. Choose another length.`,
         );
-      // A full-day guide meets them at their first activity.
-      start = minutes(first.startTime);
-      if (
-        services.guideDays.includes(day) &&
-        minutes(last.endTime) > start + 480
-      )
-        add(
-          "GUIDE_WINDOW",
-          `${day}: a full-day guide covers 8 hours from your first activity.`,
-        );
-      const total = legs.reduce((n, l) => n + l.priceMinor, 0);
-      lines.push({
-        key: `rides:${day}`,
-        label: `${day} · ${legs.length} rides · ${vehicles} ${vehicles === 1 ? "car" : "cars"} each`,
-        group: "transport",
-        // Rides differ in price, so show one total, not an average rate.
-        quantity: 1,
-        unitRateMinor: total,
-        totalMinor: total,
-        rule: `${rules.version}:rides; demo ride rates`,
-      });
-    } else if (profile.transport === "OWN") {
-      // Travellers make their own way: nothing to reserve or price, and a
-      // full-day guide meets them at their first activity.
-      start = minutes(first.startTime);
-      if (
-        services.guideDays.includes(day) &&
-        minutes(last.endTime) > start + 480
-      )
-        add(
-          "GUIDE_WINDOW",
-          `${day}: a full-day guide covers 8 hours from your first activity.`,
-        );
-    } else {
-      if (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
-        add(
-          "MISSING_BASE",
-          "Confirm your accommodation and service zone before reserving transport.",
-        );
-      const outbound = travelMinutes(
-          profile.zoneId,
-          resolved.get(first.id)!.zoneId,
-          minutes(first.startTime) - 60,
-        ),
-        inbound = travelMinutes(
-          resolved.get(last.id)!.zoneId,
-          profile.zoneId,
-          minutes(last.endTime),
-        );
-      if (outbound === null || inbound === null)
-        add(
-          "ROUTE_UNSUPPORTED",
-          `${day}: the accommodation route is not configured.`,
-        );
-      const window = services.vehicleWindows[day];
-      if (!window) {
-        add(
-          "MISSING_WINDOW",
-          `${day}: select a 4-hour or 8-hour dedicated vehicle window.`,
-        );
-        continue;
+        return;
       }
-      start = minutes(window.startTime);
-      const end = start + window.hours * 60;
-      if (end > 1440)
-        add(
-          "SERVICE_WINDOW",
-          `${day}: vehicle coverage cannot extend beyond the service day.`,
+      const from = minutes(window.startTime),
+        to = from + window.hours * 60;
+      if (to > minutes(serviceDayEnd))
+        add("SERVICE_WINDOW", `${day}: your ${label} can’t run past 06:00.`);
+      if (group.length) {
+        const out = zonePair(profile.zoneId, offerFor(group[0].id).zoneId);
+        const back = travelMinutes(
+          offerFor(group.at(-1)!.id).zoneId,
+          profile.zoneId,
+          minutes(group.at(-1)!.endTime),
         );
-      // Use the greater peak/off-peak buffer to avoid optimistic pickup estimates.
-      const outPair = rules.travelMatrixMinutes.find(
-        (r) =>
-          (r.from === profile.zoneId &&
-            r.to === resolved.get(first.id)!.zoneId) ||
-          (r.to === profile.zoneId &&
-            r.from === resolved.get(first.id)!.zoneId),
-      );
-      const out = outPair ? Math.max(outPair.peak, outPair.offPeak) : 0;
-      if (
-        start + out > minutes(first.startTime) ||
-        (inbound !== null && minutes(last.endTime) + inbound > end)
-      )
-        add(
-          "SERVICE_WINDOW",
-          `${day}: coverage must include pickup, all gaps and return travel. More than 8 hours needs an unavailable overtime product.`,
-        );
+        if (!out || back === null)
+          add(
+            "ROUTE_UNSUPPORTED",
+            `${day}: the accommodation route is not configured.`,
+          );
+        // Use the greater peak/off-peak buffer to avoid optimistic pickups.
+        else if (
+          from + Math.max(out.peak, out.offPeak) >
+            minutes(group[0].startTime) ||
+          minutes(group.at(-1)!.endTime) + back > to
+        )
+          add(
+            "SERVICE_WINDOW",
+            `${day}: your ${label} doesn’t cover the pickup, the time between activities and the trip back. Use “Fit to my plan”.`,
+          );
+      }
+      // Cost lines start a sentence: "Car for the day", "Night car".
+      const title = label[0].toUpperCase() + label.slice(1);
       lines.push({
-        key: `vehicle:${day}`,
-        label: `${day} · ${vehicles} vehicle(s) · ${window.startTime}–${time(Math.min(end, 1439))}`,
+        key: `${key}:${day}`,
+        label: `${day} · ${title} · ${cars} ${cars === 1 ? "car" : "cars"} · ${clockLabel(window.startTime)}–${clockLabel(time(to))}`,
         group: "transport",
-        quantity: vehicles,
-        unitRateMinor: rules.vehicleBlocks.find(
-          (b) => b.hours === window.hours,
-        )!.rateMinor,
-        totalMinor:
-          vehicles *
-          rules.vehicleBlocks.find((b) => b.hours === window.hours)!.rateMinor,
-        rule: `${rules.version}:vehicle-${window.hours}h`,
+        quantity: cars,
+        unitRateMinor: rateMinor,
+        totalMinor: cars * rateMinor,
+        rule: `transport-settings:${key}-${window.hours}h`,
       });
       const zones = new Set([
         profile.zoneId,
-        ...experiences.map((i) => resolved.get(i.id)!.zoneId),
+        ...group.map((i) => offerFor(i.id).zoneId),
       ]);
       if (zones.size > 1)
         lines.push({
-          key: `cross-zone:${day}`,
-          label: `${day} · cross-zone vehicle surcharge`,
+          key: `${key === "vehicle" ? "cross-zone" : "night-cross-zone"}:${day}`,
+          label: `${day} · ${title} cross-area surcharge`,
           group: "transport",
-          quantity: vehicles,
-          unitRateMinor: rules.crossZoneSurchargePerVehicleMinor,
-          totalMinor: vehicles * rules.crossZoneSurchargePerVehicleMinor,
-          rule: `${rules.version}:cross-zone`,
+          quantity: cars,
+          unitRateMinor: settings.crossZoneSurchargeMinor,
+          totalMinor: cars * settings.crossZoneSurchargeMinor,
+          rule: "transport-settings:cross-zone",
         });
+    };
+    if (dayWindow)
+      cover(
+        daytime,
+        dayWindow,
+        "car for the day",
+        "vehicle",
+        settings.dayBlocks.find((b) => b.hours === dayWindow.hours)?.rateMinor,
+      );
+    if (nightWindow) {
+      if (minutes(nightWindow.startTime) < minutes(settings.night.startsFrom))
+        add(
+          "SERVICE_WINDOW",
+          `${day}: the night car starts from ${settings.night.startsFrom}.`,
+        );
+      if (!night.length)
+        warnings.push({
+          code: "NIGHT_UNUSED",
+          message: `${day}: your night car has no activities starting from ${settings.night.startsFrom}.`,
+        });
+      cover(
+        night,
+        { startTime: nightWindow.startTime, hours: settings.night.hours },
+        "night car",
+        "night",
+        settings.night.rateMinor,
+      );
     }
+    // Making their own way: late finishes need a night car or the
+    // traveller's word that they'll arrange the trip back.
+    if (mode === "OWN")
+      for (const item of daytime)
+        if (
+          minutes(item.endTime) >= minutes(settings.lateReturnFrom) &&
+          !services.ownWayBack?.includes(item.id)
+        )
+          add(
+            "LATE_RETURN",
+            `“${item.title}” ends at ${clockLabel(item.endTime)}. Add a night car, or confirm you’ll arrange your own way back.`,
+            item.id,
+          );
+    if (
+      !dayWindow &&
+      services.guideDays.includes(day) &&
+      minutes(last.endTime) > start + 480
+    )
+      add(
+        "GUIDE_WINDOW",
+        `${day}: a full-day guide covers 8 hours from your first activity.`,
+      );
     const guidedDay = services.guideDays.includes(day);
-    if (guidedDay && guideTooLate(day, time(start), now))
+    if (
+      guidedDay &&
+      guideTooLate(day, time(start), now, settings.guideNoticeHours)
+    )
       add(
         "GUIDE_NOTICE",
-        `${day}: ${guideNoticeMessage} Remove the full-day guide.`,
+        `${day}: ${guideNoticeMessage(settings.guideNoticeHours)} Remove the full-day guide.`,
       );
     else if (guidedDay) {
       const fullyHosted = experiences.every(
@@ -610,7 +626,7 @@ export function assess(
       if (!fullyHosted)
         lines.push({
           key: `guide:${day}`,
-          label: `${day} · full-day guide · ${time(start)}–${time(Math.min(start + 480, 1439))}`,
+          label: `${day} · full-day guide · ${clockLabel(time(start))}–${clockLabel(time(start + 480))}`,
           group: "hosting",
           quantity: 1,
           unitRateMinor: rules.guideDayBlock.rateMinor,
@@ -636,10 +652,10 @@ export function assess(
         });
         continue;
       }
-      if (guideTooLate(day, item.startTime, now))
+      if (guideTooLate(day, item.startTime, now, settings.guideNoticeHours))
         add(
           "GUIDE_NOTICE",
-          `${guideNoticeMessage} Remove the guide for “${item.title}”.`,
+          `${guideNoticeMessage(settings.guideNoticeHours)} Remove the guide for “${item.title}”.`,
           item.id,
         );
       else if (

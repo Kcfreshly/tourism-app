@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { minutes, time, type Item } from "@/modules/trips/domain/planner";
 import {
   resizedBlock,
@@ -7,6 +7,7 @@ import {
   type PlannerDrag,
 } from "@/modules/trips/domain/planner-interactions";
 import type { Experience } from "@/modules/catalogue/domain/experience";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
 import {
   displayName,
   zoneLabel,
@@ -37,6 +38,8 @@ export default function PlannerTimeline({
   onReplace,
   onPersonal,
   onMessage,
+  transport,
+  coverage = [],
 }: {
   day: string;
   items: Item[];
@@ -53,6 +56,15 @@ export default function PlannerTimeline({
   onReplace: (item: Item) => void;
   onPersonal: () => void;
   onMessage: (message: string) => void;
+  // The day's driver times, shown under the heading.
+  transport?: ReactNode;
+  // Booked car hours, drawn beside the timeline (minutes after midnight).
+  coverage?: {
+    kind: "day" | "night";
+    label: string;
+    from: number;
+    to: number;
+  }[];
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const [resize, setResize] = useState<{
@@ -65,8 +77,23 @@ export default function PlannerTimeline({
   const start = Math.min(
     420,
     ...items.map((item) => Math.floor(minutes(item.startTime) / 60) * 60),
+    ...coverage.map((band) => Math.floor(band.from / 60) * 60),
   );
-  const end = 1440;
+  // The day runs past midnight when a night out does, or while dragging in a
+  // listing that stays open late; the latest is 06:00.
+  const dragged =
+    dragging?.kind === "offer"
+      ? offers.find((e) => e.offer.id === dragging.offerId)
+      : undefined;
+  const end = Math.min(
+    1800,
+    Math.max(
+      1440,
+      ...items.map((item) => Math.ceil(minutes(item.endTime) / 60) * 60),
+      ...coverage.map((band) => Math.ceil(band.to / 60) * 60),
+      dragged ? minutes(dragged.availabilityLocal.closesAt) : 0,
+    ),
+  );
   const slots = Array.from(
     { length: (end - start) / 15 },
     (_, index) => start + index * 15,
@@ -153,6 +180,7 @@ export default function PlannerTimeline({
           Add personal time
         </button>
       </div>
+      {transport}
       {fullDay && (
         <p className="day-full-banner">
           <Icon name="info" size={16} />
@@ -169,9 +197,9 @@ export default function PlannerTimeline({
         }
       >
         {resize
-          ? `${resize.proposed.startTime}–${resize.proposed.endTime} · ${minutes(resize.proposed.endTime) - minutes(resize.proposed.startTime)} min${problem ? ` · ${problem}` : " · Release to apply"}`
+          ? `${clockLabel(resize.proposed.startTime)}–${clockLabel(resize.proposed.endTime)} · ${minutes(resize.proposed.endTime) - minutes(resize.proposed.startTime)} min${problem ? ` · ${problem}` : " · Release to apply"}`
           : preview
-            ? `${preview.startTime}–${preview.endTime}${problem ? ` · ${problem}` : " · Available — drop to add"}`
+            ? `${clockLabel(preview.startTime)}–${clockLabel(preview.endTime)}${problem ? ` · ${problem}` : " · Available — drop to add"}`
             : dragging && hover !== null
               ? "Choose a valid start time or a published session."
               : items.length
@@ -261,11 +289,24 @@ export default function PlannerTimeline({
                 }
               >
                 {at % 60 === 0 && (
-                  <span className="time-label">{time(at)}</span>
+                  <span className="time-label">{time(at % 1440)}</span>
                 )}
               </div>
             );
           })}
+          {coverage.map((band) => (
+            <div
+              key={band.kind}
+              className="car-band"
+              data-kind={band.kind}
+              title={band.label}
+              aria-hidden="true"
+              style={{
+                top: Math.max(band.from, start) - start,
+                height: Math.min(band.to, end) - Math.max(band.from, start),
+              }}
+            />
+          ))}
           {preview && (
             <div
               className="drop-preview"
@@ -278,7 +319,7 @@ export default function PlannerTimeline({
                 ),
               }}
             >
-              {preview.startTime}–{preview.endTime}
+              {clockLabel(preview.startTime)}–{clockLabel(preview.endTime)}
             </div>
           )}
           {items.map((original) => {
@@ -349,7 +390,7 @@ export default function PlannerTimeline({
                       <Icon name={item.locked ? "lock" : "grip"} size={16} />
                     </button>
                     <span className="block-time">
-                      {item.startTime}–{item.endTime}
+                      {clockLabel(item.startTime)}–{clockLabel(item.endTime)}
                       <span className="block-length">
                         {length(item.startTime, item.endTime)}
                       </span>

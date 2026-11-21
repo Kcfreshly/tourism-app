@@ -13,6 +13,7 @@ import {
 } from "../../domain/proposal";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { ProposalRepository } from "../ports/proposal-repository";
+import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
 
 const payloadSchema = z
@@ -25,6 +26,7 @@ export class ApplyProposal {
   constructor(
     private readonly proposals: ProposalRepository,
     private readonly offers: OfferCatalogue,
+    private readonly transport: TransportSettingsRepository,
   ) {}
 
   async execute(
@@ -82,7 +84,14 @@ export class ApplyProposal {
       );
     return {
       trip: result.trip,
-      price: assess(context.profile, applied.items, applied.services, offers),
+      price: assess(
+        context.profile,
+        applied.items,
+        applied.services,
+        offers,
+        undefined,
+        (await this.transport.get()).settings,
+      ),
     };
   }
 }

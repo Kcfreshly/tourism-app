@@ -36,6 +36,7 @@ import {
   eventDay,
   eventTypeLabels,
 } from "@/modules/catalogue/domain/events";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function openDays(days: number[]) {
   if (days.length === 7) return "Open daily";
@@ -379,8 +380,9 @@ function ActivityDialog({
               <h3>When you can go</h3>
               <p>
                 {openDays(e.availabilityLocal.days)},{" "}
-                {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt}{" "}
-                Lagos time. Up to {e.offer.capacityPerSlot}{" "}
+                {e.availabilityLocal.opensAt}–
+                {clockLabel(e.availabilityLocal.closesAt)} Lagos time. Up to{" "}
+                {e.offer.capacityPerSlot}{" "}
                 {e.offer.capacityUnit === "PERSON" ? "people" : "groups"} per
                 slot.
               </p>
@@ -406,7 +408,7 @@ function ActivityDialog({
                 <p>
                   {e.kind === "FULL_DAY"
                     ? "Takes up the main part of your day, so nothing else can overlap it."
-                    : `Pick your own start time and length. Your whole visit must finish by ${e.availabilityLocal.closesAt}.`}
+                    : `Pick your own start time and length. Your whole visit must finish by ${clockLabel(e.availabilityLocal.closesAt)}.`}
                 </p>
               )}
             </section>

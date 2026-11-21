@@ -28,11 +28,6 @@ import {
   cancellationLabel,
   confirmationLabel,
 } from "@/modules/catalogue/domain/listing-details";
-import {
-  returnRideLabels,
-  returnRides,
-  type ReturnRide,
-} from "@/modules/catalogue/domain/return-ride";
 import { eventTypeLabels, eventTypes } from "@/modules/catalogue/domain/events";
 import { nigeriaPhotos } from "@/modules/catalogue/domain/photos";
 
@@ -74,6 +69,13 @@ const statusHints: Record<string, string> = {
   DEMO_PUBLISHED: "Live in the demo: browse, planner and booking.",
   PAUSED: "Hidden from new selections; saved trips keep it.",
 };
+
+// Shifts an HH:MM time by whole minutes; closing times past midnight are
+// stored as 24:00 or later (28:00 is 04:00 the next morning).
+function shiftClock(time: string, by: number) {
+  const value = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) + by;
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+}
 
 // One entry per line in the textarea; blank lines are dropped on save.
 function linesOf(text: string) {
@@ -233,6 +235,7 @@ export default function ListingForm({
   const details = (patch: Partial<FullEdit["details"]>) =>
     set({ details: { ...edit.details, ...patch } });
   const fixed = edit.schedulingType === "FIXED";
+  const lateClose = edit.availability.closesAt >= "24:00";
   const photo = nigeriaPhotos.find((p) => p.id === edit.photoId);
   const issues = demoPublishIssues(edit.review);
 
@@ -475,16 +478,40 @@ export default function ListingForm({
               <input
                 type="time"
                 required
-                value={edit.availability.closesAt}
+                value={
+                  lateClose
+                    ? shiftClock(edit.availability.closesAt, -1440)
+                    : edit.availability.closesAt
+                }
                 onChange={(e) =>
                   set({
                     availability: {
                       ...edit.availability,
-                      closesAt: e.target.value,
+                      closesAt: lateClose
+                        ? shiftClock(e.target.value, 1440)
+                        : e.target.value,
                     },
                   })
                 }
               />
+              <span className="check">
+                <input
+                  type="checkbox"
+                  checked={lateClose}
+                  onChange={() =>
+                    set({
+                      availability: {
+                        ...edit.availability,
+                        closesAt: shiftClock(
+                          edit.availability.closesAt,
+                          lateClose ? -1440 : 1440,
+                        ),
+                      },
+                    })
+                  }
+                />
+                Closes after midnight (next morning)
+              </span>
             </label>
             <Num
               label="Shortest visit (minutes)"
@@ -668,14 +695,15 @@ export default function ListingForm({
                 onChange={(pickupRateMinor) => details({ pickupRateMinor })}
               />
             )}
-            <Choice
-              label="Ride back"
-              value={(edit.returnRide ?? "PRE_BOOK") as ReturnRide}
-              options={returnRides}
-              labels={returnRideLabels}
-              onChange={(returnRide) => set({ returnRide })}
-              hint="Can travellers on rides get back? Drives planner warnings."
-            />
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={edit.nightVisitAllowed ?? false}
+                onChange={(e) => set({ nightVisitAllowed: e.target.checked })}
+              />
+              Night visit allowed: the night-time security review has passed.
+              Required to publish a listing that runs past midnight.
+            </label>
             <Choice
               label="Confirmation"
               value={edit.details.confirmation}

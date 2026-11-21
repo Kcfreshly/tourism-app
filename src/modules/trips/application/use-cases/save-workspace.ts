@@ -8,6 +8,7 @@ import {
 } from "../../domain/planner";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { TripRepository } from "../ports/trip-repository";
+import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
 
 // Autosave: validates placement, then saves only if no other tab saved first.
@@ -15,6 +16,7 @@ export class SaveWorkspace {
   constructor(
     private readonly trips: TripRepository,
     private readonly offers: OfferCatalogue,
+    private readonly transport: TransportSettingsRepository,
   ) {}
 
   async execute(
@@ -26,7 +28,15 @@ export class SaveWorkspace {
     const issue = placementIssues(context.profile, items, services, offers)[0];
     if (issue)
       throw new AppError("INVALID", issue.code, placementMessage(issue));
-    const price = assess(context.profile, items, services, offers);
+    const { settings } = await this.transport.get();
+    const price = assess(
+      context.profile,
+      items,
+      services,
+      offers,
+      undefined,
+      settings,
+    );
     const trip = await this.trips.update(
       context.trip.id,
       context.actor,

@@ -2,15 +2,20 @@ import { randomUUID } from "node:crypto";
 import Ajv from "ajv/dist/2020.js";
 import source from "../tourism-v1-handoff/data/experiences.demo.json";
 import events from "../src/data/events.demo.json";
+import nightlife from "../src/data/nightlife.demo.json";
 import contract from "../tourism-v1-handoff/contracts/catalogue.schema.json";
 import { db } from "../src/database/client";
 import { catalogue } from "../src/database/schema";
 import { assertDemo } from "../src/config/environment";
 assertDemo();
 const validate = new Ajv().compile(contract);
-for (const fixture of [source, events])
+for (const fixture of [source, events, nightlife])
   if (!validate(fixture)) throw Error(JSON.stringify(validate.errors));
-const records = [...source.experiences, ...events.experiences];
+const records = [
+  ...source.experiences,
+  ...events.experiences,
+  ...nightlife.experiences,
+];
 for (const record of records)
   await db()
     .insert(catalogue)

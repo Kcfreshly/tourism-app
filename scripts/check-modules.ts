@@ -18,6 +18,7 @@ import { LoadOwnedTrip } from "../src/modules/trips/application/use-cases/load-o
 import { GenerateProposal } from "../src/modules/trips/application/use-cases/generate-proposal";
 import { ApplyProposal } from "../src/modules/trips/application/use-cases/apply-proposal";
 import { SaveWorkspace } from "../src/modules/trips/application/use-cases/save-workspace";
+import { DrizzleTransportSettingsRepository } from "../src/modules/trips/infrastructure/persistence/drizzle-transport-settings-repository";
 import { initialProfile } from "../src/modules/trips/domain/profile";
 import { AppError } from "../src/shared/application/app-error";
 
@@ -68,6 +69,7 @@ assert.deepEqual((trip.profile as typeof profile).selectedOfferIds, [
   published[0].offer.id,
 ]);
 const load = new LoadOwnedTrip(trips);
+const transport = new DrizzleTransportSettingsRepository(db);
 await refused(
   load.execute(trip.id, { id: randomUUID(), kind: "ACCOUNT" }),
   "NOT_FOUND",
@@ -77,9 +79,10 @@ const preview = await new GenerateProposal(
   proposals,
   offers,
   selection,
+  transport,
 ).execute(context);
 assert.ok(preview.items.length > 0);
-const apply = new ApplyProposal(proposals, offers);
+const apply = new ApplyProposal(proposals, offers, transport);
 const applied = await apply.execute(context, {
   proposalId: preview.id,
   expectedVersion: preview.expectedVersion,
@@ -95,7 +98,7 @@ await refused(
 console.log("trips: create, ownership, proposal preview, apply once ok");
 
 context = await load.execute(trip.id, actor);
-const saveWorkspace = new SaveWorkspace(trips, offers);
+const saveWorkspace = new SaveWorkspace(trips, offers, transport);
 const saved = await saveWorkspace.execute(context, {
   expectedVersion: 2,
   items: context.items,
@@ -111,9 +114,12 @@ await refused(
   "VERSION_CONFLICT",
 );
 // A proposal made from an old version cannot be applied after the trip moved on.
-const stale = await new GenerateProposal(proposals, offers, selection).execute(
-  await load.execute(trip.id, actor),
-);
+const stale = await new GenerateProposal(
+  proposals,
+  offers,
+  selection,
+  transport,
+).execute(await load.execute(trip.id, actor));
 await saveWorkspace.execute(await load.execute(trip.id, actor), {
   expectedVersion: 3,
   items: context.items,

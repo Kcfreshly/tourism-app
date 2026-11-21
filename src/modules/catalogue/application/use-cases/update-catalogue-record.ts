@@ -1,5 +1,9 @@
 import { AppError } from "@/shared/application/app-error";
-import { catalogueEditIssue, type CatalogueEdit } from "../../domain/catalogue";
+import {
+  catalogueEditIssue,
+  nightReviewIssue,
+  type CatalogueEdit,
+} from "../../domain/catalogue";
 import {
   changedFields,
   editedRecord,
@@ -32,6 +36,8 @@ export class UpdateCatalogueRecord {
         );
         if (issue) throw new AppError("INVALID", issue.code, issue.message);
         const record = editedRecord(old, edit);
+        const night = nightReviewIssue(record, edit.status);
+        if (night) throw new AppError("INVALID", night.code, night.message);
         return {
           status: edit.status,
           record,

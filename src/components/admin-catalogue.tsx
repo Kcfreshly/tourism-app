@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   catalogueEditSchema,
@@ -16,7 +16,6 @@ import {
   storyFor,
 } from "@/modules/catalogue/domain/experience-content";
 import { listingDetails } from "@/modules/catalogue/domain/listing-details";
-import { returnRideFor } from "@/modules/catalogue/domain/return-ride";
 import ListingForm, {
   sections,
   type Edit,
@@ -47,7 +46,7 @@ function editRow(row: Row): FullEdit {
     rateMinor: r.offer.rateMinor,
     capacityPerSlot: r.offer.capacityPerSlot,
     bookingCutoffHours: r.offer.bookingCutoffHours,
-    returnRide: returnRideFor({ ...r, seedKey: row.seedKey }),
+    nightVisitAllowed: r.nightVisitAllowed ?? false,
     status: row.status as Edit["status"],
     review: row.review ?? emptyReview,
     story: storyFor(live),
@@ -119,10 +118,23 @@ export default function AdminCatalogue() {
     [problems, setProblems] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
     [name, setName] = useState(""),
+    [draftError, setDraftError] = useState(""),
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("ALL");
   const dirty = !!edit && JSON.stringify(edit) !== baseline;
   const current = rows.find((r) => r.id === edit?.id);
+  const editor = useRef<HTMLDivElement>(null);
+
+  function focusEditor() {
+    const panel = editor.current;
+    if (!panel) return;
+    if (window.matchMedia?.("(max-width: 900px)").matches) {
+      panel.focus({ preventScroll: true });
+      panel.scrollIntoView({ block: "start" });
+    } else {
+      panel.focus();
+    }
+  }
 
   async function load() {
     const r = await fetch("/api/v1/admin/catalogue");
@@ -164,6 +176,7 @@ export default function AdminCatalogue() {
     setBaseline(JSON.stringify(next));
     setProblems([]);
     setStatus("Editing local demo supply.");
+    focusEditor();
   }
   function set(patch: Partial<FullEdit>) {
     setEdit((e) => (e ? { ...e, ...patch } : e));
@@ -225,76 +238,96 @@ export default function AdminCatalogue() {
 
   return (
     <div className="admin-layout">
-      <aside className="card card-body">
-        <h2>Listings</h2>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            try {
-              const r = await fetch("/api/v1/admin/catalogue", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name }),
-              });
-              const body = await r.json();
-              if (!r.ok) throw Error(body.error.message);
-              setRows((rows) => [body.data, ...rows]);
-              const next = editRow(body.data);
-              setEdit(next);
-              setBaseline(JSON.stringify(next));
-              setSection("basics");
-              setName("");
-              setStatus("Fictional draft created.");
-            } catch (e) {
-              setStatus(
-                e instanceof Error ? e.message : "Unable to create draft.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
+      <aside className="card admin-library">
+        <div className="admin-library-tools">
+          <h2 id="admin-listings-heading">Listings</h2>
+          <details className="admin-create">
+            <summary>Create listing</summary>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (
+                  dirty &&
+                  !window.confirm("Discard unsaved changes to this listing?")
+                )
+                  return;
+                setDraftError("");
+                setBusy(true);
+                try {
+                  const r = await fetch("/api/v1/admin/catalogue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name }),
+                  });
+                  const body = await r.json();
+                  if (!r.ok) throw Error(body.error.message);
+                  setRows((rows) => [body.data, ...rows]);
+                  const next = editRow(body.data);
+                  setEdit(next);
+                  setBaseline(JSON.stringify(next));
+                  setSection("basics");
+                  setName("");
+                  setProblems([]);
+                  setStatus("Fictional draft created.");
+                  focusEditor();
+                } catch (e) {
+                  setDraftError(
+                    e instanceof Error ? e.message : "Unable to create draft.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                New fictional draft name
+                <input
+                  required
+                  minLength={5}
+                  maxLength={100}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+              <button disabled={busy}>Create draft</button>
+              {draftError && (
+                <p className="field-error" role="alert">
+                  {draftError}
+                </p>
+              )}
+            </form>
+          </details>
           <label>
-            New fictional draft name
+            Search listings
             <input
-              required
-              minLength={5}
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              type="search"
+              placeholder="Listing name or ID"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <button disabled={busy}>Create draft</button>
-        </form>
-        <label>
-          Search
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-        <div className="admin-filters" role="group" aria-label="Status">
-          {["ALL", ...listingStatuses].map((s) => (
-            <button
-              key={s}
-              type="button"
-              className="chip"
-              aria-pressed={filter === s}
-              onClick={() => setFilter(s)}
-            >
-              {s === "ALL"
-                ? `All ${rows.length}`
-                : `${statusLabel(s)} ${counts[s]}`}
-            </button>
-          ))}
+          <div className="admin-filters" role="group" aria-label="Status">
+            {["ALL", ...listingStatuses].map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="chip"
+                aria-pressed={filter === s}
+                onClick={() => setFilter(s)}
+              >
+                {s === "ALL"
+                  ? `All ${rows.length}`
+                  : `${statusLabel(s)} ${counts[s]}`}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="catalogue-list">
+        <div className="catalogue-list" aria-label="Listing results">
           {shown.map((row) => (
             <button
               className="secondary"
               key={row.id}
+              disabled={busy}
               aria-pressed={edit?.id === row.id}
               onClick={() => open(row)}
             >
@@ -309,46 +342,64 @@ export default function AdminCatalogue() {
           {!shown.length && <p className="muted">No listings match.</p>}
         </div>
       </aside>
-      <div className="card form-card">
+      <div
+        className="card admin-editor"
+        ref={editor}
+        tabIndex={-1}
+        role="region"
+        aria-label="Listing editor"
+      >
         {edit ? (
           <form onSubmit={save} noValidate>
-            <div className="admin-editor-head">
-              <div>
-                <h2>{displayName(edit.name)}</h2>
-                <p className="muted">
-                  <span className="status-dot" data-status={current?.status} />
-                  {statusLabel(current?.status ?? edit.status)} · version{" "}
-                  {edit.expectedVersion}
-                </p>
+            <div className="admin-editor-top">
+              <a
+                href="#admin-listings-heading"
+                className="text-link admin-back"
+              >
+                Back to listings
+              </a>
+              <div className="admin-editor-head">
+                <div>
+                  <h2>{displayName(edit.name)}</h2>
+                  <p className="muted">
+                    <span
+                      className="status-dot"
+                      data-status={current?.status}
+                    />
+                    {statusLabel(current?.status ?? edit.status)} · version{" "}
+                    {edit.expectedVersion}
+                  </p>
+                </div>
+                {current?.status === "DEMO_PUBLISHED" && (
+                  <Link
+                    className="text-link"
+                    href={`/experiences/${current.seedKey}`}
+                    target="_blank"
+                  >
+                    View live listing
+                  </Link>
+                )}
               </div>
-              {current?.status === "DEMO_PUBLISHED" && (
-                <Link
-                  className="text-link"
-                  href={`/experiences/${current.seedKey}`}
-                  target="_blank"
-                >
-                  View live listing
-                </Link>
-              )}
+              <nav className="admin-tabs" aria-label="Listing sections">
+                {sections.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="chip"
+                    aria-pressed={section === s.id}
+                    onClick={() => setSection(s.id)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </nav>
             </div>
-            <p className="notice">
-              Demo review checks do not verify real suppliers or enable live
-              sales. Publishing only exposes this fictional listing in the demo.
-            </p>
-            <nav className="admin-tabs" aria-label="Listing sections">
-              {sections.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="chip"
-                  aria-pressed={section === s.id}
-                  onClick={() => setSection(s.id)}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </nav>
-            <fieldset disabled={busy}>
+            <fieldset className="admin-editor-fields" disabled={busy}>
+              {section === "review" && (
+                <p className="notice">
+                  Publishing makes this listing visible in the demo catalogue.
+                </p>
+              )}
               <ListingForm edit={edit} set={set} section={section} />
             </fieldset>
             {problems.length > 0 && (
@@ -363,26 +414,28 @@ export default function AdminCatalogue() {
                 {dirty ? "Unsaved changes. " : ""}
                 {status}
               </p>
-              <button
-                type="button"
-                className="secondary"
-                disabled={!dirty || busy}
-                onClick={() => {
-                  setEdit(JSON.parse(baseline));
-                  setProblems([]);
-                }}
-              >
-                Discard
-              </button>
-              <button disabled={!dirty || busy}>Save audited changes</button>
+              <div className="admin-save-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!dirty || busy}
+                  onClick={() => {
+                    setEdit(JSON.parse(baseline));
+                    setProblems([]);
+                  }}
+                >
+                  Discard
+                </button>
+                <button disabled={!dirty || busy}>Save audited changes</button>
+              </div>
             </div>
           </form>
         ) : (
-          <>
-            <h2>Choose a listing to edit.</h2>
-            <p>
-              Every field travellers see is editable here: copy, prices, party
-              rules, schedule, logistics, access, media and events.
+          <div className="admin-editor-empty">
+            <h2>Choose a listing to edit</h2>
+            <p className="muted">
+              Select a listing to update its details, pricing or publication
+              status.
             </p>
             <p role="status" className="muted">
               {status}
@@ -393,7 +446,7 @@ export default function AdminCatalogue() {
             >
               Reload catalogue
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

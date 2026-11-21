@@ -14,7 +14,8 @@ export function resizedBlock(
   return {
     ...item,
     [edge === "start" ? "startTime" : "endTime"]: time(
-      Math.max(0, Math.min(1425, value)),
+      // Up to 06:00 the next morning, the end of the service day.
+      Math.max(0, Math.min(edge === "start" ? 1785 : 1800, value)),
     ),
   };
 }

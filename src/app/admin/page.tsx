@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { pages } from "@/bootstrap/container";
 import AdminCatalogue from "@/components/admin-catalogue";
+import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Staff workspace" };
@@ -24,16 +25,37 @@ export default async function Admin() {
     );
   return (
     <section className="admin-page">
-      <div className="page-intro">
-        <p className="eyebrow">Staff workspace</p>
-        <h1>Listings admin</h1>
-        <p className="lede">
-          Edit everything travellers see on a listing, then review and publish.
-          Changes appear in browse, the planner and booking as soon as they are
-          saved. Demo supply only; live sales remain disabled.
-        </p>
-      </div>
-      <AdminCatalogue />
+      <header className="admin-header">
+        <div>
+          <p className="eyebrow">Fastlife operations</p>
+          <h1>Staff workspace</h1>
+          <p>
+            Manage listings, transport rates and guide availability for the
+            Fastlife demo.
+          </p>
+        </div>
+        <p className="admin-demo">Demo catalogue</p>
+      </header>
+      <nav className="admin-jump" aria-label="Staff workspace sections">
+        <a href="#listings">Listings</a>
+        <a href="#transport">Transport &amp; guides</a>
+      </nav>
+      <section id="listings" aria-labelledby="admin-listings-heading">
+        <AdminCatalogue />
+      </section>
+      <section
+        id="transport"
+        className="admin-section"
+        aria-labelledby="transport-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="transport-heading">Transport &amp; guides</h2>
+          <p className="muted">
+            Set demo car rates and booking rules used in planner estimates.
+          </p>
+        </div>
+        <AdminTransportSettings />
+      </section>
     </section>
   );
 }

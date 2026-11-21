@@ -188,12 +188,18 @@ it("shows travellers making their own way no vehicle to book or pay for", async 
     })),
   );
   render(<Planner id="trip-test" servicesOnly />);
-  expect(await screen.findByText("Your own transport")).toBeTruthy();
+  expect(await screen.findByText("Your own way, usually")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "the whole trip" })).toHaveProperty(
+    "href",
+    expect.stringContaining("/trips/trip-test/profile"),
+  );
+  // The day follows the trip: own way, with no car times to choose.
   expect(
-    screen.getByRole("link", { name: "Change in trip details" }),
-  ).toHaveProperty("href", expect.stringContaining("/trips/trip-test/profile"));
-  expect(screen.queryByLabelText("Vehicle from")).toBeNull();
-  expect(screen.queryByText("Car and driver")).toBeNull();
+    screen
+      .getByRole("button", { name: "Our own way" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(screen.queryByLabelText("Car from")).toBeNull();
   expect(screen.getAllByText("Your own").length).toBeGreaterThan(0);
 });
 
@@ -261,4 +267,59 @@ it("opens a trip that starts today on today, judging each experience by its cuto
   ).toBe(true);
   // No blanket "day closed" notice: today stays open for later slots.
   expect(screen.queryByText(/This day has passed/)).toBeNull();
+});
+
+it("lets travellers add where they're staying from the warning, and shows driver times", async () => {
+  const noBase = { ...profile, accommodation: "" };
+  const calls: { url: string; method: string; body?: unknown }[] = [];
+  let current = noBase;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, method, body });
+      if (method === "PATCH") current = body.profile;
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            trip: {
+              id: "trip-test",
+              version: method === "PATCH" ? 2 : calls.length > 1 ? 2 : 1,
+              profile: current,
+              items,
+              services,
+            },
+            offers: fixture.experiences,
+            price: assess(current, items, services, fixture.experiences),
+          },
+        }),
+      };
+    }),
+  );
+  render(<Planner id="trip-test" />);
+  // The day says when the driver comes.
+  expect((await screen.findByText(/Driver 08:00–16:00/)).textContent).toContain(
+    "Driver 08:00–16:00",
+  );
+  expect(screen.getByRole("link", { name: "Driver & guides" })).toHaveProperty(
+    "href",
+    expect.stringContaining("/trips/trip-test/services"),
+  );
+  fireEvent.click(screen.getByText(/1 thing to sort out before booking/));
+  fireEvent.change(screen.getByLabelText("Where you’re staying"), {
+    target: { value: "Fictional Lekki Suites" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save address" }));
+  expect(
+    await screen.findByText(/Saved · pickups from Fictional Lekki Suites/),
+  ).toBeTruthy();
+  const patch = calls.find((c) => c.method === "PATCH")!;
+  expect(patch.url).toBe("/api/v1/trips/trip-test");
+  expect(patch.body).toMatchObject({
+    expectedVersion: 1,
+    profile: { accommodation: "Fictional Lekki Suites", zoneId: "LEKKI" },
+  });
+  expect(screen.queryByText(/thing to sort out/)).toBeNull();
 });

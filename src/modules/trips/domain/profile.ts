@@ -36,8 +36,14 @@ export const profileSchema = z
     budgetBasis: z.enum(["PARTY", "PERSON"]),
     dietary: z.string().max(300),
     accessibility: z.string().max(300).optional(),
-    // A car for the day, a booked ride for each leg, or their own way.
-    transport: z.enum(["DEDICATED", "RIDES", "OWN"]).optional(),
+    // A car for the day or their own way; each day can differ in the
+    // planner. Trips saved while rides existed load as car trips.
+    transport: z
+      .preprocess(
+        (v) => (v === "RIDES" ? "DEDICATED" : v),
+        z.enum(["DEDICATED", "OWN"]),
+      )
+      .optional(),
     alcohol: z.enum(["OPTIONAL", "NO_ALCOHOL"]),
     walking: z.enum(["LOW", "MODERATE"]),
     selectedOfferIds: z.array(z.string().max(100)).max(30),
