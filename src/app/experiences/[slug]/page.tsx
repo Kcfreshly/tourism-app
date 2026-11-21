@@ -194,6 +194,7 @@ export default async function Detail({
           experience={e}
           details={details}
           today={lagosToday()}
+          now={Date.now()}
           initialDate={date}
           visit={from && to ? { from, to } : undefined}
           editId={edit}

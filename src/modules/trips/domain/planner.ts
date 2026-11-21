@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Profile } from "./profile";
 import type { Experience } from "../../catalogue/domain/experience";
+import { lagosInstant, shortestVisit } from "../../catalogue/domain/schedule";
 import rules from "../../../../tourism-v1-handoff/data/pricing.demo.json";
 const date = z
   .string()
@@ -48,6 +49,13 @@ export const defaultServices: Services = {
   guideItemIds: [],
   guideDays: [],
 };
+// Guides are arranged with a local partner, so they need this much notice
+// before the activity (or the start of a full-day guide's day).
+export const guideNoticeHours = 24;
+export function guideTooLate(day: string, startTime: string, now = Date.now()) {
+  return lagosInstant(day, startTime) - now < guideNoticeHours * 3600000;
+}
+export const guideNoticeMessage = `Guides need booking at least ${guideNoticeHours} hours ahead.`;
 // Guides are add-ons that combine freely: full-day guides on chosen days and
 // activity guides on chosen experiences. The legacy single choice is derived
 // so saved profiles and planner proposals keep a sensible summary.
@@ -211,10 +219,7 @@ export function assess(
       );
     if (offer.cityId !== profile.cityId)
       add("CITY_MISMATCH", "Choose an experience in your trip city.", item.id);
-    if (
-      duration < offer.durationMinMinutes ||
-      duration > offer.durationMaxMinutes
-    )
+    if (duration < shortestVisit(offer) || duration > offer.durationMaxMinutes)
       add("DURATION", "Duration is outside the offer limits.", item.id);
     if (
       profile.adults < offer.offer.minParty ||
@@ -233,7 +238,7 @@ export function assess(
         item.id,
       );
     if (
-      Date.parse(`${item.localDate}T${item.startTime}:00+01:00`) - now <
+      lagosInstant(item.localDate, item.startTime) - now <
       offer.offer.bookingCutoffHours * 3600000
     )
       add(
@@ -429,7 +434,12 @@ export function assess(
         });
     }
     const guidedDay = services.guideDays.includes(day);
-    if (guidedDay) {
+    if (guidedDay && guideTooLate(day, time(start), now))
+      add(
+        "GUIDE_NOTICE",
+        `${day}: ${guideNoticeMessage} Remove the full-day guide.`,
+      );
+    else if (guidedDay) {
       const fullyHosted = experiences.every(
         (i) => resolved.get(i.id)!.offer.hostIncluded,
       );
@@ -462,7 +472,13 @@ export function assess(
         });
         continue;
       }
-      if (
+      if (guideTooLate(day, item.startTime, now))
+        add(
+          "GUIDE_NOTICE",
+          `${guideNoticeMessage} Remove the guide for “${item.title}”.`,
+          item.id,
+        );
+      else if (
         minutes(item.endTime) - minutes(item.startTime) + 30 >
         rules.activityGuideBlock.hours * 60
       )
@@ -567,19 +583,13 @@ export function pastBookingCutoff(
       ? (offer.sessions ?? [])
           .filter((s) => !s.dates || s.dates.includes(day))
           .map((s) => s.startTime)
-      : [
-          time(
-            minutes(offer.availabilityLocal.closesAt) -
-              offer.durationMinMinutes,
-          ),
-        ]
+      : [time(minutes(offer.availabilityLocal.closesAt) - shortestVisit(offer))]
   )
     .sort()
     .at(-1);
   return (
     !!latest &&
-    Date.parse(`${day}T${latest}:00+01:00`) - now <
-      offer.offer.bookingCutoffHours * 3600000
+    lagosInstant(day, latest) - now < offer.offer.bookingCutoffHours * 3600000
   );
 }
 
@@ -607,15 +617,23 @@ export function availableStarts(
               Math.floor(
                 (minutes(offer.availabilityLocal.closesAt) -
                   minutes(offer.availabilityLocal.opensAt) -
-                  offer.durationMinMinutes) /
+                  shortestVisit(offer)) /
                   15,
               ) + 1,
             ),
           },
-          (_, i) => ({
-            start: minutes(offer.availabilityLocal.opensAt) + i * 15,
-            duration: offer.durationMinMinutes,
-          }),
+          // Late arrivals at a drop-in listing get a shorter visit that
+          // still ends by closing time.
+          (_, i) => {
+            const start = minutes(offer.availabilityLocal.opensAt) + i * 15;
+            return {
+              start,
+              duration: Math.min(
+                offer.durationMinMinutes,
+                minutes(offer.availabilityLocal.closesAt) - start,
+              ),
+            };
+          },
         );
   return options
     .map((option) => ({

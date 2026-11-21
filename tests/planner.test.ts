@@ -16,6 +16,7 @@ import {
   feeHalfUp,
   tripDays,
   pastBookingCutoff,
+  guideNoticeHours,
   type Item,
 } from "../src/modules/trips/domain/planner";
 import {
@@ -284,6 +285,85 @@ describe("schedule constraints and proposals", () => {
       ),
     ).toBe(true);
   });
+  it("lets late arrivals drop in to a flexible listing for a shorter visit", () => {
+    const walk = fixture.experiences.find(
+      (e) => e.offer.id === "offer-nature-walk",
+    )!;
+    const day = "2027-05-10";
+    const trip = {
+      ...profile,
+      startDate: day,
+      endDate: day,
+      transport: "OWN" as const,
+    };
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    // Usually 2–3 hours, but at 16:30 there is still time for an hour.
+    expect(pastBookingCutoff(walk, day, at("16:30"))).toBe(false);
+    expect(
+      assess(
+        trip,
+        [{ ...item("offer-nature-walk", "16:45", "18:00"), localDate: day }],
+        defaultServices,
+        fixture.experiences,
+        at("16:30"),
+      ).blockers,
+    ).toEqual([]);
+    const latest = availableStarts(
+      trip,
+      walk,
+      day,
+      [],
+      defaultServices,
+      fixture.experiences,
+    ).at(-1)!;
+    expect([latest.startTime, latest.endTime]).toEqual(["17:00", "18:00"]);
+    // Less than an hour before closing is too late.
+    expect(pastBookingCutoff(walk, day, at("17:15"))).toBe(true);
+    expect(
+      assess(
+        trip,
+        [{ ...item("offer-nature-walk", "17:15", "18:00"), localDate: day }],
+        defaultServices,
+        fixture.experiences,
+        at("17:00"),
+      ).blockers.map((b) => b.code),
+    ).toContain("DURATION");
+  });
+  it("adds a guide only when booked far enough ahead", () => {
+    const day = "2027-05-10";
+    const trip = {
+      ...profile,
+      startDate: day,
+      endDate: day,
+      transport: "OWN" as const,
+    };
+    const walk = {
+      ...item("offer-nature-walk", "10:00", "12:00"),
+      localDate: day,
+    };
+    const start = Date.parse(`${day}T10:00:00+01:00`);
+    const hour = 3600000;
+    const guided = (guides: Partial<typeof defaultServices>, now: number) =>
+      assess(
+        trip,
+        [walk],
+        { ...defaultServices, ...guides },
+        fixture.experiences,
+        now,
+      );
+    const activity = { guideItemIds: [walk.id] };
+    const fullDay = { guideDays: [day] };
+    for (const guides of [activity, fullDay]) {
+      const early = guided(guides, start - (guideNoticeHours + 1) * hour);
+      expect(early.blockers).toEqual([]);
+      expect(early.hostingMinor).toBeGreaterThan(0);
+      const late = guided(guides, start - (guideNoticeHours - 1) * hour);
+      expect(late.blockers.map((b) => b.code)).toEqual(["GUIDE_NOTICE"]);
+      expect(late.hostingMinor).toBe(0);
+    }
+    // The activity itself can still be booked without the guide.
+    expect(guided({}, start - hour).blockers).toEqual([]);
+  });
   it("closes a day only once its last start is inside the booking cutoff", () => {
     const gallery = fixture.experiences.find(
       (e) => e.offer.id === "offer-gallery",
@@ -363,7 +443,8 @@ describe("placement enforcement", () => {
       services,
       fixture.experiences,
     );
-    expect(valid.at(-1)?.startTime).toBe("16:00");
+    // A late drop-in still gets an hour before closing.
+    expect(valid.at(-1)?.startTime).toBe("17:00");
     expect(valid.some((i) => i.endTime > "18:00")).toBe(false);
     expect(
       placementIssues(

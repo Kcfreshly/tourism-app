@@ -9,6 +9,7 @@ import {
   type ListingDetails,
 } from "@/modules/catalogue/domain/listing-details";
 import {
+  formatDuration,
   formatMoney,
   priceBasisLabel,
 } from "@/modules/catalogue/domain/experience-content";
@@ -18,6 +19,7 @@ import {
   rangeText,
   runsOn,
   shortDay,
+  shortestVisit,
   startTimesOn,
 } from "@/modules/catalogue/domain/schedule";
 import {
@@ -40,6 +42,8 @@ export default function BookingPanel(props: {
   experience: Listing;
   details: ListingDetails;
   today: string;
+  // The page's clock, so today only offers starts that can still be booked.
+  now: number;
   initialDate?: string;
   // The dates of a visit, from browsing: the date chips stay inside it.
   visit?: { from: string; to: string };
@@ -113,6 +117,7 @@ function Panel({
   experience: e,
   details,
   today,
+  now,
   initialDate,
   visit,
   editing,
@@ -121,6 +126,7 @@ function Panel({
   experience: Listing;
   details: ListingDetails;
   today: string;
+  now: number;
   initialDate?: string;
   visit?: { from: string; to: string };
   editing?: ExperienceLine;
@@ -132,11 +138,13 @@ function Panel({
   const heading = useRef<HTMLHeadingElement>(null);
   const name = e.name.replace(/\s*[—-]\s*DEMO$/, "");
   const visitDays = visit
-    ? rangeDays(visit.from, visit.to).filter((d) => d >= today && runsOn(e, d))
+    ? rangeDays(visit.from, visit.to).filter(
+        (d) => d >= today && runsOn(e, d, now),
+      )
     : [];
   const upcoming = visitDays.length
     ? visitDays.slice(0, 6)
-    : nextRunDates(e, today, 4);
+    : nextRunDates(e, today, 4, now);
   // A date chosen elsewhere (a card, an edit) stays visible as a chip.
   const chips = (d: string) =>
     d && !upcoming.includes(d) && runsOn(e, d) ? [...upcoming, d] : upcoming;
@@ -144,7 +152,10 @@ function Panel({
   const [date, setDate] = useState(
     editing?.date ?? (initialDate && runsOn(e, initialDate) ? initialDate : ""),
   );
-  const times = date ? startTimesOn(e, date) : [];
+  const times = date ? startTimesOn(e, date, now) : [];
+  // Runs that day, but every start is already inside the booking cutoff.
+  const tooLate = !!date && !times.length && runsOn(e, date);
+  const dropIn = shortestVisit(e) < e.durationMinMinutes;
   const [chosenTime, setTime] = useState(editing?.time ?? "");
   const time = times.includes(chosenTime)
     ? chosenTime
@@ -174,7 +185,11 @@ function Panel({
   );
   const problems = [
     !date && "Choose a date.",
-    date && !times.length && `This doesn’t run on ${shortDay(date)}.`,
+    date &&
+      !times.length &&
+      (tooLate
+        ? `Too late to book for ${shortDay(date)}.`
+        : `This doesn’t run on ${shortDay(date)}.`),
     times.length > 0 && !time && "Choose a start time.",
     guests < e.offer.minParty && `At least ${e.offer.minParty} guests.`,
     guests > e.offer.maxParty && `At most ${e.offer.maxParty} guests.`,
@@ -310,7 +325,8 @@ function Panel({
             </label>
             {date && !times.length && (
               <p className="field-error">
-                Doesn’t run on {shortDay(date)}.
+                {tooLate ? "Too late to book for" : "Doesn’t run on"}{" "}
+                {shortDay(date)}.
                 {upcoming[0] && ` Next: ${shortDay(upcoming[0])}.`}
               </p>
             )}
@@ -318,6 +334,14 @@ function Panel({
           {times.length > 0 && (
             <fieldset className="booking-field">
               <legend>Start time</legend>
+              {dropIn && (
+                <p className="muted">
+                  Arrive when you like and stay from{" "}
+                  {formatDuration(shortestVisit(e))} up to{" "}
+                  {formatDuration(e.durationMaxMinutes)}. Leave by{" "}
+                  {e.availabilityLocal.closesAt}.
+                </p>
+              )}
               <div className="chip-row">
                 {times.map((t) => (
                   <button

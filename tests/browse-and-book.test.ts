@@ -10,7 +10,9 @@ import {
   maxRangeDays,
   nextRunDates,
   rangeDays,
+  flexibleMinStayMinutes,
   runsOn,
+  shortestVisit,
   startTimesOn,
   weekendDates,
 } from "../src/modules/catalogue/domain/schedule";
@@ -43,13 +45,29 @@ describe("browsing by date", () => {
     expect(weekendDates("2026-11-22")).toEqual(["2026-11-22"]);
   });
 
-  it("offers hourly starts that still finish by closing time", () => {
+  it("offers hourly starts that leave time for a drop-in visit", () => {
     const beach = listing("beach");
     const times = startTimesOn(beach, "2026-11-21");
     expect(times[0]).toBe(beach.availabilityLocal.opensAt);
     const [h] = times.at(-1)!.split(":").map(Number);
     const [closeH] = beach.availabilityLocal.closesAt.split(":").map(Number);
-    expect(h * 60 + beach.durationMinMinutes).toBeLessThanOrEqual(closeH * 60);
+    // Flexible listings take late arrivals who stay a shorter time.
+    expect(shortestVisit(beach)).toBe(flexibleMinStayMinutes);
+    expect(h * 60 + flexibleMinStayMinutes).toBe(closeH * 60);
+  });
+
+  it("offers today only the starts still ahead, including a late drop-in", () => {
+    const walk = listing("nature-walk");
+    const day = "2026-11-21";
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    expect(startTimesOn(walk, day, at("15:10"))).toEqual([
+      "15:15",
+      "16:00",
+      "17:00",
+    ]);
+    expect(startTimesOn(walk, day, at("17:10"))).toEqual([]);
+    expect(runsOn(walk, day, at("17:10"))).toBe(false);
+    expect(runsOn(walk, day)).toBe(true);
   });
 
   it("runs dated events only on their dates", () => {

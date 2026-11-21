@@ -18,8 +18,11 @@ import {
   availableStarts,
   assistanceFor,
   pastBookingCutoff,
+  guideTooLate,
+  guideNoticeHours,
 } from "@/modules/trips/domain/planner";
 import type { Experience } from "@/modules/catalogue/domain/experience";
+import { shortestVisit } from "@/modules/catalogue/domain/schedule";
 import { ClearBucket } from "./bucket";
 import { useBucket } from "@/hooks/use-bucket";
 import Icon from "./icons";
@@ -693,6 +696,12 @@ export default function Planner({
   };
   const guidedDay = services.guideDays.includes(day);
   const ownTransport = trip.profile.transport === "OWN";
+  // A full-day guide starts with the vehicle, or at the first activity.
+  const firstActivity = dayItems.find((i) => i.kind === "EXPERIENCE");
+  const dayGuideStart =
+    (!ownTransport && services.vehicleWindows[day]?.startTime) ||
+    firstActivity?.startTime;
+  const dayGuideTooLate = !!dayGuideStart && guideTooLate(day, dayGuideStart);
   function setGuides(
     next: Partial<Pick<Services, "guideDays" | "guideItemIds">>,
   ) {
@@ -707,8 +716,9 @@ export default function Planner({
           {ownTransport
             ? "You’re making your own way between activities."
             : "A driver comes with every day that has activities."}{" "}
-          Add guides on top, in any mix. Personal time is never supervised, and
-          there’s no 24-hour hosting.
+          Add guides on top, in any mix, at least {guideNoticeHours} hours
+          before they start. Personal time is never supervised, and there’s no
+          24-hour hosting.
         </p>
       </div>
       <fieldset className="assistance-options" disabled={busy}>
@@ -846,7 +856,7 @@ export default function Planner({
             {modes.fullDay && (
               <label className="check">
                 <input
-                  disabled={busy}
+                  disabled={busy || (dayGuideTooLate && !guidedDay)}
                   type="checkbox"
                   checked={guidedDay}
                   onChange={(e) =>
@@ -859,6 +869,8 @@ export default function Planner({
                 />
                 Full-day guide on this day (8 hours from{" "}
                 {ownTransport ? "your first activity" : "vehicle start time"})
+                {dayGuideTooLate &&
+                  ` · too late: book at least ${guideNoticeHours} hours ahead`}
               </label>
             )}
             {modes.activity &&
@@ -867,16 +879,16 @@ export default function Planner({
                 .map((i) => {
                   const included = offers.find((e) => e.offer.id === i.offerId)
                     ?.offer.hostIncluded;
+                  const chosen = services.guideItemIds.includes(i.id);
+                  const tooLate = guideTooLate(i.localDate, i.startTime);
                   return (
                     <label key={i.id} className="check">
                       <input
                         type="checkbox"
-                        disabled={busy || included || guidedDay}
-                        checked={
-                          included ||
-                          guidedDay ||
-                          services.guideItemIds.includes(i.id)
+                        disabled={
+                          busy || included || guidedDay || (tooLate && !chosen)
                         }
+                        checked={included || guidedDay || chosen}
                         onChange={(e) =>
                           setGuides({
                             guideItemIds: e.target.checked
@@ -892,7 +904,9 @@ export default function Planner({
                         ? " · host already included"
                         : guidedDay
                           ? " · covered by the full-day guide"
-                          : ""}
+                          : tooLate
+                            ? ` · too late: book at least ${guideNoticeHours} hours ahead`
+                            : ""}
                     </label>
                   );
                 })}
@@ -1674,7 +1688,7 @@ export default function Planner({
                 <p className="form-hint">
                   {editingOffer.schedulingType === "FIXED"
                     ? "Session times are set by the host and can’t be changed."
-                    : `Lasts ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}. Open ${editingOffer.availabilityLocal.opensAt}–${editingOffer.availabilityLocal.closesAt}, Lagos time. The whole visit must fit.`}
+                    : `${shortestVisit(editingOffer) < editingOffer.durationMinMinutes ? `Usually ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}; drop in late and stay from ${formatDuration(shortestVisit(editingOffer))}.` : `Lasts ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}.`} Open ${editingOffer.availabilityLocal.opensAt}–${editingOffer.availabilityLocal.closesAt}, Lagos time. The whole visit must fit.`}
                 </p>
               )}
               <label className="check">

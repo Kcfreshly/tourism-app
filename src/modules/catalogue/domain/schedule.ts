@@ -8,6 +8,7 @@ type Scheduled = Pick<
   | "availabilityLocal"
   | "durationMinMinutes"
   | "kind"
+  | "offer"
   | "schedulingType"
   | "sessions"
   | "unavailableDates"
@@ -42,34 +43,87 @@ function clock(value: number) {
   return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 }
 
-// Start times offered on a date: fixed sessions, the opening time for a full
-// day, or hourly starts that still finish by closing time.
-export function startTimesOn(e: Scheduled, date: string) {
-  if (!isoDate.test(date) || e.unavailableDates?.includes(date)) return [];
-  const dated = (e.sessions ?? []).filter((s) => s.dates);
-  if (dated.length)
-    return dated.filter((s) => s.dates!.includes(date)).map((s) => s.startTime);
-  if (!e.availabilityLocal.days.includes(weekday(date))) return [];
-  if (e.schedulingType === "FIXED" && e.sessions?.length)
-    return e.sessions.map((s) => s.startTime);
-  const opens = minutes(e.availabilityLocal.opensAt);
-  if (e.kind === "FULL_DAY") return [clock(opens)];
-  const last = minutes(e.availabilityLocal.closesAt) - e.durationMinMinutes;
-  const times: string[] = [];
-  for (let t = opens; t <= last; t += 60) times.push(clock(t));
-  return times;
+// Flexible listings are drop-in: a guest can arrive after opening and stay
+// as little as this, as long as they leave by closing time.
+export const flexibleMinStayMinutes = 60;
+
+function isFixed(e: Pick<Scheduled, "schedulingType" | "sessions">) {
+  return (
+    e.schedulingType === "FIXED" || (e.sessions ?? []).some((s) => s.dates)
+  );
 }
 
-export function runsOn(e: Scheduled, date: string) {
-  return startTimesOn(e, date).length > 0;
+// The shortest visit a booking can be: the listed length, or the drop-in
+// minimum for flexible listings.
+export function shortestVisit(
+  e: Pick<
+    Scheduled,
+    "durationMinMinutes" | "kind" | "schedulingType" | "sessions"
+  >,
+) {
+  return isFixed(e) || e.kind === "FULL_DAY"
+    ? e.durationMinMinutes
+    : Math.min(e.durationMinMinutes, flexibleMinStayMinutes);
+}
+
+// Milliseconds at a Lagos (UTC+1) wall-clock time.
+export function lagosInstant(date: string, time: string) {
+  return Date.parse(`${date}T${time}:00+01:00`);
+}
+
+// Start times offered on a date: fixed sessions, the opening time for a full
+// day, or hourly starts that leave room for the shortest visit before
+// closing. Given `now`, starts inside the booking cutoff are dropped, and a
+// flexible listing that is already open offers the next quarter hour too.
+export function startTimesOn(e: Scheduled, date: string, now?: number) {
+  if (!isoDate.test(date) || e.unavailableDates?.includes(date)) return [];
+  const dated = (e.sessions ?? []).filter((s) => s.dates);
+  let times: string[];
+  if (dated.length)
+    times = dated
+      .filter((s) => s.dates!.includes(date))
+      .map((s) => s.startTime);
+  else if (!e.availabilityLocal.days.includes(weekday(date))) return [];
+  else if (e.schedulingType === "FIXED" && e.sessions?.length)
+    times = e.sessions.map((s) => s.startTime);
+  else if (e.kind === "FULL_DAY") times = [e.availabilityLocal.opensAt];
+  else {
+    const opens = minutes(e.availabilityLocal.opensAt);
+    const last = minutes(e.availabilityLocal.closesAt) - shortestVisit(e);
+    times = [];
+    for (let t = opens; t <= last; t += 60) times.push(clock(t));
+    if (now !== undefined) {
+      const earliest =
+        (now +
+          e.offer.bookingCutoffHours * 3600000 -
+          lagosInstant(date, "00:00")) /
+        60000;
+      const join = Math.ceil(earliest / 15) * 15;
+      if (join > opens && join <= last && !times.includes(clock(join)))
+        times = [...times, clock(join)].sort();
+    }
+  }
+  if (now === undefined) return times;
+  return times.filter(
+    (t) => lagosInstant(date, t) - now >= e.offer.bookingCutoffHours * 3600000,
+  );
+}
+
+export function runsOn(e: Scheduled, date: string, now?: number) {
+  return startTimesOn(e, date, now).length > 0;
 }
 
 // The next dates a listing runs, for date pickers and card hints.
-export function nextRunDates(e: Scheduled, from: string, count = 6) {
+export function nextRunDates(
+  e: Scheduled,
+  from: string,
+  count = 6,
+  now?: number,
+) {
   const dates: string[] = [];
   for (let i = 0; i < 120 && dates.length < count; i++) {
     const date = addDays(from, i);
-    if (runsOn(e, date)) dates.push(date);
+    if (runsOn(e, date, now)) dates.push(date);
   }
   return dates;
 }
