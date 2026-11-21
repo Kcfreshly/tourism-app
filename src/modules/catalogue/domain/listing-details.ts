@@ -1,7 +1,7 @@
 // Booking-facing details for a listing: who runs it, where it happens, how
-// people get there, who it suits and how it is confirmed. The demo catalogue
-// has none of these yet, so this module supplies labelled sample values keyed
-// by catalogue seed key. Real listings will carry them in the catalogue record.
+// people get there, who it suits and how it is confirmed. Listings edited in
+// the staff workspace carry them in the catalogue record; until then this
+// module supplies labelled sample values keyed by catalogue seed key.
 import type { Experience } from "./experience";
 import { zoneLabel } from "./experience-content";
 
@@ -127,10 +127,12 @@ const samples: Record<string, Sample> = {
 export function listingDetails(
   e: Pick<Experience, "id" | "zoneId" | "supplierName" | "offer"> & {
     seedKey?: string;
+    details?: Experience["details"];
   },
 ): ListingDetails {
-  const sample = samples[e.seedKey ?? e.id] ?? {};
-  const minAge = sample.minAge ?? e.offer.minAge;
+  // Stored details replace the sample entirely, including its age rule.
+  const sample: Sample = e.details ?? samples[e.seedKey ?? e.id] ?? {};
+  const minAge = e.details ? e.offer.minAge : (sample.minAge ?? e.offer.minAge);
   return {
     operator: sample.operator ?? e.supplierName,
     venue: sample.venue ?? `${zoneLabel(e.zoneId)} (sample venue)`,

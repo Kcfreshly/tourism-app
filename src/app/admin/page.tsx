@@ -26,10 +26,11 @@ export default async function Admin() {
     <section className="admin-page">
       <div className="page-intro">
         <p className="eyebrow">Staff workspace</p>
-        <h1>Catalogue operations</h1>
+        <h1>Listings admin</h1>
         <p className="lede">
-          Review rates, capacity and publication status. Demo supply only; live
-          sales remain disabled.
+          Edit everything travellers see on a listing, then review and publish.
+          Changes appear in browse, the planner and booking as soon as they are
+          saved. Demo supply only; live sales remain disabled.
         </p>
       </div>
       <AdminCatalogue />

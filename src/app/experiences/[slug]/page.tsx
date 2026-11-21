@@ -11,6 +11,7 @@ import {
   formatDuration,
   kindLabels,
   storyFor,
+  wheelchairLabel,
   zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
 import {
@@ -55,7 +56,7 @@ export default async function Detail({
   const { date, edit, book, from, to, back } = await searchParams;
   const e = await find(slug);
   if (!e) notFound();
-  const story = storyFor(e.seedKey, e.categoryId);
+  const story = storyFor(e);
   const details = listingDetails(e);
   return (
     <section className="detail-page">
@@ -179,7 +180,7 @@ export default async function Detail({
               <h2>Good to know</h2>
               <ul className="plain-list">
                 <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
-                <li>Wheelchair access: not confirmed.</li>
+                <li>{wheelchairLabel(e.mobility.wheelchairAccess)}</li>
                 {e.offer.hostIncluded && <li>A local host joins you.</li>}
                 <li>{cancellationLabel(details)} (sample policy).</li>
                 <li>

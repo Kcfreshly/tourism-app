@@ -2,6 +2,7 @@ import { photoById, photoForExperience, type Photo } from "./photos";
 import type { EventInfo } from "./events";
 import type { CatalogueEdit } from "./catalogue";
 import type { ReturnRide } from "./return-ride";
+import type { ListingDetails } from "./listing-details";
 import fixture from "../../../../tourism-v1-handoff/data/experiences.demo.json";
 export type Experience = (typeof fixture.experiences)[number] & {
   schedulingType?: "FLEXIBLE" | "FIXED";
@@ -18,6 +19,10 @@ export type Experience = (typeof fixture.experiences)[number] & {
   photoId?: string;
   event?: EventInfo;
   returnRide?: ReturnRide;
+  // Staff-written copy and booking details. Listings without them fall back
+  // to the labelled samples in experience-content.ts and listing-details.ts.
+  story?: { teaser: string; summary: string; why: string };
+  details?: Omit<ListingDetails, "minAge" | "familySuitable">;
 };
 // One stored catalogue row: the listing payload plus its review state.
 export type CatalogueRecord = {
@@ -94,8 +99,9 @@ export function publishBlockers(record: Experience) {
   ];
 }
 // The listing after a staff edit; names always carry the demo marker.
+// Optional edit fields that were not sent keep their stored values.
 export function editedRecord(old: Experience, edit: CatalogueEdit) {
-  return {
+  const next: Experience = {
     ...old,
     name: edit.name.endsWith("— DEMO") ? edit.name : `${edit.name} — DEMO`,
     categoryId: edit.categoryId,
@@ -106,15 +112,56 @@ export function editedRecord(old: Experience, edit: CatalogueEdit) {
     status: edit.status,
     returnRide: edit.returnRide ?? old.returnRide,
     imagePath: `/assets/illustrations/category-${edit.categoryId}.svg`,
+    story: edit.story ?? old.story,
+    details: edit.details ?? old.details,
+    tags: edit.tags ?? old.tags,
+    availabilityLocal: edit.availability ?? old.availabilityLocal,
+    schedulingType: edit.schedulingType ?? old.schedulingType,
+    sessions: edit.sessions ?? old.sessions,
+    unavailableDates: edit.unavailableDates ?? old.unavailableDates,
+    mobility: edit.mobility ?? old.mobility,
+    inclusions: edit.inclusions ?? old.inclusions,
+    exclusions: edit.exclusions ?? old.exclusions,
     offer: {
       ...old.offer,
       rateMinor: edit.rateMinor,
       capacityPerSlot: edit.capacityPerSlot,
       bookingCutoffHours:
         edit.bookingCutoffHours ?? old.offer.bookingCutoffHours,
+      priceBasis: edit.priceBasis ?? old.offer.priceBasis,
+      capacityUnit: edit.capacityUnit ?? old.offer.capacityUnit,
+      minParty: edit.minParty ?? old.offer.minParty,
+      maxParty: edit.maxParty ?? old.offer.maxParty,
+      minAge: edit.minAge ?? old.offer.minAge,
+      hostIncluded: edit.hostIncluded ?? old.offer.hostIncluded,
     },
   };
+  if (edit.photoId !== undefined) next.photoId = edit.photoId || undefined;
+  if (edit.videoUrl !== undefined) next.videoUrl = edit.videoUrl || undefined;
+  if (edit.event !== undefined) next.event = edit.event ?? undefined;
+  return JSON.parse(JSON.stringify(next)) as Experience;
 }
+
+// Names of the listing fields an edit changed, for the audit trail.
+export function changedFields(old: Experience, next: Experience) {
+  const keys = new Set([...Object.keys(old), ...Object.keys(next)]);
+  const changed: string[] = [];
+  for (const key of keys) {
+    const a = old[key as keyof Experience];
+    const b = next[key as keyof Experience];
+    if (key === "offer")
+      for (const k of Object.keys({ ...old.offer, ...next.offer })) {
+        const field = k as keyof Experience["offer"];
+        if (
+          JSON.stringify(old.offer[field]) !== JSON.stringify(next.offer[field])
+        )
+          changed.push(`offer.${k}`);
+      }
+    else if (JSON.stringify(a) !== JSON.stringify(b)) changed.push(key);
+  }
+  return changed.sort();
+}
+
 // A new fictional draft built from the first demo listing.
 export function draftRecord(id: string, name: string) {
   const template = fixture.experiences[0];

@@ -291,9 +291,7 @@ export default function CatalogueBrowser({
         (category === "events" ? isEvent(e) : e.categoryId === category)) &&
       (!query ||
         displayName(e.name).toLowerCase().includes(query) ||
-        storyFor(e.seedKey, e.categoryId)
-          .teaser.toLowerCase()
-          .includes(query) ||
+        storyFor(e).teaser.toLowerCase().includes(query) ||
         (categoryShortLabels[e.categoryId] ?? "")
           .toLowerCase()
           .includes(query) ||

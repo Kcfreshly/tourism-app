@@ -27,6 +27,7 @@ import {
   formatMoney,
   priceBasisLabel,
   storyFor,
+  wheelchairLabel,
   zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
 import { explorePath, withBack } from "@/modules/catalogue/domain/explore-link";
@@ -107,7 +108,7 @@ function ActivityDialog({
     [failed, setFailed] = useState<string[]>([]);
   const photos = e.photos?.length ? e.photos : [e.imagePath],
     selectedPhoto = photos[photoIndex] ?? photos[0];
-  const story = storyFor(e.seedKey, e.categoryId);
+  const story = storyFor(e);
   const details = listingDetails(e);
   // Opened from Explore, the experience page links back to the same results.
   const back =
@@ -441,7 +442,7 @@ function ActivityDialog({
               <li>Getting there: {arrivalLabel(details).toLowerCase()}.</li>
               <li>{confirmationLabel(details)}.</li>
               <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
-              <li>Wheelchair access: not confirmed.</li>
+              <li>{wheelchairLabel(e.mobility.wheelchairAccess)}</li>
               {e.offer.hostIncluded && <li>A local host joins you.</li>}
               {e.event && (
                 <li>

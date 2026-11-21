@@ -4,8 +4,14 @@
 // and describes the events that fall inside a traveller's dates.
 import { addDays } from "./schedule";
 
-export type EventType =
-  "CONCERT" | "FESTIVAL" | "CARNIVAL" | "CONFERENCE" | "STUDIO";
+export const eventTypes = [
+  "CONCERT",
+  "FESTIVAL",
+  "CARNIVAL",
+  "CONFERENCE",
+  "STUDIO",
+] as const;
+export type EventType = (typeof eventTypes)[number];
 
 export type EventInfo = {
   type: EventType;

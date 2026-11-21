@@ -2252,6 +2252,110 @@ body:has(.planner-page) .site-header-inner {
 .status-dot[data-status="RESEARCHED"] {
   background: var(--c-danfo);
 }
+.admin-filters,
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.admin-filters .chip {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  text-transform: capitalize;
+}
+.admin-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.admin-editor-head h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.admin-editor-head p {
+  margin: 0;
+}
+.admin-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.admin-days legend {
+  width: 100%;
+  font-size: var(--text-md);
+}
+.admin-sessions {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+}
+.admin-sessions legend {
+  font-size: var(--text-md);
+}
+.admin-sessions > button {
+  justify-self: start;
+}
+.admin-session {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
+  align-items: end;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--c-line);
+}
+.admin-session-dates {
+  grid-column: span 2;
+  min-width: 0;
+}
+.admin-photo {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+.admin-preview {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--c-sunken);
+}
+.admin-preview p {
+  margin: 0;
+}
+.admin-preview-meta {
+  font-weight: 600;
+}
+.admin-problems {
+  display: grid;
+  margin: 0;
+  padding-left: var(--space-8);
+}
+.admin-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--c-line);
+  background: var(--c-surface);
+}
+.admin-savebar p {
+  flex: 1 1 220px;
+  margin: 0;
+}
 
 /* ===== Pocket companion ===== */
 body:has(.pocket) .site-footer {
@@ -2581,6 +2685,9 @@ main:has(.pocket) {
   }
   .catalogue-list {
     max-height: 280px;
+  }
+  .admin-session-dates {
+    grid-column: auto;
   }
   .site-footer-inner {
     grid-template-columns: 1fr;

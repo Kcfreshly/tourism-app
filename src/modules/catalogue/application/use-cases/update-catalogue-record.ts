@@ -1,6 +1,10 @@
 import { AppError } from "@/shared/application/app-error";
 import { catalogueEditIssue, type CatalogueEdit } from "../../domain/catalogue";
-import { editedRecord, type Experience } from "../../domain/experience";
+import {
+  changedFields,
+  editedRecord,
+  type Experience,
+} from "../../domain/experience";
 import type { CatalogueRepository } from "../ports/catalogue-repository";
 
 export class UpdateCatalogueRecord {
@@ -27,14 +31,16 @@ export class UpdateCatalogueRecord {
           edit,
         );
         if (issue) throw new AppError("INVALID", issue.code, issue.message);
+        const record = editedRecord(old, edit);
         return {
           status: edit.status,
-          record: editedRecord(old, edit),
+          record,
           review: edit.review,
           audit: {
             action: "DEMO_CATALOGUE_UPDATED",
             details: {
               previousVersion: current.version,
+              changed: changedFields(old, record),
               status: edit.status,
               rateMinor: edit.rateMinor,
               capacityPerSlot: edit.capacityPerSlot,
