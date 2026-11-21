@@ -1,6 +1,7 @@
 import { photoById, photoForExperience, type Photo } from "./photos";
 import type { EventInfo } from "./events";
 import type { CatalogueEdit } from "./catalogue";
+import type { ReturnRide } from "./return-ride";
 import fixture from "../../../../tourism-v1-handoff/data/experiences.demo.json";
 export type Experience = (typeof fixture.experiences)[number] & {
   schedulingType?: "FLEXIBLE" | "FIXED";
@@ -16,6 +17,7 @@ export type Experience = (typeof fixture.experiences)[number] & {
   inspirationPhoto?: Photo;
   photoId?: string;
   event?: EventInfo;
+  returnRide?: ReturnRide;
 };
 // One stored catalogue row: the listing payload plus its review state.
 export type CatalogueRecord = {
@@ -102,6 +104,7 @@ export function editedRecord(old: Experience, edit: CatalogueEdit) {
     durationMinMinutes: edit.durationMinMinutes,
     durationMaxMinutes: edit.durationMaxMinutes,
     status: edit.status,
+    returnRide: edit.returnRide ?? old.returnRide,
     imagePath: `/assets/illustrations/category-${edit.categoryId}.svg`,
     offer: {
       ...old.offer,

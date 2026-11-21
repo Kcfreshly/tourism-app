@@ -162,7 +162,25 @@ The **Getting there** section of the booking panel
 Ground transport is listed as included in `src/data/packages.demo.json`. It
 has no times, car booking or separate price.
 
-## Proposal: rides as a cheaper option (not built)
+## Rides as a cheaper option (built, November 2026)
+
+Where it lives:
+
+- The choice: `profile.transport = "RIDES"`, picked in trip details as
+  "Rides to and from each activity".
+- The rating: `returnRide` on each listing
+  (`src/modules/catalogue/domain/return-ride.ts`). Staff set it in admin as
+  **Ride back**. Unrated listings count as `PRE_BOOK`.
+- The rules: `rideLegs()`, `dayCarQuote()` and `rideRules` in
+  `src/modules/trips/domain/planner.ts`. A ride costs a demo ₦6,000 plus ₦100
+  per off-peak travel minute, per car. A ride back at 20:00 or later is always
+  booked ahead, and the free wait is 15 minutes. These settings live in code
+  because the handoff pricing file has never been edited.
+- What travellers see: each ride on the services panel, its price, whether
+  it's booked or "when you're ready", and the price of a car for the day for
+  comparison.
+
+The design notes below are what it was built from.
 
 A car for the whole day is expensive for a traveller doing one or two things.
 Add a third choice next to "own way" and "car for the day":

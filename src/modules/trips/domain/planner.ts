@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Profile } from "./profile";
 import type { Experience } from "../../catalogue/domain/experience";
 import { lagosInstant, shortestVisit } from "../../catalogue/domain/schedule";
+import { returnRideFor } from "../../catalogue/domain/return-ride";
 import rules from "../../../../tourism-v1-handoff/data/pricing.demo.json";
 const date = z
   .string()
@@ -49,6 +50,124 @@ export const defaultServices: Services = {
   guideItemIds: [],
   guideDays: [],
 };
+// Rides: a booked car for each leg instead of a car for the day. Demo rates,
+// not yet in the handoff pricing file: a fixed charge plus a per-minute rate
+// on the off-peak travel time, per car.
+export const rideRules = {
+  baseMinor: 600000,
+  perMinuteMinor: 10000,
+  // A ride back at or after this time is always booked in advance.
+  lateFrom: "20:00",
+  // How long a booked ride waits before extra waiting is charged.
+  freeWaitMinutes: 15,
+};
+export type RideLeg = {
+  kind: "OUT" | "BETWEEN" | "HOME";
+  fromZone: string;
+  toZone: string;
+  // Pickup time: before the first activity, or as an activity ends.
+  at: string;
+  // false: the traveller messages us when ready instead.
+  booked: boolean;
+  priceMinor: number;
+  // Whether the area pair has a configured route and rate.
+  routed: boolean;
+  // The activity the car collects from (none for the first leg).
+  itemId?: string;
+};
+function zonePair(from: string, to: string) {
+  return rules.travelMatrixMinutes.find(
+    (r) => (r.from === from && r.to === to) || (r.from === to && r.to === from),
+  );
+}
+// The rides a day needs: base to the first activity, between activities in
+// order, and back to base after the last. A ride away from an activity is
+// booked ahead unless the listing is rated easy and it's not late or an event.
+export function rideLegs(
+  base: string,
+  schedule: Pick<Item, "id" | "startTime" | "endTime">[],
+  offerFor: (itemId: string) => Experience,
+  adults: number,
+) {
+  const cars = Math.ceil(adults / rules.vehiclePassengerCapacity);
+  const leg = (
+    from: string,
+    to: string,
+    rest: Omit<RideLeg, "fromZone" | "toZone" | "priceMinor" | "routed">,
+  ): RideLeg => {
+    const pair = zonePair(from, to);
+    return {
+      ...rest,
+      fromZone: from,
+      toZone: to,
+      priceMinor: pair
+        ? cars * (rideRules.baseMinor + rideRules.perMinuteMinor * pair.offPeak)
+        : 0,
+      routed: !!pair,
+    };
+  };
+  if (!schedule.length) return [];
+  const firstZone = offerFor(schedule[0].id).zoneId;
+  const out = zonePair(base, firstZone);
+  return [
+    leg(base, firstZone, {
+      kind: "OUT",
+      at: time(
+        Math.max(
+          0,
+          minutes(schedule[0].startTime) -
+            (out ? Math.max(out.peak, out.offPeak) : 0),
+        ),
+      ),
+      booked: true,
+    }),
+    ...schedule.map((item, i) => {
+      const offer = offerFor(item.id);
+      const next = schedule[i + 1];
+      return leg(offer.zoneId, next ? offerFor(next.id).zoneId : base, {
+        kind: next ? "BETWEEN" : "HOME",
+        at: item.endTime,
+        booked:
+          returnRideFor(offer) !== "EASY" ||
+          !!offer.event ||
+          item.endTime >= rideRules.lateFrom,
+        itemId: item.id,
+      });
+    }),
+  ];
+}
+// The smallest car-for-the-day block that covers the same schedule: pickup
+// in time for the first activity in traffic, and the trip back after the
+// last. Null when the day needs more than the longest block.
+export function dayCarQuote(
+  base: string,
+  schedule: Pick<Item, "id" | "startTime" | "endTime">[],
+  offerFor: (itemId: string) => Experience,
+  adults: number,
+) {
+  if (!schedule.length) return null;
+  const firstZone = offerFor(schedule[0].id).zoneId;
+  const last = schedule.at(-1)!;
+  const lastZone = offerFor(last.id).zoneId;
+  const out = zonePair(base, firstZone);
+  const back = travelMinutes(lastZone, base, minutes(last.endTime));
+  if (!out || back === null) return null;
+  const start =
+    minutes(schedule[0].startTime) - Math.max(out.peak, out.offPeak);
+  const span = minutes(last.endTime) + back - start;
+  const block = rules.vehicleBlocks.find((b) => b.hours * 60 >= span);
+  if (!block) return null;
+  const cars = Math.ceil(adults / rules.vehiclePassengerCapacity);
+  const zones = new Set([base, ...schedule.map((i) => offerFor(i.id).zoneId)]);
+  return {
+    startTime: time(start),
+    hours: block.hours,
+    totalMinor:
+      cars *
+      (block.rateMinor +
+        (zones.size > 1 ? rules.crossZoneSurchargePerVehicleMinor : 0)),
+  };
+}
 // Guides are arranged with a local partner, so they need this much notice
 // before the activity (or the start of a full-day guide's day).
 export const guideNoticeHours = 24;
@@ -340,7 +459,52 @@ export function assess(
     const first = experiences[0],
       last = experiences.at(-1)!;
     let start: number;
-    if (profile.transport === "OWN") {
+    if (profile.transport === "RIDES") {
+      if (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
+        add(
+          "MISSING_BASE",
+          "Confirm your accommodation and service zone before booking rides.",
+        );
+      for (const item of experiences)
+        if (returnRideFor(resolved.get(item.id)!) === "DRIVER_REQUIRED")
+          add(
+            "RIDE_UNAVAILABLE",
+            `Rides can’t reliably collect you from “${item.title}”. Choose a car for the day for this trip.`,
+            item.id,
+          );
+      const legs = rideLegs(
+        profile.zoneId,
+        experiences,
+        (id) => resolved.get(id)!,
+        profile.adults,
+      );
+      if (legs.some((l) => !l.routed))
+        add(
+          "ROUTE_UNSUPPORTED",
+          `${day}: a ride on this day uses a route that isn’t configured.`,
+        );
+      // A full-day guide meets them at their first activity.
+      start = minutes(first.startTime);
+      if (
+        services.guideDays.includes(day) &&
+        minutes(last.endTime) > start + 480
+      )
+        add(
+          "GUIDE_WINDOW",
+          `${day}: a full-day guide covers 8 hours from your first activity.`,
+        );
+      const total = legs.reduce((n, l) => n + l.priceMinor, 0);
+      lines.push({
+        key: `rides:${day}`,
+        label: `${day} · ${legs.length} rides · ${vehicles} ${vehicles === 1 ? "car" : "cars"} each`,
+        group: "transport",
+        // Rides differ in price, so show one total, not an average rate.
+        quantity: 1,
+        unitRateMinor: total,
+        totalMinor: total,
+        rule: `${rules.version}:rides; demo ride rates`,
+      });
+    } else if (profile.transport === "OWN") {
       // Travellers make their own way: nothing to reserve or price, and a
       // full-day guide meets them at their first activity.
       start = minutes(first.startTime);

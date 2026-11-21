@@ -103,7 +103,7 @@ export default function Pocket({ id }: { id: string }) {
     dayItems.find((item) => minutes(item.endTime) > now) ?? dayItems[0];
   const nextOffer = offers.find((o) => o.offer.id === next?.offerId);
   const vehicle =
-    trip.profile.transport === "OWN"
+    trip.profile.transport === "OWN" || trip.profile.transport === "RIDES"
       ? undefined
       : trip.services.vehicleWindows[day];
   const index = days.indexOf(day);

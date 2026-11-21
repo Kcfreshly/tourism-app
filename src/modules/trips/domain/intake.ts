@@ -56,6 +56,7 @@ export function extractProfile(profile: Profile, message: string) {
   else if (/activity guide/.test(text)) next.assistance = "ACTIVITY_GUIDE";
   else if (/driver only/.test(text)) next.assistance = "DRIVER_ONLY";
   if (/own transport/.test(text)) next.transport = "OWN";
+  else if (/\b(rides?|drop[- ]?offs?)\b/.test(text)) next.transport = "RIDES";
   if (/full pace/.test(text)) next.pace = "FULL";
   const parsed = profileSchema.safeParse(next);
   if (!parsed.success)

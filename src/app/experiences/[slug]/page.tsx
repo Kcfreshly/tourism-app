@@ -194,6 +194,8 @@ export default async function Detail({
           experience={e}
           details={details}
           today={lagosToday()}
+          // A force-dynamic server page renders once per request.
+          // eslint-disable-next-line react-hooks/purity
           now={Date.now()}
           initialDate={date}
           visit={from && to ? { from, to } : undefined}

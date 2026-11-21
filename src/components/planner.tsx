@@ -20,6 +20,9 @@ import {
   pastBookingCutoff,
   guideTooLate,
   guideNoticeHours,
+  rideLegs,
+  rideRules,
+  dayCarQuote,
 } from "@/modules/trips/domain/planner";
 import type { Experience } from "@/modules/catalogue/domain/experience";
 import { shortestVisit } from "@/modules/catalogue/domain/schedule";
@@ -696,10 +699,38 @@ export default function Planner({
   };
   const guidedDay = services.guideDays.includes(day);
   const ownTransport = trip.profile.transport === "OWN";
+  const rides = trip.profile.transport === "RIDES";
+  const dayCar = !ownTransport && !rides;
+  // Booked experiences on this day, for rides and the car comparison.
+  const dayExperiences = dayItems.filter(
+    (i) =>
+      i.kind === "EXPERIENCE" && offers.some((o) => o.offer.id === i.offerId),
+  );
+  const offerFor = (itemId: string) =>
+    offers.find(
+      (o) => o.offer.id === dayItems.find((i) => i.id === itemId)?.offerId,
+    )!;
+  const legs = rides
+    ? rideLegs(
+        trip.profile.zoneId,
+        dayExperiences,
+        offerFor,
+        trip.profile.adults,
+      )
+    : [];
+  const ridesMinor = legs.reduce((n, l) => n + l.priceMinor, 0);
+  const carQuote = rides
+    ? dayCarQuote(
+        trip.profile.zoneId,
+        dayExperiences,
+        offerFor,
+        trip.profile.adults,
+      )
+    : null;
   // A full-day guide starts with the vehicle, or at the first activity.
   const firstActivity = dayItems.find((i) => i.kind === "EXPERIENCE");
   const dayGuideStart =
-    (!ownTransport && services.vehicleWindows[day]?.startTime) ||
+    (dayCar && services.vehicleWindows[day]?.startTime) ||
     firstActivity?.startTime;
   const dayGuideTooLate = !!dayGuideStart && guideTooLate(day, dayGuideStart);
   function setGuides(
@@ -715,7 +746,9 @@ export default function Planner({
         <p className="muted">
           {ownTransport
             ? "You’re making your own way between activities."
-            : "A driver comes with every day that has activities."}{" "}
+            : rides
+              ? "A booked car takes you to and from each activity."
+              : "A driver comes with every day that has activities."}{" "}
           Add guides on top, in any mix, at least {guideNoticeHours} hours
           before they start. Personal time is never supervised, and there’s no
           24-hour hosting.
@@ -723,30 +756,27 @@ export default function Planner({
       </div>
       <fieldset className="assistance-options" disabled={busy}>
         <legend className="sr-only">Support for your trip</legend>
-        <label className="assistance-card" data-selected="true">
-          <input type="checkbox" checked disabled />
+        {/* Transport is chosen in trip details; this card says which. */}
+        <div className="assistance-card" data-selected="true">
           <Icon name="car" size={24} />
-          {ownTransport ? (
-            <>
-              <strong>Your own transport</strong>
-              <span>
-                No car or driver to pay for. Allow the travel times shown
-                between activities.{" "}
-                <Link className="text-link" href={`/trips/${id}/profile`}>
-                  Change in trip details
-                </Link>
-              </span>
-            </>
-          ) : (
-            <>
-              <strong>Car and driver</strong>
-              <span>
-                Always included on activity days: pickup, waiting time and your
-                return. Choose the hours for each day below.
-              </span>
-            </>
-          )}
-        </label>
+          <strong>
+            {ownTransport
+              ? "Your own transport"
+              : rides
+                ? "Rides"
+                : "Car and driver for the day"}
+          </strong>
+          <span>
+            {ownTransport
+              ? "No car or driver to pay for. Allow the travel times shown between activities."
+              : rides
+                ? "A booked car to your first activity, between activities and back. Priced per ride."
+                : "Pickup, waiting time and your return on every activity day. Choose the hours for each day below."}{" "}
+            <Link className="text-link" href={`/trips/${id}/profile`}>
+              Change in trip details
+            </Link>
+          </span>
+        </div>
         <label className="assistance-card" data-selected={modes.activity}>
           <input
             type="checkbox"
@@ -776,8 +806,8 @@ export default function Planner({
           <strong>Full-day guide</strong>
           <span>
             An 8-hour guide from your{" "}
-            {ownTransport ? "first activity" : "vehicle start time"}, on the
-            days you tick. {money(rules.guideDayBlock.rateMinor)} per day.
+            {dayCar ? "vehicle start time" : "first activity"}, on the days you
+            tick. {money(rules.guideDayBlock.rateMinor)} per day.
           </span>
         </label>
       </fieldset>
@@ -796,6 +826,42 @@ export default function Planner({
               <p className="muted">
                 You’re getting yourselves to each activity on this day.
               </p>
+            ) : rides ? (
+              <>
+                <ol className="ride-legs">
+                  {legs.map((leg, i) => (
+                    <li key={i}>
+                      <strong>
+                        {leg.booked
+                          ? `Pickup ${leg.at}`
+                          : `From ${leg.at}, when you’re ready`}
+                      </strong>
+                      <span>
+                        {zoneLabel(leg.fromZone)} → {zoneLabel(leg.toZone)}
+                        {leg.kind === "HOME" && " (back to base)"}
+                        {" · "}
+                        {money(leg.priceMinor)}
+                      </span>
+                      <small className="muted">
+                        {leg.kind === "OUT"
+                          ? "Booked to reach your first activity in traffic."
+                          : leg.booked
+                            ? `Booked ahead: cars are hard to find here or at this hour. The driver waits ${rideRules.freeWaitMinutes} minutes.`
+                            : "Message us when you’re done and we send a car."}
+                      </small>
+                    </li>
+                  ))}
+                </ol>
+                <p className="muted">
+                  {legs.length} rides · {money(ridesMinor)}.{" "}
+                  {carQuote
+                    ? carQuote.totalMinor < ridesMinor
+                      ? `${carQuote.hours === 8 ? "An" : "A"} ${carQuote.hours}-hour car for the day (${money(carQuote.totalMinor)}) would be cheaper.`
+                      : `${carQuote.hours === 8 ? "An" : "A"} ${carQuote.hours}-hour car for the day would be ${money(carQuote.totalMinor)}.`
+                    : "This day is too long for one car for the day."}{" "}
+                  Travel times are estimates.
+                </p>
+              </>
             ) : (
               <>
                 <div className="field-grid">
@@ -868,7 +934,7 @@ export default function Planner({
                   }
                 />
                 Full-day guide on this day (8 hours from{" "}
-                {ownTransport ? "your first activity" : "vehicle start time"})
+                {dayCar ? "vehicle start time" : "your first activity"})
                 {dayGuideTooLate &&
                   ` · too late: book at least ${guideNoticeHours} hours ahead`}
               </label>

@@ -17,6 +17,8 @@ import {
   tripDays,
   pastBookingCutoff,
   guideNoticeHours,
+  rideLegs,
+  dayCarQuote,
   type Item,
 } from "../src/modules/trips/domain/planner";
 import {
@@ -363,6 +365,71 @@ describe("schedule constraints and proposals", () => {
     }
     // The activity itself can still be booked without the guide.
     expect(guided({}, start - hour).blockers).toEqual([]);
+  });
+  it("prices rides per leg and books the ride back only where cars are scarce", () => {
+    const day = "2027-05-10";
+    const trip = {
+      ...profile,
+      startDate: day,
+      endDate: day,
+      adults: 2,
+      transport: "RIDES" as const,
+    };
+    const plan = [
+      { ...item("offer-makers", "10:00", "12:00"), localDate: day },
+      { ...item("offer-nature-walk", "14:00", "16:00"), localDate: day },
+    ];
+    const offerFor = (id: string) =>
+      fixture.experiences.find(
+        (e) => e.offer.id === plan.find((i) => i.id === id)!.offerId,
+      )!;
+    const legs = rideLegs("LEKKI", plan, offerFor, 2);
+    expect(legs.map((l) => [l.kind, l.at, l.booked, l.priceMinor])).toEqual([
+      // Lekki → VI in rush hour takes 75 minutes.
+      ["OUT", "08:45", true, 1050000],
+      ["BETWEEN", "12:00", false, 1050000],
+      ["HOME", "16:00", false, 900000],
+    ]);
+    // The same day by car needs the 8-hour block plus the cross-zone fee.
+    expect(dayCarQuote("LEKKI", plan, offerFor, 2)).toEqual({
+      startTime: "08:45",
+      hours: 8,
+      totalMinor: 5500000,
+    });
+    const result = assess(
+      trip,
+      plan,
+      defaultServices,
+      fixture.experiences,
+      now,
+    );
+    expect(result.blockers).toEqual([]);
+    expect(result.transportMinor).toBe(3000000);
+
+    // A pre-book listing gets a booked ride back; a driver-only one can't use rides.
+    const beach = [
+      { ...item("offer-beach", "14:00", "16:00"), localDate: day },
+    ];
+    expect(
+      rideLegs(
+        "LEKKI",
+        beach,
+        () => fixture.experiences.find((e) => e.id === "beach")!,
+        2,
+      ).at(-1)!.booked,
+    ).toBe(true);
+    const history = [
+      { ...item("offer-history", "09:00", "17:00"), localDate: day },
+    ];
+    expect(
+      assess(
+        trip,
+        history,
+        defaultServices,
+        fixture.experiences,
+        now,
+      ).blockers.map((b) => b.code),
+    ).toContain("RIDE_UNAVAILABLE");
   });
   it("closes a day only once its last start is inside the booking cutoff", () => {
     const gallery = fixture.experiences.find(

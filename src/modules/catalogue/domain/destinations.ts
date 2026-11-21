@@ -18,7 +18,7 @@ export const destinations: Destination[] = [
       { id: "MAINLAND", label: "Mainland" },
     ],
   },
-    {
+  {
     id: "abuja",
     name: "Abuja",
     tagline: "your way.",

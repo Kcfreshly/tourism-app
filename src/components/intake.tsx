@@ -46,6 +46,11 @@ const paceLabels: Record<Profile["pace"], string> = {
 };
 const pastArrival =
   "That arrival date has passed. Edit the details to choose today or later.";
+const transportLabels: Record<NonNullable<Profile["transport"]>, string> = {
+  DEDICATED: "Car and driver for the day",
+  RIDES: "Rides to and from each activity",
+  OWN: "We’ll make our own way",
+};
 const assistanceLabels: Record<Profile["assistance"], string> = {
   DRIVER_ONLY: "No guide",
   ACTIVITY_GUIDE: "Guide for selected activities",
@@ -363,12 +368,7 @@ export default function Intake({
       `${formatMoney(profile.budgetMinor)} ${profile.budgetBasis === "PERSON" ? "per person" : "for the whole party"}`,
     ],
     ["Pace", paceLabels[profile.pace]],
-    [
-      "Getting around",
-      profile.transport === "OWN"
-        ? "We’ll make our own way"
-        : "Car and driver from Fastlife",
-    ],
+    ["Getting around", transportLabels[profile.transport ?? "DEDICATED"]],
     ["Guide", assistanceLabels[profile.assistance]],
     ["Dietary needs", profile.dietary || "None", !profile.dietary],
     ["Accessibility", profile.accessibility || "None", !profile.accessibility],
@@ -717,10 +717,11 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="DEDICATED">
-                        Car and driver from Fastlife
-                      </option>
-                      <option value="OWN">We’ll make our own way</option>
+                      {(["DEDICATED", "RIDES", "OWN"] as const).map((t) => (
+                        <option key={t} value={t}>
+                          {transportLabels[t]}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
@@ -745,7 +746,9 @@ export default function Intake({
                 <p className="form-hint">
                   {profile.transport === "OWN"
                     ? "You get yourselves between activities, so there’s no transport charge. Allow the travel times shown in your plan."
-                    : "A private car and driver on each day with activities, covering pickup, waiting time and your return."}
+                    : profile.transport === "RIDES"
+                      ? "A booked car for each trip: to your first activity, between activities and back. Usually cheaper than a car for the day. Where cars are hard to find, or late at night, the ride back is booked for a set time."
+                      : "A private car and driver on each day with activities, covering pickup, waiting time and your return."}
                 </p>
               </fieldset>
               <fieldset className="form-section" disabled={busy}>

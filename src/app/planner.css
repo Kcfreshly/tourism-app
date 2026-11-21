@@ -1863,3 +1863,25 @@ main:has(.planner-page) {
     position: static;
   }
 }
+
+/* Transport summary card: informational, not a control. */
+div.assistance-card {
+  cursor: default;
+}
+div.assistance-card:hover {
+  border-color: var(--c-indigo);
+}
+.ride-legs {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ride-legs li {
+  display: grid;
+  gap: var(--space-1);
+}
+.ride-legs small {
+  font-size: var(--text-sm);
+}

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { categoryIds } from "../../trips/domain/profile";
+import { returnRides } from "./return-ride";
 export const reviewSchema = z
   .object({
     content: z.boolean(),
@@ -31,6 +32,8 @@ export const catalogueEditSchema = z
     // Minimum notice the operator needs before a session starts; 0 means it
     // can be booked right up to the start time.
     bookingCutoffHours: z.number().int().min(0).max(168).optional(),
+    // Whether travellers on rides can get back without a car for the day.
+    returnRide: z.enum(returnRides).optional(),
     status: z.enum([
       "DRAFT",
       "RESEARCHED",

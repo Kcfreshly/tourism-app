@@ -7,6 +7,12 @@ import {
   type catalogueEditSchema,
 } from "@/modules/catalogue/domain/catalogue";
 import type { z } from "zod";
+import {
+  returnRideFor,
+  returnRideLabels,
+  returnRides,
+  type ReturnRide,
+} from "@/modules/catalogue/domain/return-ride";
 type Edit = z.infer<typeof catalogueEditSchema>;
 type Row = {
   id: string;
@@ -29,6 +35,7 @@ function editRow(row: Row): Edit {
     rateMinor: row.record.offer.rateMinor,
     capacityPerSlot: row.record.offer.capacityPerSlot,
     bookingCutoffHours: row.record.offer.bookingCutoffHours,
+    returnRide: returnRideFor({ ...row.record, seedKey: row.seedKey }),
     status: row.status as Edit["status"],
     review: row.review ?? emptyReview,
   };
@@ -243,6 +250,25 @@ export default function AdminCatalogue() {
                     />
                     <small className="form-hint">
                       0 lets travellers book until the session starts.
+                    </small>
+                  </label>
+                  <label>
+                    Ride back
+                    <select
+                      value={edit.returnRide ?? "PRE_BOOK"}
+                      onChange={(e) =>
+                        field("returnRide", e.target.value as ReturnRide)
+                      }
+                    >
+                      {returnRides.map((r) => (
+                        <option key={r} value={r}>
+                          {returnRideLabels[r]}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="form-hint">
+                      From the logistics check: can travellers on rides get
+                      back?
                     </small>
                   </label>
                   <label>
