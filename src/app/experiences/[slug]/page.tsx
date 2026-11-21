@@ -21,6 +21,7 @@ import {
   listingDetails,
 } from "@/modules/catalogue/domain/listing-details";
 import { lagosToday } from "@/modules/catalogue/domain/events";
+import { safeExploreHref } from "@/modules/catalogue/domain/explore-link";
 export const dynamic = "force-dynamic";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 async function find(slug: string) {
@@ -47,17 +48,18 @@ export default async function Detail({
     book?: string;
     from?: string;
     to?: string;
+    back?: string;
   }>;
 }) {
   const { slug } = await params;
-  const { date, edit, book, from, to } = await searchParams;
+  const { date, edit, book, from, to, back } = await searchParams;
   const e = await find(slug);
   if (!e) notFound();
   const story = storyFor(e.seedKey, e.categoryId);
   const details = listingDetails(e);
   return (
     <section className="detail-page">
-      <Link className="text-link back-link" href="/explore">
+      <Link className="text-link back-link" href={safeExploreHref(back)}>
         <Icon name="arrowLeft" size={16} /> Things to do
       </Link>
       <div className="detail">

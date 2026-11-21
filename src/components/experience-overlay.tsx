@@ -29,6 +29,7 @@ import {
   storyFor,
   zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
+import { explorePath, withBack } from "@/modules/catalogue/domain/explore-link";
 import {
   eventDates,
   eventDay,
@@ -108,6 +109,11 @@ function ActivityDialog({
     selectedPhoto = photos[photoIndex] ?? photos[0];
   const story = storyFor(e.seedKey, e.categoryId);
   const details = listingDetails(e);
+  // Opened from Explore, the experience page links back to the same results.
+  const back =
+    window.location.pathname === explorePath
+      ? `${explorePath}${window.location.search}`
+      : undefined;
   useLayoutEffect(() => {
     const x = window.scrollX,
       y = window.scrollY,
@@ -150,7 +156,11 @@ function ActivityDialog({
   return createPortal(
     <dialog
       ref={ref}
-      onClose={onClose}
+      // React passes close events up its tree, so closing a dialog opened
+      // from inside this one (Add to trip) would otherwise close this too.
+      onClose={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       className="experience-overlay reading-overlay"
       aria-label={displayName(e.name)}
       aria-modal="true"
@@ -461,7 +471,7 @@ function ActivityDialog({
         <div className="overlay-actions">
           <a
             className="text-link"
-            href={`/experiences/${e.seedKey ?? e.id}`}
+            href={withBack(`/experiences/${e.seedKey ?? e.id}`, back, e)}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -484,10 +494,14 @@ function ActivityDialog({
               <AddToTrip offerId={e.offer.id} title={displayName(e.name)} />
               <Link
                 className="button"
-                href={`/experiences/${e.seedKey ?? e.id}?book=1`}
+                href={withBack(
+                  `/experiences/${e.seedKey ?? e.id}?book=1`,
+                  back,
+                  e,
+                )}
                 onClick={() => ref.current?.close()}
               >
-                Choose date
+                Book this experience
                 <Icon name="arrowRight" size={16} />
               </Link>
             </>

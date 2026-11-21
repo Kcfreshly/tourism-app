@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { BucketButton, BucketTray, ClearBucket } from "./bucket";
 import { useBucket } from "@/hooks/use-bucket";
 import { useActiveTrip } from "@/hooks/use-active-trip";
@@ -43,6 +44,11 @@ import {
   weeklyPattern,
 } from "@/modules/catalogue/domain/schedule";
 import { defaultDestination } from "@/modules/catalogue/domain/destinations";
+import {
+  cardAnchor,
+  exploreHref,
+  withBack,
+} from "@/modules/catalogue/domain/explore-link";
 export function money(n: number) {
   return formatMoney(n);
 }
@@ -57,6 +63,7 @@ export function ExperienceCard({
   end,
   date,
   visit,
+  back,
 }: {
   experience: Experience & { seedKey?: string };
   // Dated events show their first date inside this window.
@@ -66,6 +73,8 @@ export function ExperienceCard({
   date?: string;
   // A visit range, carried to the booking panel so it suggests those dates.
   visit?: { from: string; to: string };
+  // The Explore address to return to; results cards also carry an anchor.
+  back?: string;
 }) {
   const { ids } = useBucket();
   const saved = ids.includes(e.offer.id);
@@ -83,7 +92,11 @@ export function ExperienceCard({
             ? "Full day"
             : weeklyPattern(e);
   return (
-    <article className="experience card tile" data-saved={saved}>
+    <article
+      className="experience card tile"
+      id={back ? cardAnchor(e) : undefined}
+      data-saved={saved}
+    >
       <div className="tile-media card-media">
         <ExperienceOverlay
           experience={e}
@@ -136,7 +149,11 @@ export function ExperienceCard({
         {date && times.length > 0 && (
           <Link
             className="text-link tile-book"
-            href={`/experiences/${e.seedKey ?? e.id}?date=${date}&book=1${visit ? `&from=${visit.from}&to=${visit.to}` : ""}`}
+            href={withBack(
+              `/experiences/${e.seedKey ?? e.id}?date=${date}&book=1${visit ? `&from=${visit.from}&to=${visit.to}` : ""}`,
+              back,
+              e,
+            )}
           >
             Book for {shortDay(date)}
             <Icon name="arrowRight" size={14} />
@@ -149,6 +166,9 @@ export function ExperienceCard({
 
 export type ExploreFilters = {
   category?: string;
+  q?: string;
+  kind?: string;
+  access?: string;
   view?: string;
   date?: string;
   from?: string;
@@ -162,8 +182,8 @@ export type ExploreFilters = {
 
 export default function CatalogueBrowser({
   records,
-  initial = {},
-  tripId,
+  initial: fromServer = {},
+  tripId: tripFromServer,
   today,
 }: {
   records: Record[];
@@ -171,6 +191,13 @@ export default function CatalogueBrowser({
   tripId?: string;
   today: string;
 }) {
+  // Start from the live address. On browser back, Next.js replays this
+  // page's first server render, which predates the filters chosen here.
+  const address = useSearchParams();
+  const initial: ExploreFilters = address
+    ? Object.fromEntries(address)
+    : fromServer;
+  const tripId = address ? (address.get("trip") ?? undefined) : tripFromServer;
   const { ids } = useBucket();
   const activeTrip = useActiveTrip();
   const currentTrip = tripId || activeTrip;
@@ -178,9 +205,9 @@ export default function CatalogueBrowser({
   // Small screens fold the refining controls behind a Filters button.
   const [showFilters, setShowFilters] = useState(false);
   const [category, setCategory] = useState(initial.category ?? ""),
-    [search, setSearch] = useState(""),
-    [kind, setKind] = useState(""),
-    [accessible, setAccessible] = useState(false),
+    [search, setSearch] = useState(initial.q ?? ""),
+    [kind, setKind] = useState(initial.kind ?? ""),
+    [accessible, setAccessible] = useState(initial.access === "1"),
     // "", "weekend", a day, or "range" for the dates of a visit.
     [date, setDate] = useState(
       (initial.from && initial.to) || initial.when === "range"
@@ -207,29 +234,14 @@ export default function CatalogueBrowser({
           ? [date]
           : [];
   const visit = date === "range" && days.length ? { from, to } : undefined;
-  // Keep the filters in the address so back, reload and sharing keep them.
-  useEffect(() => {
-    const query = new URLSearchParams(
-      Object.entries({
-        category,
-        date: date === "range" ? "" : date,
-        from: date === "range" ? from : "",
-        to: date === "range" ? to : "",
-        price,
-        family: family ? "1" : "",
-        arrival,
-        area,
-        view: bucketOnly ? "bucket" : "",
-        trip: tripId ?? "",
-      }).filter(([, value]) => value),
-    ).toString();
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${window.location.pathname}${query ? `?${query}` : ""}`,
-    );
-  }, [
+  // Keep the filters in the address so back, reload, sharing and the
+  // experience page's back link keep them. Replacing (not pushing) the entry
+  // means typing a search never fills the history. The state is null so
+  // Next.js records the new address itself; passing its old state back made
+  // it restore the unfiltered address on the next navigation.
+  const here = exploreHref({
     category,
+    q: search,
     date,
     from,
     to,
@@ -237,9 +249,14 @@ export default function CatalogueBrowser({
     family,
     arrival,
     area,
-    bucketOnly,
-    tripId,
-  ]);
+    kind,
+    access: accessible,
+    bucket: bucketOnly,
+    trip: tripId,
+  });
+  useEffect(() => {
+    window.history.replaceState(null, "", `${here}${window.location.hash}`);
+  }, [here]);
   const activeFilters = [family, arrival, area, price, kind, accessible].filter(
     Boolean,
   ).length;
@@ -630,6 +647,7 @@ export default function CatalogueBrowser({
               experience={e}
               date={days.find((d) => runsOn(e, d))}
               visit={visit}
+              back={here}
             />
           ))}
         </div>

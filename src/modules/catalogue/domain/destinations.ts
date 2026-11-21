@@ -18,6 +18,16 @@ export const destinations: Destination[] = [
       { id: "MAINLAND", label: "Mainland" },
     ],
   },
+    {
+    id: "abuja",
+    name: "Abuja",
+    tagline: "your way.",
+    areas: [
+      { id: "Wuse", label: "Wuse" },
+      { id: "Garki", label: "Garki" },
+      { id: "Jabi", label: "Jabi" },
+    ],
+  },
 ];
 
 export const defaultDestination = destinations[0];

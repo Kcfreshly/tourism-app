@@ -11,6 +11,9 @@ export default async function Explore({
 }: {
   searchParams: Promise<{
     category?: string;
+    q?: string;
+    kind?: string;
+    access?: string;
     trip?: string;
     view?: string;
     city?: string;
