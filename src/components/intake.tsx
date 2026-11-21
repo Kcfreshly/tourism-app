@@ -350,7 +350,7 @@ export default function Intake({
       "Getting around",
       profile.transport === "OWN"
         ? "We’ll make our own way"
-        : "Car and driver from us",
+        : "Car and driver from Fastlife",
     ],
     ["Guide", assistanceLabels[profile.assistance]],
     ["Dietary needs", profile.dietary || "None", !profile.dietary],
@@ -644,9 +644,11 @@ export default function Intake({
                         update("pace", e.target.value as Profile["pace"])
                       }
                     >
-                      <option value="RELAXED">Relaxed</option>
-                      <option value="BALANCED">Balanced</option>
-                      <option value="FULL">Full</option>
+                      <option value="RELAXED">
+                        Relaxed · 1 main activity a day, from 10am
+                      </option>
+                      <option value="BALANCED">Balanced · up to 2 a day</option>
+                      <option value="FULL">Full · up to 3 a day</option>
                     </select>
                   </label>
                   <label>
@@ -696,7 +698,9 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="DEDICATED">Car and driver from us</option>
+                      <option value="DEDICATED">
+                        Car and driver from Fastlife
+                      </option>
                       <option value="OWN">We’ll make our own way</option>
                     </select>
                   </label>

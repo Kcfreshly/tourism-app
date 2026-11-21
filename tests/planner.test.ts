@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import pricingCases from "../tourism-v1-handoff/qa/pricing-cases.json";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
-import { initialProfile } from "../src/modules/trips/domain/profile";
+import {
+  categoryIds,
+  initialProfile,
+} from "../src/modules/trips/domain/profile";
 import {
   arithmetic,
   availableStarts,
@@ -212,6 +215,67 @@ describe("schedule constraints and proposals", () => {
     expect(() => assertPlannerContract(result.items)).not.toThrow();
     expect(
       lockedItemsUnchanged([locked], [{ ...locked, startTime: "10:00" }]),
+    ).toBe(false);
+  });
+  it("fills suggested days to the traveller's pace", () => {
+    const plan = (pace: "RELAXED" | "BALANCED" | "FULL") => {
+      const trip = {
+        ...profile,
+        pace,
+        interests: [...categoryIds],
+        startDate: "2027-05-10",
+        endDate: "2027-05-14",
+      };
+      const visits = propose(
+        trip,
+        [],
+        services,
+        fixture.experiences,
+      ).items.filter((i) => i.kind === "EXPERIENCE");
+      const kind = (i: Item) =>
+        fixture.experiences.find((e) => e.offer.id === i.offerId)?.kind;
+      const perDay = (day: string, light: boolean) =>
+        visits.filter(
+          (i) => i.localDate === day && (kind(i) === "LIGHT") === light,
+        ).length;
+      return {
+        count: visits.length,
+        mains: Math.max(...tripDays(trip).map((d) => perDay(d, false))),
+        arrivalLights: perDay(trip.startDate, true),
+        firstStart: visits.map((i) => i.startTime).sort()[0],
+      };
+    };
+    const relaxed = plan("RELAXED"),
+      balanced = plan("BALANCED"),
+      full = plan("FULL");
+    expect(relaxed.mains).toBe(1);
+    expect(relaxed.firstStart).toBe("10:00");
+    expect(balanced.mains).toBe(2);
+    expect(balanced.firstStart).toBe("09:00");
+    expect(relaxed.count).toBeLessThan(balanced.count);
+    expect(full.mains).toBeLessThanOrEqual(3);
+    expect(full.arrivalLights).toBe(2);
+    expect(balanced.arrivalLights).toBe(1);
+  });
+  it("warns when a day is busier than the chosen pace", () => {
+    const relaxed = assess(
+      { ...profile, pace: "RELAXED" },
+      schedule,
+      services,
+      fixture.experiences,
+      now,
+    );
+    expect(relaxed.warnings.map((w) => w.message)).toContain(
+      "2026-11-10: busier than your relaxed pace. Consider a lighter day.",
+    );
+    expect(
+      assess(
+        profile,
+        schedule,
+        services,
+        fixture.experiences,
+        now,
+      ).warnings.some((w) => w.code === "DENSITY"),
     ).toBe(false);
   });
   it("never auto-adds a second daytime main alongside a retained full-day outing", () => {

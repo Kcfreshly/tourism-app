@@ -4,6 +4,7 @@ import addFormats from "ajv-formats";
 import contract from "../../../../tourism-v1-handoff/contracts/planner-output.schema.json";
 import {
   assess,
+  paceRules,
   placementIssues,
   minutes,
   time,
@@ -52,7 +53,8 @@ export function propose(
   const days = tripDays(profile),
     items = existing.filter((i) => i.locked || i.kind === "CUSTOM"),
     nextServices: Services = structuredClone(services),
-    used = new Set(items.map((i) => i.offerId));
+    used = new Set(items.map((i) => i.offerId)),
+    pace = paceRules[profile.pace];
   const eligible = offers.filter(
     (e) =>
       e.cityId === profile.cityId &&
@@ -89,11 +91,11 @@ export function propose(
           (i) =>
             i.localDate === days[dayIndex - 1] && minutes(i.endTime) >= 1320,
         )
-        ? 660
-        : 540,
+        ? Math.max(660, pace.start)
+        : pace.start,
       ...retained
         .filter((i) => i.kind === "EXPERIENCE")
-        .map((i) => minutes(i.endTime) + 60),
+        .map((i) => minutes(i.endTime) + 30 + pace.gap),
     );
     let mainCount = retained.filter(
         (i) =>
@@ -105,8 +107,8 @@ export function propose(
     for (const e of candidates) {
       if (
         (lightDay && e.kind !== "LIGHT") ||
-        (e.kind === "LIGHT" && lightCount >= 1) ||
-        (e.kind !== "LIGHT" && (hasFullDay || mainCount >= 2)) ||
+        (e.kind === "LIGHT" && lightCount >= pace.light) ||
+        (e.kind !== "LIGHT" && (hasFullDay || mainCount >= pace.main)) ||
         (e.kind === "FULL_DAY" && mainCount > 0)
       )
         continue;
@@ -161,7 +163,7 @@ export function propose(
         continue;
       items.push(candidate);
       used.add(e.offer.id);
-      cursor = end + (travelMinutes(e.zoneId, e.zoneId, end) ?? 60) + 30;
+      cursor = end + (travelMinutes(e.zoneId, e.zoneId, end) ?? 60) + pace.gap;
       if (e.kind === "LIGHT") lightCount++;
       else mainCount++;
       if (e.kind === "FULL_DAY") hasFullDay = true;

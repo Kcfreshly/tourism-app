@@ -60,6 +60,16 @@ export function assistanceFor(
       ? "ACTIVITY_GUIDE"
       : "DRIVER_ONLY";
 }
+// How full a suggested day gets at each pace: activities per day, the
+// earliest start (minutes after midnight) and the breather between activities.
+export const paceRules: Record<
+  Profile["pace"],
+  { main: number; light: number; start: number; gap: number; label: string }
+> = {
+  RELAXED: { main: 1, light: 1, start: 600, gap: 60, label: "relaxed" },
+  BALANCED: { main: 2, light: 1, start: 540, gap: 30, label: "balanced" },
+  FULL: { main: 3, light: 2, start: 510, gap: 15, label: "full" },
+};
 export type Issue = { code: string; message: string; itemId?: string };
 export type PriceLine = {
   key: string;
@@ -307,12 +317,14 @@ export function assess(
           after.id,
         );
     }
+    const pace = paceRules[profile.pace];
     if (
-      experiences.filter((i) => resolved.get(i.id)!.kind === "MAIN").length > 2
+      experiences.filter((i) => resolved.get(i.id)!.kind === "MAIN").length >
+      pace.main
     )
       warnings.push({
         code: "DENSITY",
-        message: `${day}: more than two main experiences. Consider a lighter day.`,
+        message: `${day}: busier than your ${pace.label} pace. Consider a lighter day.`,
       });
     const first = experiences[0],
       last = experiences.at(-1)!;
