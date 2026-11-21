@@ -90,6 +90,43 @@ describe("integer pricing", () => {
     expect(price.totalMinor).toBe(0);
     expect(price.lines).toEqual([]);
   });
+  it("charges no vehicle when travellers make their own way", () => {
+    const own = { ...profile, transport: "OWN" as const };
+    const price = assess(
+      own,
+      schedule,
+      defaultServices,
+      fixture.experiences,
+      now,
+    );
+    expect(price.transportMinor).toBe(0);
+    expect(price.lines.some((l) => l.group === "transport")).toBe(false);
+    expect(price.blockers).toEqual([]);
+    const guided = assess(
+      own,
+      schedule,
+      { ...defaultServices, guideDays: ["2026-11-10"] },
+      fixture.experiences,
+      now,
+    );
+    expect(guided.lines.find((l) => l.group === "hosting")?.label).toBe(
+      "2026-11-10 · full-day guide · 09:00–17:00",
+    );
+    expect(guided.blockers).toEqual([]);
+  });
+  it("keeps an own-transport full-day guide to 8 hours", () => {
+    const price = assess(
+      { ...profile, transport: "OWN" },
+      [
+        item("offer-nature-walk", "09:00", "11:00"),
+        item("offer-gallery", "16:00", "17:30"),
+      ],
+      { ...defaultServices, guideDays: ["2026-11-10"] },
+      fixture.experiences,
+      now,
+    );
+    expect(price.blockers.map((b) => b.code)).toContain("GUIDE_WINDOW");
+  });
   it("suppresses an included host charge", () => {
     const hosted = [item("offer-cooking", "10:00", "12:00")];
     const price = assess(

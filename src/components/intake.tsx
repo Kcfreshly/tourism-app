@@ -43,7 +43,7 @@ const paceLabels: Record<Profile["pace"], string> = {
   FULL: "full",
 };
 const assistanceLabels: Record<Profile["assistance"], string> = {
-  DRIVER_ONLY: "Driver only",
+  DRIVER_ONLY: "No guide",
   ACTIVITY_GUIDE: "Guide for selected activities",
   FULL_DAY_GUIDE: "Full-day guide",
 };
@@ -347,10 +347,10 @@ export default function Intake({
     ],
     ["Pace", paceLabels[profile.pace]],
     [
-      "Transport",
+      "Getting around",
       profile.transport === "OWN"
-        ? "Own transport (request)"
-        : "Dedicated vehicle",
+        ? "We’ll make our own way"
+        : "Car and driver from us",
     ],
     ["Guide", assistanceLabels[profile.assistance]],
     ["Dietary needs", profile.dietary || "None", !profile.dietary],
@@ -686,7 +686,7 @@ export default function Intake({
                     </select>
                   </label>
                   <label>
-                    Transport preference
+                    Getting around
                     <select
                       value={profile.transport ?? "DEDICATED"}
                       onChange={(e) =>
@@ -696,12 +696,12 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="DEDICATED">Dedicated vehicle</option>
-                      <option value="OWN">Own transport (request)</option>
+                      <option value="DEDICATED">Car and driver from us</option>
+                      <option value="OWN">We’ll make our own way</option>
                     </select>
                   </label>
                   <label>
-                    Guide preference
+                    Local guide
                     <select
                       value={profile.assistance}
                       onChange={(e) =>
@@ -711,7 +711,7 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="DRIVER_ONLY">Driver only</option>
+                      <option value="DRIVER_ONLY">No guide</option>
                       <option value="ACTIVITY_GUIDE">
                         Guide for selected activities
                       </option>
@@ -719,6 +719,11 @@ export default function Intake({
                     </select>
                   </label>
                 </div>
+                <p className="form-hint">
+                  {profile.transport === "OWN"
+                    ? "You get yourselves between activities, so there’s no transport charge. Allow the travel times shown in your plan."
+                    : "A private car and driver on each day with activities, covering pickup, waiting time and your return."}
+                </p>
               </fieldset>
               <fieldset className="form-section" disabled={busy}>
                 <legend>Budget and needs</legend>

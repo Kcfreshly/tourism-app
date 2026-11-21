@@ -316,83 +316,100 @@ export function assess(
       });
     const first = experiences[0],
       last = experiences.at(-1)!;
-    if (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
-      add(
-        "MISSING_BASE",
-        "Confirm your accommodation and service zone before reserving transport.",
+    let start: number;
+    if (profile.transport === "OWN") {
+      // Travellers make their own way: nothing to reserve or price, and a
+      // full-day guide meets them at their first activity.
+      start = minutes(first.startTime);
+      if (
+        services.guideDays.includes(day) &&
+        minutes(last.endTime) > start + 480
+      )
+        add(
+          "GUIDE_WINDOW",
+          `${day}: a full-day guide covers 8 hours from your first activity.`,
+        );
+    } else {
+      if (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
+        add(
+          "MISSING_BASE",
+          "Confirm your accommodation and service zone before reserving transport.",
+        );
+      const outbound = travelMinutes(
+          profile.zoneId,
+          resolved.get(first.id)!.zoneId,
+          minutes(first.startTime) - 60,
+        ),
+        inbound = travelMinutes(
+          resolved.get(last.id)!.zoneId,
+          profile.zoneId,
+          minutes(last.endTime),
+        );
+      if (outbound === null || inbound === null)
+        add(
+          "ROUTE_UNSUPPORTED",
+          `${day}: the accommodation route is not configured.`,
+        );
+      const window = services.vehicleWindows[day];
+      if (!window) {
+        add(
+          "MISSING_WINDOW",
+          `${day}: select a 4-hour or 8-hour dedicated vehicle window.`,
+        );
+        continue;
+      }
+      start = minutes(window.startTime);
+      const end = start + window.hours * 60;
+      if (end > 1440)
+        add(
+          "SERVICE_WINDOW",
+          `${day}: vehicle coverage cannot extend beyond the service day.`,
+        );
+      // Use the greater peak/off-peak buffer to avoid optimistic pickup estimates.
+      const outPair = rules.travelMatrixMinutes.find(
+        (r) =>
+          (r.from === profile.zoneId &&
+            r.to === resolved.get(first.id)!.zoneId) ||
+          (r.to === profile.zoneId &&
+            r.from === resolved.get(first.id)!.zoneId),
       );
-    const outbound = travelMinutes(
-        profile.zoneId,
-        resolved.get(first.id)!.zoneId,
-        minutes(first.startTime) - 60,
-      ),
-      inbound = travelMinutes(
-        resolved.get(last.id)!.zoneId,
-        profile.zoneId,
-        minutes(last.endTime),
-      );
-    if (outbound === null || inbound === null)
-      add(
-        "ROUTE_UNSUPPORTED",
-        `${day}: the accommodation route is not configured.`,
-      );
-    const window = services.vehicleWindows[day];
-    if (!window) {
-      add(
-        "MISSING_WINDOW",
-        `${day}: select a 4-hour or 8-hour dedicated vehicle window.`,
-      );
-      continue;
-    }
-    const start = minutes(window.startTime),
-      end = start + window.hours * 60;
-    if (end > 1440)
-      add(
-        "SERVICE_WINDOW",
-        `${day}: vehicle coverage cannot extend beyond the service day.`,
-      );
-    // Use the greater peak/off-peak buffer to avoid optimistic pickup estimates.
-    const outPair = rules.travelMatrixMinutes.find(
-      (r) =>
-        (r.from === profile.zoneId &&
-          r.to === resolved.get(first.id)!.zoneId) ||
-        (r.to === profile.zoneId && r.from === resolved.get(first.id)!.zoneId),
-    );
-    const out = outPair ? Math.max(outPair.peak, outPair.offPeak) : 0;
-    if (
-      start + out > minutes(first.startTime) ||
-      (inbound !== null && minutes(last.endTime) + inbound > end)
-    )
-      add(
-        "SERVICE_WINDOW",
-        `${day}: coverage must include pickup, all gaps and return travel. More than 8 hours needs an unavailable overtime product.`,
-      );
-    lines.push({
-      key: `vehicle:${day}`,
-      label: `${day} · ${vehicles} vehicle(s) · ${window.startTime}–${time(Math.min(end, 1439))}`,
-      group: "transport",
-      quantity: vehicles,
-      unitRateMinor: rules.vehicleBlocks.find((b) => b.hours === window.hours)!
-        .rateMinor,
-      totalMinor:
-        vehicles *
-        rules.vehicleBlocks.find((b) => b.hours === window.hours)!.rateMinor,
-      rule: `${rules.version}:vehicle-${window.hours}h`,
-    });
-    const zones = new Set([
-      profile.zoneId,
-      ...experiences.map((i) => resolved.get(i.id)!.zoneId),
-    ]);
-    if (zones.size > 1)
+      const out = outPair ? Math.max(outPair.peak, outPair.offPeak) : 0;
+      if (
+        start + out > minutes(first.startTime) ||
+        (inbound !== null && minutes(last.endTime) + inbound > end)
+      )
+        add(
+          "SERVICE_WINDOW",
+          `${day}: coverage must include pickup, all gaps and return travel. More than 8 hours needs an unavailable overtime product.`,
+        );
       lines.push({
-        key: `cross-zone:${day}`,
-        label: `${day} · cross-zone vehicle surcharge`,
+        key: `vehicle:${day}`,
+        label: `${day} · ${vehicles} vehicle(s) · ${window.startTime}–${time(Math.min(end, 1439))}`,
         group: "transport",
         quantity: vehicles,
-        unitRateMinor: rules.crossZoneSurchargePerVehicleMinor,
-        totalMinor: vehicles * rules.crossZoneSurchargePerVehicleMinor,
-        rule: `${rules.version}:cross-zone`,
+        unitRateMinor: rules.vehicleBlocks.find(
+          (b) => b.hours === window.hours,
+        )!.rateMinor,
+        totalMinor:
+          vehicles *
+          rules.vehicleBlocks.find((b) => b.hours === window.hours)!.rateMinor,
+        rule: `${rules.version}:vehicle-${window.hours}h`,
       });
+      const zones = new Set([
+        profile.zoneId,
+        ...experiences.map((i) => resolved.get(i.id)!.zoneId),
+      ]);
+      if (zones.size > 1)
+        lines.push({
+          key: `cross-zone:${day}`,
+          label: `${day} · cross-zone vehicle surcharge`,
+          group: "transport",
+          quantity: vehicles,
+          unitRateMinor: rules.crossZoneSurchargePerVehicleMinor,
+          totalMinor: vehicles * rules.crossZoneSurchargePerVehicleMinor,
+          rule: `${rules.version}:cross-zone`,
+        });
+    }
     const guidedDay = services.guideDays.includes(day);
     if (guidedDay) {
       const fullyHosted = experiences.every(
@@ -401,7 +418,7 @@ export function assess(
       if (!fullyHosted)
         lines.push({
           key: `guide:${day}`,
-          label: `${day} · full-day guide · ${window.startTime}–${time(Math.min(start + 480, 1439))}`,
+          label: `${day} · full-day guide · ${time(start)}–${time(Math.min(start + 480, 1439))}`,
           group: "hosting",
           quantity: 1,
           unitRateMinor: rules.guideDayBlock.rateMinor,

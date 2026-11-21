@@ -169,3 +169,28 @@ it("replaces failed activity images with an intentional illustrated fallback", (
     "Illustrated experience fallback",
   );
 });
+
+it("shows travellers making their own way no vehicle to book or pay for", async () => {
+  const own = { ...profile, transport: "OWN" as const };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          trip: { id: "trip-test", version: 1, profile: own, items, services },
+          offers: fixture.experiences,
+          price: assess(own, items, services, fixture.experiences),
+        },
+      }),
+    })),
+  );
+  render(<Planner id="trip-test" servicesOnly />);
+  expect(await screen.findByText("Your own transport")).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: "Change in trip details" }),
+  ).toHaveProperty("href", expect.stringContaining("/trips/trip-test/profile"));
+  expect(screen.queryByLabelText("Vehicle from")).toBeNull();
+  expect(screen.queryByText("Car and driver")).toBeNull();
+  expect(screen.getAllByText("Your own").length).toBeGreaterThan(0);
+});

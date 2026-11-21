@@ -45,7 +45,7 @@ export default function TripCost({
   expanded = false,
   footer,
 }: {
-  profile: Pick<Profile, "startDate" | "endDate" | "adults">;
+  profile: Pick<Profile, "startDate" | "endDate" | "adults" | "transport">;
   price: Price | null;
   items: Item[];
   dirty?: boolean;
@@ -162,7 +162,11 @@ export default function TripCost({
           </div>
           <div>
             <dt>Transport</dt>
-            <dd>{money(price?.transportMinor ?? 0)}</dd>
+            <dd>
+              {profile.transport === "OWN"
+                ? "Your own"
+                : money(price?.transportMinor ?? 0)}
+            </dd>
           </div>
           <div>
             <dt>Guides & hosting</dt>

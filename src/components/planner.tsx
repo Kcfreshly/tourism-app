@@ -665,6 +665,7 @@ export default function Planner({
     fullDay: services.guideDays.length > 0,
   };
   const guidedDay = services.guideDays.includes(day);
+  const ownTransport = trip.profile.transport === "OWN";
   function setGuides(
     next: Partial<Pick<Services, "guideDays" | "guideItemIds">>,
   ) {
@@ -676,9 +677,11 @@ export default function Planner({
       <div className="services-intro">
         <h2>Your support</h2>
         <p className="muted">
-          A driver comes with every day that has activities. Add guides on top,
-          in any mix. Personal time is never supervised, and there’s no 24-hour
-          hosting.
+          {ownTransport
+            ? "You’re making your own way between activities."
+            : "A driver comes with every day that has activities."}{" "}
+          Add guides on top, in any mix. Personal time is never supervised, and
+          there’s no 24-hour hosting.
         </p>
       </div>
       <fieldset className="assistance-options" disabled={busy}>
@@ -686,11 +689,26 @@ export default function Planner({
         <label className="assistance-card" data-selected="true">
           <input type="checkbox" checked disabled />
           <Icon name="car" size={24} />
-          <strong>Driver and vehicle</strong>
-          <span>
-            Always included on activity days: pickup, waiting time and your
-            return. Choose the hours for each day below.
-          </span>
+          {ownTransport ? (
+            <>
+              <strong>Your own transport</strong>
+              <span>
+                No car or driver to pay for. Allow the travel times shown
+                between activities.{" "}
+                <Link className="text-link" href={`/trips/${id}/profile`}>
+                  Change in trip details
+                </Link>
+              </span>
+            </>
+          ) : (
+            <>
+              <strong>Car and driver</strong>
+              <span>
+                Always included on activity days: pickup, waiting time and your
+                return. Choose the hours for each day below.
+              </span>
+            </>
+          )}
         </label>
         <label className="assistance-card" data-selected={modes.activity}>
           <input
@@ -720,8 +738,9 @@ export default function Planner({
           <Icon name="sun" size={24} />
           <strong>Full-day guide</strong>
           <span>
-            An 8-hour guide from your vehicle start time, on the days you tick.{" "}
-            {money(rules.guideDayBlock.rateMinor)} per day.
+            An 8-hour guide from your{" "}
+            {ownTransport ? "first activity" : "vehicle start time"}, on the
+            days you tick. {money(rules.guideDayBlock.rateMinor)} per day.
           </span>
         </label>
       </fieldset>
@@ -736,58 +755,67 @@ export default function Planner({
         <h3>{dayLabel(day)}</h3>
         {hasActivities ? (
           <>
-            <div className="field-grid">
-              <label>
-                Vehicle from
-                <input
-                  disabled={busy}
-                  type="time"
-                  value={services.vehicleWindows[day]?.startTime ?? "08:00"}
-                  onChange={(e) =>
-                    change(items, {
-                      ...services,
-                      vehicleWindows: {
-                        ...services.vehicleWindows,
-                        [day]: {
-                          startTime: e.target.value,
-                          hours: services.vehicleWindows[day]?.hours ?? 8,
-                        },
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Reserved hours
-                <select
-                  disabled={busy}
-                  value={services.vehicleWindows[day]?.hours ?? ""}
-                  onChange={(e) =>
-                    change(items, {
-                      ...services,
-                      vehicleWindows: {
-                        ...services.vehicleWindows,
-                        [day]: {
-                          startTime:
-                            services.vehicleWindows[day]?.startTime ?? "08:00",
-                          hours: Number(e.target.value) as 4 | 8,
-                        },
-                      },
-                    })
-                  }
-                >
-                  <option value="" disabled>
-                    Select a block
-                  </option>
-                  <option value={4}>4 hours</option>
-                  <option value={8}>8 hours</option>
-                </select>
-              </label>
-            </div>
-            <p className="muted">
-              Covers pickup, waiting time between activities and your return. Up
-              to 8 hours a day. Travel times are estimates.
-            </p>
+            {ownTransport ? (
+              <p className="muted">
+                You’re getting yourselves to each activity on this day.
+              </p>
+            ) : (
+              <>
+                <div className="field-grid">
+                  <label>
+                    Vehicle from
+                    <input
+                      disabled={busy}
+                      type="time"
+                      value={services.vehicleWindows[day]?.startTime ?? "08:00"}
+                      onChange={(e) =>
+                        change(items, {
+                          ...services,
+                          vehicleWindows: {
+                            ...services.vehicleWindows,
+                            [day]: {
+                              startTime: e.target.value,
+                              hours: services.vehicleWindows[day]?.hours ?? 8,
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Reserved hours
+                    <select
+                      disabled={busy}
+                      value={services.vehicleWindows[day]?.hours ?? ""}
+                      onChange={(e) =>
+                        change(items, {
+                          ...services,
+                          vehicleWindows: {
+                            ...services.vehicleWindows,
+                            [day]: {
+                              startTime:
+                                services.vehicleWindows[day]?.startTime ??
+                                "08:00",
+                              hours: Number(e.target.value) as 4 | 8,
+                            },
+                          },
+                        })
+                      }
+                    >
+                      <option value="" disabled>
+                        Select a block
+                      </option>
+                      <option value={4}>4 hours</option>
+                      <option value={8}>8 hours</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="muted">
+                  Covers pickup, waiting time between activities and your
+                  return. Up to 8 hours a day. Travel times are estimates.
+                </p>
+              </>
+            )}
             {modes.fullDay && (
               <label className="check">
                 <input
@@ -802,7 +830,8 @@ export default function Planner({
                     })
                   }
                 />
-                Full-day guide on this day (8 hours from vehicle start time)
+                Full-day guide on this day (8 hours from{" "}
+                {ownTransport ? "your first activity" : "vehicle start time"})
               </label>
             )}
             {modes.activity &&
@@ -921,7 +950,11 @@ export default function Planner({
             <dt>Activities</dt>
             <dd>{money(price.activitiesMinor)}</dd>
             <dt>Transport</dt>
-            <dd>{money(price.transportMinor)}</dd>
+            <dd>
+              {trip.profile.transport === "OWN"
+                ? "Your own"
+                : money(price.transportMinor)}
+            </dd>
             <dt>Guides & hosting</dt>
             <dd>{money(price.hostingMinor)}</dd>
             <dt>Service fee</dt>

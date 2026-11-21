@@ -147,6 +147,28 @@ describe("trip journey", () => {
     expect(writes).toHaveLength(0);
   });
 
+  it("explains each way of getting around and carries it to the summary", () => {
+    render(<Intake mode="chat" fresh />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Enter details manually" }),
+    );
+    const getting = screen.getByLabelText("Getting around");
+    expect(screen.getByText(/A private car and driver/)).toBeTruthy();
+    fireEvent.change(getting, { target: { value: "OWN" } });
+    expect(screen.getByText(/no transport charge/)).toBeTruthy();
+    expect(
+      Array.from(
+        (screen.getByLabelText("Local guide") as HTMLSelectElement).options,
+        (o) => o.text,
+      ),
+    ).toEqual(["No guide", "Guide for selected activities", "Full-day guide"]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Next: check summary" }),
+    );
+    expect(screen.getByText("We’ll make our own way")).toBeTruthy();
+    expect(screen.getByText("No guide")).toBeTruthy();
+  });
+
   it("synchronises selected bucket controls and restores their default state on removal", () => {
     render(
       <>
