@@ -29,6 +29,7 @@ import {
   longestDayBlock,
   type TransportSettings,
 } from "@/modules/trips/domain/transport-settings";
+import { stayLabel } from "@/modules/trips/domain/profile";
 import type { Experience } from "@/modules/catalogue/domain/experience";
 import { clockLabel, shortestVisit } from "@/modules/catalogue/domain/schedule";
 import { ClearBucket } from "./bucket";
@@ -39,7 +40,6 @@ import {
   displayName,
   formatDuration,
   formatMoney,
-  zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
 import {
   eventDates,
@@ -336,7 +336,11 @@ export default function Planner({
       setOffers(data.offers);
       if (data.settings) setSettings(data.settings);
       setBase(null);
-      setStatus(`Saved · pickups from ${base.accommodation.trim()}`);
+      setStatus(
+        base.accommodation.trim()
+          ? `Saved · pickups from ${base.accommodation.trim()}`
+          : "Saved · area updated",
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Please retry.");
     } finally {
@@ -765,6 +769,7 @@ export default function Planner({
     `Day ${days.indexOf(date) + 1} · ${shortDate(date)}`;
   const issues = price ? [...price.blockers, ...price.warnings] : [];
   const tone = statusTone(status, blocked);
+  const pickupDue = !!price?.warnings.some((w) => w.code === "PICKUP_ADDRESS");
   // Days with something to sort out, marked on the day ribbon.
   const issueDays = new Set(
     issues.flatMap((issue) => {
@@ -854,8 +859,13 @@ export default function Planner({
       ownWayBack: on ? [...ids, itemId] : ids.filter((i) => i !== itemId),
     });
   }
+  const planHref = `/trips/${id}/plan?day=${day}`;
   const serviceControls = (
     <>
+      <Link className="text-link back-link services-back" href={planHref}>
+        <Icon name="arrowLeft" size={16} />
+        Back to your plan
+      </Link>
       <div className="services-intro">
         <h2>Your support</h2>
         <p className="muted">
@@ -1161,6 +1171,16 @@ export default function Planner({
           Airport pickup and arrival help aren’t available to add yet.
         </p>
       </section>
+      <div className="services-done">
+        <p className="muted">
+          Changes save as you go. Your driver and guide costs are in the trip
+          cost.
+        </p>
+        <Link className="button" href={planHref}>
+          <Icon name="arrowLeft" size={16} />
+          Back to {dayLabel(day)} plan
+        </Link>
+      </div>
     </>
   );
   const editingOffer = offers.find(
@@ -1351,10 +1371,7 @@ export default function Planner({
             </li>
             <li>
               <Icon name="pin" size={15} />
-              {trip.profile.accommodation ||
-                (trip.profile.zoneId !== "UNDECIDED"
-                  ? zoneLabel(trip.profile.zoneId)
-                  : "Base not set")}
+              {stayLabel(trip.profile)}
             </li>
           </ul>
           <div className="planner-status">
@@ -1375,13 +1392,15 @@ export default function Planner({
             {issues.length > 0 && (
               <details
                 className="planner-validation"
-                data-blocking={!!price?.blockers.length}
+                data-blocking={!!price?.blockers.length || pickupDue}
               >
                 <summary>
                   <Icon name="alert" size={14} />
                   {price?.blockers.length
                     ? `${price.blockers.length} ${price.blockers.length === 1 ? "thing" : "things"} to sort out before booking`
-                    : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
+                    : pickupDue
+                      ? "Pickup address needed"
+                      : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
                   <Icon name="chevronDown" size={14} />
                 </summary>
                 <ul>
@@ -1395,7 +1414,10 @@ export default function Planner({
                     const dayName = date
                       ? `Day ${days.indexOf(date) + 1}`
                       : "your trip";
-                    if (issue.code === "MISSING_BASE")
+                    if (
+                      issue.code === "MISSING_BASE" ||
+                      issue.code === "PICKUP_ADDRESS"
+                    )
                       return (
                         <li key={index} className="issue-base">
                           {friendlyIssue(issue.message, days)}
@@ -1405,24 +1427,27 @@ export default function Planner({
                               saveBase();
                             }}
                           >
-                            <label>
-                              Where you’re staying
-                              <input
-                                required
-                                maxLength={300}
-                                placeholder="Hotel name, or street and area"
-                                value={
-                                  base?.accommodation ??
-                                  trip.profile.accommodation
-                                }
-                                onChange={(e) =>
-                                  setBase({
-                                    zoneId: base?.zoneId ?? trip.profile.zoneId,
-                                    accommodation: e.target.value,
-                                  })
-                                }
-                              />
-                            </label>
+                            {trip.profile.accommodationBy !== "FASTLIFE" && (
+                              <label>
+                                Where you’re staying
+                                <input
+                                  required={issue.code === "PICKUP_ADDRESS"}
+                                  maxLength={300}
+                                  placeholder="Hotel name, or street and area"
+                                  value={
+                                    base?.accommodation ??
+                                    trip.profile.accommodation
+                                  }
+                                  onChange={(e) =>
+                                    setBase({
+                                      zoneId:
+                                        base?.zoneId ?? trip.profile.zoneId,
+                                      accommodation: e.target.value,
+                                    })
+                                  }
+                                />
+                              </label>
+                            )}
                             <label>
                               Area
                               <select
@@ -1450,15 +1475,18 @@ export default function Planner({
                               disabled={
                                 busy ||
                                 dirty ||
-                                !(
-                                  base?.accommodation ??
-                                  trip.profile.accommodation
-                                ).trim() ||
+                                (issue.code === "PICKUP_ADDRESS" &&
+                                  !(
+                                    base?.accommodation ??
+                                    trip.profile.accommodation
+                                  ).trim()) ||
                                 (base?.zoneId ?? trip.profile.zoneId) ===
                                   "UNDECIDED"
                               }
                             >
-                              Save address
+                              {issue.code === "PICKUP_ADDRESS"
+                                ? "Save address"
+                                : "Save area"}
                             </button>
                             {dirty && (
                               <small className="form-hint">
@@ -1525,7 +1553,7 @@ export default function Planner({
             {priceSummary}
             <Link
               className={servicesOnly ? "button secondary" : "button"}
-              href={`/trips/${id}/${servicesOnly ? "plan" : "services"}`}
+              href={`/trips/${id}/${servicesOnly ? "plan" : "services"}?day=${day}`}
             >
               {servicesOnly ? "Back to planner" : "Driver & guides"}
               {!servicesOnly && <Icon name="arrowRight" size={16} />}

@@ -39,6 +39,9 @@ export const transportSettingsSchema = z
     // a night car or the traveller's "I'll arrange my own way back".
     lateReturnFrom: clock,
     guideNoticeHours: z.number().int().min(0).max(168),
+    // Travellers who book their own stay are reminded to add a pickup
+    // address until this many hours before their first pickup.
+    pickupAddressNoticeHours: z.number().int().min(0).max(168),
   })
   .strict();
 
@@ -56,12 +59,17 @@ export const defaultTransportSettings: TransportSettings = {
   night: { hours: 6, rateMinor: 4000000, startsFrom: "20:00" },
   lateReturnFrom: "22:00",
   guideNoticeHours: 24,
+  pickupAddressNoticeHours: 12,
 };
 
-// Stored settings that no longer validate (an older shape) fall back to the
-// defaults rather than breaking pricing.
+// Settings saved before a field existed take its default; stored settings
+// that no longer validate fall back to the defaults rather than breaking
+// pricing.
 export function readTransportSettings(value: unknown): TransportSettings {
-  const parsed = transportSettingsSchema.safeParse(value);
+  const parsed = transportSettingsSchema.safeParse({
+    ...defaultTransportSettings,
+    ...(value && typeof value === "object" ? value : {}),
+  });
   return parsed.success ? parsed.data : defaultTransportSettings;
 }
 

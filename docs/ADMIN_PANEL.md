@@ -45,8 +45,8 @@ security review.
 
 Below the listings, **Transport & guides** edits the rules the planner prices
 with: car-for-the-day blocks (hours and price), seats per car, cross-area
-surcharge, the night car (hours, price, start time), the late-return time and
-the guide notice. Saves are version-checked and audited
+surcharge, the night car (hours, price, start time), the late-return time, the
+guide notice and the pickup address reminder (hours before the first pickup). Saves are version-checked and audited
 (`TRANSPORT_SETTINGS_UPDATED`). It needs migration 0006 (`npm run db:migrate`
 with the app stopped); until then the defaults apply and saving explains the
 missing migration. See [TRANSPORT.md](TRANSPORT.md).

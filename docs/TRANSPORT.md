@@ -56,13 +56,26 @@ activities starting from then; the day car covers the rest.
 
 | Check | Error |
 | --- | --- |
-| Accommodation and area known when any car is booked | `MISSING_BASE` |
+| The area is known when any car is booked (it times and prices pickups) | `MISSING_BASE` |
 | A car day with daytime activities has a car window | `MISSING_WINDOW` |
 | The block length is one staff offer | `SERVICE_WINDOW` |
 | Pickup in time for the first activity, and the trip back fits | `SERVICE_WINDOW` |
 | No car runs past 06:00; a night car starts from the night start time | `SERVICE_WINDOW` |
 | Travel time between activities | `TRANSIT` |
 | Late finishes on own-way days are covered | `LATE_RETURN` |
+
+**Pickup address.** In trip details the traveller says who books the stay:
+**I'll book my own stay** or **Book it for me** (`profile.accommodationBy`:
+`SELF` or `FASTLIFE`). When Fastlife books it, no address is asked for; we
+only need the area they'd like to stay in. When they book their own, a
+missing address never blocks booking. Instead a `PICKUP_ADDRESS` warning
+(`pickupReminder` in `planner.ts`) asks for it by a deadline: the trip's first
+car pickup, less the **pickup address reminder** hours in the transport
+settings (demo: 12). After the deadline it says "Add your pickup address now".
+The reminder shows in the planner (with a form to add it), at checkout, on
+the today view and on My plans, and links to trip details opened at the
+address field. Email or push reminders need a notifications service and are
+not built.
 
 **Price**: cars (people ÷ seats per car, rounded up) × the block price, plus a
 cross-area surcharge per car when a car's activities span areas. Day and night

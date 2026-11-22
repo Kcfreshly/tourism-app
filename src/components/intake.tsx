@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   initialProfile,
   profileSchema,
+  stayLabel,
   upcomingTrip,
   type Profile,
 } from "@/modules/trips/domain/profile";
@@ -120,6 +121,18 @@ export default function Intake({
     if (mounted.current) heading.current?.focus();
     mounted.current = true;
   }, [stage]);
+  // Set when a reminder link opens this page; focuses the address field
+  // once the loaded form is enabled.
+  const focusStay = useRef(false);
+  useEffect(() => {
+    if (!focusStay.current || busy || stage !== "details") return;
+    focusStay.current = false;
+    const field = document.querySelector<HTMLInputElement>(
+      "#accommodation input",
+    );
+    field?.focus({ preventScroll: true });
+    field?.scrollIntoView({ block: "center" });
+  }, [busy, stage]);
   useEffect(() => {
     let active = true;
     if (id) {
@@ -131,6 +144,13 @@ export default function Intake({
             setSaved(body.data);
             setProfile(body.data.profile);
             setStatus("");
+            // Reminders link here to add the pickup address: open the form
+            // at that field.
+            if (window.location.hash === "#accommodation") {
+              setMode("form");
+              setStage("details");
+              focusStay.current = true;
+            }
           }
         })
         .catch((error) => {
@@ -346,12 +366,16 @@ export default function Intake({
     ["Travellers", `${profile.adults} adults`],
     [
       "Staying in",
-      profile.accommodation
-        ? `${profile.accommodation}${profile.zoneId !== "UNDECIDED" ? ` · ${zoneLabel(profile.zoneId)}` : ""}`
-        : profile.zoneId !== "UNDECIDED"
-          ? zoneLabel(profile.zoneId)
-          : "Not decided yet",
-      !profile.accommodation && profile.zoneId === "UNDECIDED",
+      profile.accommodationBy === "FASTLIFE"
+        ? stayLabel(profile)
+        : profile.accommodation
+          ? `${profile.accommodation}${profile.zoneId !== "UNDECIDED" ? ` · ${zoneLabel(profile.zoneId)}` : ""}`
+          : profile.zoneId !== "UNDECIDED"
+            ? `${zoneLabel(profile.zoneId)} · pickup address to add later`
+            : "Not decided yet",
+      !profile.accommodation &&
+        profile.accommodationBy !== "FASTLIFE" &&
+        profile.zoneId === "UNDECIDED",
     ],
     [
       "Interests",
@@ -683,16 +707,39 @@ export default function Intake({
                 <legend>Where you’re staying and getting around</legend>
                 <div className="field-grid">
                   <label>
-                    Accommodation or starting area (optional)
+                    Accommodation
+                    <select
+                      value={profile.accommodationBy ?? "SELF"}
+                      onChange={(e) =>
+                        update(
+                          "accommodationBy",
+                          e.target.value as Profile["accommodationBy"],
+                        )
+                      }
+                    >
+                      <option value="SELF">I’ll book my own stay</option>
+                      <option value="FASTLIFE">Book it for me</option>
+                    </select>
+                  </label>
+                  <label id="accommodation">
+                    {profile.accommodationBy === "FASTLIFE"
+                      ? "Stay preferences (optional)"
+                      : "Pickup address (optional for now)"}
                     <input
                       maxLength={300}
-                      placeholder="Not decided yet"
+                      placeholder={
+                        profile.accommodationBy === "FASTLIFE"
+                          ? "e.g. near the beach, budget per night"
+                          : "Hotel name, or street and area"
+                      }
                       value={profile.accommodation}
                       onChange={(e) => update("accommodation", e.target.value)}
                     />
                   </label>
                   <label>
-                    Area
+                    {profile.accommodationBy === "FASTLIFE"
+                      ? "Area you’d like to stay in"
+                      : "Area"}
                     <select
                       value={profile.zoneId}
                       onChange={(e) =>
@@ -743,6 +790,9 @@ export default function Intake({
                   </label>
                 </div>
                 <p className="form-hint">
+                  {profile.accommodationBy === "FASTLIFE"
+                    ? "We’ll contact you to agree your stay; it isn’t priced in this preview. "
+                    : "Your driver picks you up here. You can book without it and add it later; we’ll remind you before your first pickup. "}
                   {profile.transport === "OWN"
                     ? "You get yourselves between activities, so there’s no transport charge. Allow the travel times shown in your plan."
                     : "A private car and driver on each day with activities, covering pickup, waiting time and your return. You can choose your own way on any day in the planner."}

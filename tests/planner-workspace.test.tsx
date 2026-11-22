@@ -307,7 +307,9 @@ it("lets travellers add where they're staying from the warning, and shows driver
     "href",
     expect.stringContaining("/trips/trip-test/services"),
   );
-  fireEvent.click(screen.getByText(/1 thing to sort out before booking/));
+  // A missing address is a reminder, not something blocking the booking.
+  expect(screen.queryByText(/to sort out before booking/)).toBeNull();
+  fireEvent.click(screen.getByText("Pickup address needed"));
   fireEvent.change(screen.getByLabelText("Where you’re staying"), {
     target: { value: "Fictional Lekki Suites" },
   });
@@ -321,5 +323,5 @@ it("lets travellers add where they're staying from the warning, and shows driver
     expectedVersion: 1,
     profile: { accommodation: "Fictional Lekki Suites", zoneId: "LEKKI" },
   });
-  expect(screen.queryByText(/thing to sort out/)).toBeNull();
+  expect(screen.queryByText("Pickup address needed")).toBeNull();
 });

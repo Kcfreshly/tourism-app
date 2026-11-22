@@ -2,12 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Item, Services, assess } from "@/modules/trips/domain/planner";
-import type { Profile } from "@/modules/trips/domain/profile";
+import { stayLabel, type Profile } from "@/modules/trips/domain/profile";
 import { unplannedDays } from "@/modules/trips/domain/checkout";
-import {
-  formatMoney,
-  zoneLabel,
-} from "@/modules/catalogue/domain/experience-content";
+import { formatMoney } from "@/modules/catalogue/domain/experience-content";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
 import TripCost from "./trip-cost";
 import Icon from "./icons";
@@ -79,6 +76,7 @@ export default function Checkout({ id }: { id: string }) {
   const empty = unplannedDays(profile, trip.items);
   const planned = trip.items.some((i) => i.kind === "EXPERIENCE");
   const blocked = price.blockers.length > 0 || !planned;
+  const pickup = price.warnings.find((w) => w.code === "PICKUP_ADDRESS");
   return (
     <section className="page checkout-page">
       <ol className="journey-steps checkout-steps" aria-label="Booking steps">
@@ -97,11 +95,7 @@ export default function Checkout({ id }: { id: string }) {
           {profile.draftName || "Your Lagos trip"} ·{" "}
           {shortDate(profile.startDate)} – {shortDate(profile.endDate)} ·{" "}
           {profile.adults} {profile.adults === 1 ? "adult" : "adults"} · staying
-          in{" "}
-          {profile.accommodation ||
-            (profile.zoneId !== "UNDECIDED"
-              ? zoneLabel(profile.zoneId)
-              : "a base not yet set")}
+          in {stayLabel(profile)}
         </p>
       </header>
       <div className="checkout-layout">
@@ -119,6 +113,20 @@ export default function Checkout({ id }: { id: string }) {
                   to them after booking.{" "}
                   <Link href={`/trips/${id}/plan?day=${empty[0]}`}>
                     Plan them now
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
+          {pickup && (
+            <div className="notice pickup-reminder">
+              <Icon name="pin" size={18} />
+              <div>
+                <strong>Pickup address needed</strong>
+                <p>
+                  {pickup.message}{" "}
+                  <Link href={`/trips/${id}/profile#accommodation`}>
+                    Add it now
                   </Link>
                 </p>
               </div>

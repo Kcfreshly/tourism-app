@@ -1929,3 +1929,39 @@ div.assistance-card:hover {
 .issue-base button {
   justify-self: start;
 }
+
+/* Ways back from Driver & guides: a link at the top, a bar at the end. */
+.services-workspace > .services-back,
+.services-workspace > .services-done {
+  grid-column: 1 / -1;
+}
+.services-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.services-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+.services-done p {
+  margin: 0;
+}
+
+/* Reminder to add a pickup address: shown until it's added. */
+.pickup-reminder {
+  border-color: var(--c-warning);
+  background: var(--c-warning-soft);
+}
+.pickup-reminder a {
+  font-weight: 600;
+}
+.pickup-flag a {
+  color: var(--c-warning);
+  font-weight: 600;
+}

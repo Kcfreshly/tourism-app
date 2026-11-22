@@ -298,8 +298,18 @@ export default function AdminTransportSettings() {
         </div>
       </fieldset>
       <fieldset className="card admin-transport-card" disabled={busy}>
-        <legend>Guides</legend>
+        <legend>Guides and pickups</legend>
         <div className="field-grid">
+          <Whole
+            label="Pickup address reminder (hours)"
+            min={0}
+            max={168}
+            value={edit.pickupAddressNoticeHours}
+            hint="Travellers who book their own stay are asked for a pickup address until this long before their first pickup."
+            onChange={(pickupAddressNoticeHours) =>
+              set({ pickupAddressNoticeHours })
+            }
+          />
           <Whole
             label="Guide notice (hours)"
             min={0}

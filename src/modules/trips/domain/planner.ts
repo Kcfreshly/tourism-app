@@ -5,6 +5,7 @@ import {
   clockLabel,
   lagosInstant,
   serviceDayEnd,
+  shortDay,
   shortestVisit,
 } from "../../catalogue/domain/schedule";
 import {
@@ -162,6 +163,47 @@ export function carCovers(
     from + Math.max(out.peak, out.offPeak) <= minutes(first.startTime) &&
     minutes(last.endTime) + back <= from + window.hours * 60
   );
+}
+// When a traveller who books their own stay still owes us a pickup address:
+// the first car pickup of the trip, less the configured notice. Null when no
+// car is booked, Fastlife books the stay, or the address is in.
+export function pickupReminder(
+  profile: Pick<
+    Profile,
+    "accommodation" | "accommodationBy" | "transport" | "startDate" | "endDate"
+  >,
+  items: Pick<Item, "localDate" | "startTime" | "kind">[],
+  services: Pick<Services, "dayTransport" | "vehicleWindows" | "nightWindows">,
+  settings: TransportSettings,
+  now = Date.now(),
+) {
+  if (profile.accommodationBy === "FASTLIFE" || profile.accommodation.trim())
+    return null;
+  for (const day of tripDays(profile)) {
+    const activities = items
+      .filter((i) => i.localDate === day && i.kind === "EXPERIENCE")
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const night = services.nightWindows?.[day]?.startTime;
+    const car =
+      dayTransport(profile, services, day) === "CAR" && activities.length
+        ? (services.vehicleWindows[day]?.startTime ?? activities[0].startTime)
+        : undefined;
+    const pickup = [car, night].filter((t): t is string => !!t).sort()[0];
+    if (!pickup) continue;
+    const dueAt =
+      lagosInstant(day, pickup) - settings.pickupAddressNoticeHours * 3600000;
+    const lagos = new Date(dueAt + 3600000).toISOString();
+    const due = `${shortDay(lagos.slice(0, 10))}, ${lagos.slice(11, 16)}`;
+    return {
+      dueAt,
+      overdue: now >= dueAt,
+      message:
+        now >= dueAt
+          ? `Add your pickup address now: your first pickup is on ${shortDay(day)} at ${clockLabel(pickup)}.`
+          : `Add your pickup address by ${due}, ${settings.pickupAddressNoticeHours} hours before your first pickup. You can book now and add it later.`,
+    };
+  }
+  return null;
 }
 // Guides are arranged with a local partner, so they need notice before the
 // activity (or the start of a full-day guide's day).
@@ -482,11 +524,13 @@ export function assess(
       : minutes(first.startTime);
     if (
       ((mode === "CAR" && daytime.length) || nightWindow) &&
-      (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
+      profile.zoneId === "UNDECIDED"
     )
       add(
         "MISSING_BASE",
-        "Add where you’re staying, so your driver knows where to pick you up.",
+        profile.accommodationBy === "FASTLIFE"
+          ? "Choose the area you’d like to stay in, so we can book your stay and time your pickups."
+          : "Choose the area you’re staying in, so we can time your pickups.",
       );
     if (mode === "CAR" && daytime.length && !dayWindow)
       add(
@@ -695,6 +739,10 @@ export function assess(
   const budget =
     profile.budgetMinor *
     (profile.budgetBasis === "PERSON" ? profile.adults : 1);
+  // Not a blocker: they can book now, and are reminded until it's added.
+  const pickup = pickupReminder(profile, items, services, settings, now);
+  if (pickup)
+    warnings.push({ code: "PICKUP_ADDRESS", message: pickup.message });
   if (budget > 0 && totalMinor > budget)
     warnings.push({
       code: "BUDGET",

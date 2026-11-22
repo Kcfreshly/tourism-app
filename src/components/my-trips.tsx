@@ -6,11 +6,22 @@ import { activateTrip } from "@/hooks/use-active-trip";
 import { useSignOut } from "@/hooks/use-sign-out";
 import Icon from "./icons";
 import type { Profile } from "@/modules/trips/domain/profile";
-import type { Item } from "@/modules/trips/domain/planner";
+import {
+  pickupReminder,
+  type Item,
+  type Services,
+} from "@/modules/trips/domain/planner";
+import { defaultTransportSettings } from "@/modules/trips/domain/transport-settings";
 import { photoForCategory } from "@/modules/catalogue/domain/photos";
 import { zoneLabel } from "@/modules/catalogue/domain/experience-content";
 
-type Trip = { id: string; version: number; profile: Profile; items?: Item[] };
+type Trip = {
+  id: string;
+  version: number;
+  profile: Profile;
+  items?: Item[];
+  services?: Services;
+};
 function shortDate(date: string) {
   return new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
     day: "numeric",
@@ -119,6 +130,16 @@ export default function MyTrips({ saved }: { saved?: string }) {
               (i) => i.kind === "EXPERIENCE",
             ).length;
             const cover = photoForCategory(t.profile.interests[0] ?? "nature");
+            // The list has no staff settings; the default notice is close
+            // enough for a reminder, and the planner shows the exact time.
+            const needsPickup =
+              !!t.services &&
+              !!pickupReminder(
+                t.profile,
+                items,
+                t.services,
+                defaultTransportSettings,
+              );
             return (
               <article
                 className="card trip-card"
@@ -147,6 +168,14 @@ export default function MyTrips({ saved }: { saved?: string }) {
                       <li>
                         <Icon name="pin" size={15} />
                         {zoneLabel(t.profile.zoneId)}
+                      </li>
+                    )}
+                    {needsPickup && (
+                      <li className="pickup-flag">
+                        <Icon name="pin" size={15} />
+                        <Link href={`/trips/${t.id}/profile#accommodation`}>
+                          Add your pickup address
+                        </Link>
                       </li>
                     )}
                     <li>

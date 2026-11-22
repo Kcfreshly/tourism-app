@@ -1,5 +1,17 @@
 import { z } from "zod";
 import { addDays } from "../../catalogue/domain/schedule";
+import { zoneLabel } from "../../catalogue/domain/experience-content";
+// Where the traveller stays, for headers and summaries.
+export function stayLabel(
+  p: Pick<Profile, "accommodation" | "accommodationBy" | "zoneId">,
+) {
+  const area = p.zoneId !== "UNDECIDED" ? zoneLabel(p.zoneId) : "";
+  if (p.accommodationBy === "FASTLIFE")
+    return area
+      ? `Stay booked by Fastlife · ${area}`
+      : "Stay booked by Fastlife";
+  return p.accommodation.trim() || area || "Base not set";
+}
 export const categoryIds = [
   "nature",
   "waterfront",
@@ -29,7 +41,11 @@ export const profileSchema = z
     interests: z.array(z.enum(categoryIds)).min(1).max(8),
     occasion: z.string().max(160),
     pace: z.enum(["RELAXED", "BALANCED", "FULL"]),
+    // A pickup address when they book their own stay, or stay
+    // preferences when Fastlife books it.
     accommodation: z.string().max(300),
+    // Who books the stay: the traveller (default) or Fastlife.
+    accommodationBy: z.enum(["SELF", "FASTLIFE"]).optional(),
     zoneId: z.enum(["UNDECIDED", "LEKKI", "VI", "MAINLAND"]),
     assistance: z.enum(["DRIVER_ONLY", "ACTIVITY_GUIDE", "FULL_DAY_GUIDE"]),
     budgetMinor: z.number().int().min(0).max(10000000000),

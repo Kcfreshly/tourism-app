@@ -51,6 +51,8 @@ export default function Pocket({ id }: { id: string }) {
   const [offers, setOffers] = useState<Experience[]>([]);
   const [day, setDay] = useState("");
   const [error, setError] = useState("");
+  // The pickup address reminder, while the traveller still owes one.
+  const [pickup, setPickup] = useState("");
   useEffect(() => {
     fetch(`/api/v1/trips/${id}/workspace`)
       .then(async (r) => {
@@ -59,6 +61,11 @@ export default function Pocket({ id }: { id: string }) {
         const days = tripDays(body.data.trip.profile);
         setTrip(body.data.trip);
         setOffers(body.data.offers);
+        setPickup(
+          body.data.price?.warnings?.find(
+            (w: { code: string }) => w.code === "PICKUP_ADDRESS",
+          )?.message ?? "",
+        );
         setDay(days.includes(lagosToday()) ? lagosToday() : days[0]);
       })
       .catch((e) => setError(e.message));
@@ -148,6 +155,15 @@ export default function Pocket({ id }: { id: string }) {
           </button>
         </div>
       </header>
+      {pickup && (
+        <p className="pocket-notice pickup-reminder" role="status">
+          <Icon name="pin" size={16} />
+          <span>
+            {pickup}{" "}
+            <Link href={`/trips/${id}/profile#accommodation`}>Add it now</Link>
+          </span>
+        </p>
+      )}
       <p className="pocket-notice">
         <Icon name="info" size={16} />
         This is your planned day. Nothing is booked yet, so driver and guide

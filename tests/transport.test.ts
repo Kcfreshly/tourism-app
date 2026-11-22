@@ -9,6 +9,7 @@ import {
   carCovers,
   defaultServices,
   fitCar,
+  pickupReminder,
   type Item,
   type Services,
 } from "../src/modules/trips/domain/planner";
@@ -215,5 +216,72 @@ describe("own way and night out", () => {
     expect(nightReviewIssue(unreviewed, "DRAFT")).toBeNull();
     const gallery = offers.find((e) => e.id === "gallery")!;
     expect(nightReviewIssue(gallery, "DEMO_PUBLISHED")).toBeNull();
+  });
+});
+
+describe("pickup address", () => {
+  const plan = [item("offer-nature-walk", "10:00", "12:00")];
+  const services = {
+    ...defaultServices,
+    vehicleWindows: { [day]: { startTime: "08:45", hours: 4 } },
+  };
+  const own = { ...trip, accommodation: "" };
+  it("reminds, without blocking, until the traveller adds it", () => {
+    const price = assess(own, plan, services, offers, now);
+    expect(price.blockers).toEqual([]);
+    // 12 hours before the 08:45 pickup on Saturday.
+    expect(
+      price.warnings.find((w) => w.code === "PICKUP_ADDRESS")?.message,
+    ).toBe(
+      "Add your pickup address by Fri 7 May, 20:45, 12 hours before your first pickup. You can book now and add it later.",
+    );
+    const late = pickupReminder(
+      own,
+      plan,
+      services,
+      defaultTransportSettings,
+      Date.parse(`${day}T06:00:00+01:00`),
+    );
+    expect(late?.overdue).toBe(true);
+    expect(late?.message).toContain("Add your pickup address now");
+    // Staff can change the notice.
+    expect(
+      pickupReminder(own, plan, services, {
+        ...defaultTransportSettings,
+        pickupAddressNoticeHours: 24,
+      })?.message,
+    ).toContain("Fri 7 May, 08:45, 24 hours");
+  });
+  it("isn't asked for when Fastlife books the stay or no car is booked", () => {
+    const booked = { ...own, accommodationBy: "FASTLIFE" as const };
+    expect(assess(booked, plan, services, offers, now).warnings).toEqual([]);
+    const ownWay = { ...services, dayTransport: { [day]: "OWN" as const } };
+    expect(
+      pickupReminder(own, plan, ownWay, defaultTransportSettings),
+    ).toBeNull();
+  });
+  it("still needs the area, to time and price pickups", () => {
+    const noArea = {
+      ...own,
+      zoneId: "UNDECIDED" as const,
+      accommodationBy: "FASTLIFE" as const,
+    };
+    expect(
+      assess(noArea, plan, services, offers, now).blockers.find(
+        (b) => b.code === "MISSING_BASE",
+      )?.message,
+    ).toBe(
+      "Choose the area you’d like to stay in, so we can book your stay and time your pickups.",
+    );
+  });
+  it("keeps saved settings when a new setting is added", () => {
+    // Saved before the pickup reminder setting existed.
+    const older: Record<string, unknown> = {
+      ...defaultTransportSettings,
+      guideNoticeHours: 48,
+    };
+    delete older.pickupAddressNoticeHours;
+    expect(readTransportSettings(older).guideNoticeHours).toBe(48);
+    expect(readTransportSettings(older).pickupAddressNoticeHours).toBe(12);
   });
 });
