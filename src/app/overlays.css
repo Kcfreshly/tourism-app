@@ -269,11 +269,19 @@ body:has(dialog[open]) {
   .overlay-header {
     padding: var(--space-4);
   }
+  /* The photo scrolls away with the details, leaving room to read; the
+     header and the price/actions footer stay put. */
   .overlay-body {
     grid-template-columns: 1fr;
-    grid-template-rows: clamp(150px, 30dvh, 260px) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .experience-gallery .gallery-image-frame {
+    height: clamp(180px, 34dvh, 300px);
   }
   .experience-information {
+    overflow: visible;
     padding: var(--space-4);
   }
   .overlay-footer {
@@ -319,8 +327,8 @@ body:has(dialog[open]) {
   }
 }
 @media (max-width: 700px) and (max-height: 560px) {
-  .overlay-body {
-    grid-template-rows: 64px minmax(0, 1fr);
+  .experience-gallery .gallery-image-frame {
+    height: 140px;
   }
 }
 @media (min-width: 701px) and (max-height: 520px) {
