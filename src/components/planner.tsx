@@ -350,16 +350,39 @@ export default function Planner({
   function openItem(item: Item) {
     setEditing(item);
   }
+  // A dated event goes on a day it runs, so the traveller never has to find
+  // that day: this day if it runs and fits, otherwise its first trip date
+  // that fits. Replacing keeps the block's own day.
+  function placementDay(offer: Experience) {
+    if (!trip || !services || !isEvent(offer) || replacing) return day;
+    const dates = eventDates(
+      offer,
+      trip.profile.startDate,
+      trip.profile.endDate,
+    );
+    if (!dates.length) return day;
+    const ordered = dates.includes(day)
+      ? [day, ...dates.filter((d) => d !== day)]
+      : dates;
+    return (
+      ordered.find(
+        (d) =>
+          availableStarts(trip.profile, offer, d, items, services, offers)
+            .length > 0,
+      ) ?? ordered[0]
+    );
+  }
   function add(offer?: Experience) {
     library.current?.close();
-    const scheduled = items.filter((i) => i.localDate === day);
+    const date = offer ? placementDay(offer) : day;
+    const scheduled = items.filter((i) => i.localDate === date);
     const last = Math.max(
       540,
       ...scheduled.map((i) => minutes(i.endTime) + 45),
     );
     const session =
       offer?.schedulingType === "FIXED"
-        ? offer.sessions?.find((s) => !s.dates || s.dates.includes(day))
+        ? offer.sessions?.find((s) => !s.dates || s.dates.includes(date))
         : undefined;
     const start = session
       ? minutes(session.startTime)
@@ -371,7 +394,7 @@ export default function Planner({
         ? availableStarts(
             trip.profile,
             offer,
-            day,
+            date,
             items,
             services,
             offers,
@@ -380,14 +403,18 @@ export default function Planner({
         : [];
     if (offer && !available.length) {
       setStatus(
-        "This experience can’t fit this day. Its opening hours, sessions, length or travel time clash with your plans — try another day.",
+        offer && isEvent(offer) && date !== day
+          ? `This event runs on ${eventDay(date)}, but it clashes with your plans there. Move something on that day to make room.`
+          : "This experience can’t fit this day. Its opening hours, sessions, length or travel time clash with your plans — try another day.",
       );
       return;
     }
+    // Show the day the event went on.
+    if (date !== day) setDay(date);
     openItem({
       ...(available[0] ?? {}),
       id: replacing?.id ?? crypto.randomUUID(),
-      localDate: day,
+      localDate: date,
       startTime: available[0]?.startTime ?? time(Math.min(start, 1380)),
       endTime:
         available[0]?.endTime ??
@@ -438,12 +465,14 @@ export default function Planner({
         e.name.toLowerCase().includes(search.toLowerCase()),
     )
     .map((e, index) => {
+      // Events are checked on the day Add would put them.
+      const target = placementDay(e);
       const starts =
         trip && services
           ? availableStarts(
               trip.profile,
               e,
-              day,
+              target,
               items,
               services,
               offers,
@@ -468,7 +497,7 @@ export default function Planner({
             offers.find((o) => o.offer.id === i.offerId)?.zoneId === e.zoneId,
         );
       const score =
-        Number(starts.length > 0) * 100 +
+        Number(starts.length > 0) * (target === day ? 100 : 50) +
         Number(nearby) * 4 +
         Number(
           trip.profile.interests.includes(
@@ -493,12 +522,14 @@ export default function Planner({
                 )
               ? "Matches your interests"
               : undefined;
-      const note = starts.length
-        ? [reason, `fits from ${starts[0].startTime}`]
-            .filter(Boolean)
-            .join(" · ")
-            .replace(/^f/, "F")
-        : undefined;
+      const note = !starts.length
+        ? undefined
+        : target !== day
+          ? `Adds to ${eventDay(target)} at ${starts[0].startTime}`
+          : [reason, `fits from ${starts[0].startTime}`]
+              .filter(Boolean)
+              .join(" · ")
+              .replace(/^f/, "F");
       const when = runsOn.length
         ? eventWhen(e, trip.profile.startDate, trip.profile.endDate)
         : undefined;
@@ -579,7 +610,7 @@ export default function Planner({
               aria-pressed={view === "bucket"}
               onClick={() => setView("bucket")}
             >
-              My Bucket <span className="count">{bucket.length}</span>
+              Saved <span className="count">{bucket.length}</span>
             </button>
             <button
               type="button"
@@ -687,7 +718,7 @@ export default function Planner({
             <Icon name={view === "bucket" ? "bookmark" : "search"} size={26} />
             <h3>
               {view === "bucket" && !bucket.length
-                ? "Your bucket is empty."
+                ? "No saved activities yet."
                 : "No matching experiences"}
             </h3>
             <p>
@@ -1731,7 +1762,7 @@ export default function Planner({
               className="suggest-button"
               disabled={busy || dirty}
               onClick={generate}
-              title="Kemi drafts a plan from your bucket. You review every change first."
+              title="Kemi drafts a plan from your saved activities. You review every change first."
             >
               <Icon name="sparkle" size={16} />
               Suggest a plan

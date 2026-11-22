@@ -14,11 +14,18 @@ export type ExploreState = {
   area?: string;
   kind?: string;
   access?: boolean;
+  // Showing only saved activities (the bucket, in code).
   bucket?: boolean;
   trip?: string;
 };
 
 export const explorePath = "/explore";
+
+// The address shows saved activities as view=saved. view=bucket is the old
+// name, still read so earlier links and bookmarks keep working.
+export function isSavedView(view?: string) {
+  return view === "saved" || view === "bucket";
+}
 
 export function exploreQuery(s: ExploreState) {
   const range = s.date === "range";
@@ -35,7 +42,7 @@ export function exploreQuery(s: ExploreState) {
       area: s.area,
       kind: s.kind,
       access: s.access ? "1" : "",
-      view: s.bucket ? "bucket" : "",
+      view: s.bucket ? "saved" : "",
       trip: s.trip,
     }).filter((entry): entry is [string, string] => !!entry[1]),
   ).toString();
@@ -45,6 +52,8 @@ export function exploreHref(s: ExploreState) {
   const query = exploreQuery(s);
   return `${explorePath}${query ? `?${query}` : ""}`;
 }
+
+export const savedActivitiesHref = exploreHref({ bucket: true });
 
 // The id a results card carries, so a return link can scroll back to it.
 export function cardAnchor(e: { id: string; seedKey?: string }) {

@@ -9,6 +9,7 @@ import { useBucket } from "@/hooks/use-bucket";
 import { useActiveTrip } from "@/hooks/use-active-trip";
 import { authClient } from "./auth-client";
 import { showToast } from "./toast";
+import { savedActivitiesHref } from "@/modules/catalogue/domain/explore-link";
 
 // Save puts an idea in the Bucket. It holds no date and books nothing.
 function useSave(id: string) {
@@ -21,9 +22,9 @@ function useSave(id: string) {
       toggle(id);
       if (!saved)
         showToast({
-          message: "Saved to Bucket. Saving doesn’t hold a date.",
-          href: "/explore?view=bucket",
-          action: "View Bucket",
+          message: "Activity saved. Saving doesn’t hold a date.",
+          href: savedActivitiesHref,
+          action: "View saved activities",
         });
     },
   };
@@ -43,8 +44,8 @@ export function BucketButton({
         type="button"
         className="bucket-button bucket-button--icon icon-button"
         disabled={full}
-        title={saved ? "Remove from Bucket" : "Save to Bucket"}
-        aria-label={saved ? "Remove from Bucket" : "Save to Bucket"}
+        title={saved ? "Remove from saved activities" : "Save activity"}
+        aria-label={saved ? "Remove from saved activities" : "Save activity"}
         aria-pressed={saved}
         onClick={toggle}
       >
@@ -58,7 +59,7 @@ export function BucketButton({
       disabled={full}
       title={
         full
-          ? "Your Bucket holds up to 30 activities. Remove one to save another."
+          ? "You can save up to 30 activities. Remove one to save another."
           : undefined
       }
       aria-pressed={saved}
@@ -68,13 +69,9 @@ export function BucketButton({
         <Icon name={saved ? "bookmarkFilled" : "bookmark"} size={16} />
       </span>
       {saved ? (
-        <span
-          aria-label={`${variant === "compact" ? "Saved" : "Saved to Bucket"} · Remove from Bucket`}
-        >
-          {variant === "compact" ? "Saved" : "Saved to Bucket"}
-        </span>
+        <span aria-label="Saved · Remove from saved activities">Saved</span>
       ) : (
-        <span aria-label="Save to Bucket">Save</span>
+        <span aria-label="Save activity">Save</span>
       )}
     </button>
   );
@@ -85,11 +82,12 @@ export function BucketNav() {
   return (
     <Link
       className="bucket-pill"
-      href="/explore?view=bucket"
+      href={savedActivitiesHref}
+      title="Saved activities"
       data-empty={!ids.length}
     >
       <Icon name="bookmark" size={18} />
-      <span className="bucket-pill-label">Bucket</span>
+      <span className="bucket-pill-label">Saved activities</span>
       <span className="bucket-count" aria-label={`${ids.length} saved`}>
         {ids.length}
       </span>
@@ -112,15 +110,15 @@ export function ClearBucket({ onCleared }: { onCleared?: () => void } = {}) {
         disabled={!ids.length}
         onClick={() => dialog.current?.showModal()}
       >
-        Clear bucket
+        Clear saved activities
       </button>
       {cleared && (
         <span className="bucket-undo" role="status">
-          Bucket cleared.{" "}
+          Saved activities cleared.{" "}
           <button
             type="button"
             className="text-button"
-            aria-label="Undo clear bucket"
+            aria-label="Undo clear saved activities"
             onClick={() => {
               restore(cleared);
               setCleared(null);
@@ -133,13 +131,13 @@ export function ClearBucket({ onCleared }: { onCleared?: () => void } = {}) {
       <dialog
         ref={dialog}
         className="confirm-dialog clear-bucket-dialog"
-        aria-label="Clear your bucket"
+        aria-label="Clear your saved activities"
         {...dismiss}
       >
-        <h2>Clear your bucket?</h2>
+        <h2>Clear your saved activities?</h2>
         <p>
-          This removes all {ids.length} saved activities from your shortlist.
-          Anything already in your itinerary stays exactly where it is.
+          This removes all {ids.length} saved activities. Anything already in
+          your itinerary stays exactly where it is.
         </p>
         <div className="actions">
           <button
@@ -159,7 +157,7 @@ export function ClearBucket({ onCleared }: { onCleared?: () => void } = {}) {
               onCleared?.();
             }}
           >
-            Clear bucket
+            Clear all
           </button>
         </div>
       </dialog>
@@ -242,13 +240,17 @@ export function BucketTray({
   const activeTrip = useActiveTrip();
   if (!ids.length && !tripId && !activeTrip) return null;
   return (
-    <div className="bucket-tray" role="region" aria-label="Your bucket">
+    <div
+      className="bucket-tray"
+      role="region"
+      aria-label="Your saved activities"
+    >
       <div className="bucket-tray-inner">
         <p>
           <span className="bucket-count">{ids.length}</span>
           <span>
             <strong>
-              {ids.length === 1 ? "activity" : "activities"} in your bucket
+              saved {ids.length === 1 ? "activity" : "activities"}
             </strong>
             <small>
               {ids.length
@@ -260,7 +262,7 @@ export function BucketTray({
         <div className="bucket-tray-actions">
           {ids.length > 0 && (
             <button type="button" className="secondary" onClick={onView}>
-              View bucket
+              View saved activities
             </button>
           )}
           <PlanTrip tripId={tripId} />

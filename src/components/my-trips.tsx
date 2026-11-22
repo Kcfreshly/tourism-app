@@ -132,7 +132,7 @@ export default function MyTrips({ saved }: { saved?: string }) {
             <h2>{justSaved.profile.draftName || "Your Lagos stay"}</h2>
             <p>
               It&#8217;s highlighted below. Open the planner when you&#8217;re
-              ready, or keep exploring to add ideas to your bucket.
+              ready, or keep exploring and save more activities.
             </p>
           </div>
         </div>
@@ -150,8 +150,8 @@ export default function MyTrips({ saved }: { saved?: string }) {
           <Icon name="calendar" size={28} />
           <h2>No trips yet</h2>
           <p>
-            Start with Kemi or explore experiences first — your bucket comes
-            with you either way.
+            Start with Kemi or explore experiences first — your saved activities
+            come with you either way.
           </p>
           <div className="actions">
             <Link className="button" href="/plan/new?mode=chat">
@@ -317,8 +317,8 @@ export default function MyTrips({ saved }: { saved?: string }) {
         </div>
         <div className="sheet-body">
           <p className="muted">
-            Its days and activities are removed for good. Your bucket and
-            anything already in your cart stay as they are.
+            Its days and activities are removed for good. Your saved activities
+            and anything already in your cart stay as they are.
           </p>
           {deleteError && <p role="alert">{deleteError}</p>}
         </div>

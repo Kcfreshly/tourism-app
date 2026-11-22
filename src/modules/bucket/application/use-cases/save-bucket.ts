@@ -25,7 +25,7 @@ export class SaveBucket {
       throw new AppError(
         "CONFLICT",
         "VERSION_CONFLICT",
-        "Your bucket changed on another device. Reload it and try again.",
+        "Your saved activities changed on another device. Reload and try again.",
       );
     return saved;
   }

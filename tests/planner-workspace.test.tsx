@@ -88,11 +88,11 @@ afterEach(() => {
 it("clears only bucket selections after confirmation, supports cancel and undo, and retains the itinerary", async () => {
   const { container } = render(<Planner id="trip-test" />);
   await screen.findByRole("heading", { name: "My trip planner" });
-  fireEvent.click(screen.getByRole("button", { name: /My Bucket 2/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Saved 2/ }));
   const originalCount = container.querySelectorAll(".schedule-block").length;
-  fireEvent.click(screen.getByRole("button", { name: "Clear bucket" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear saved activities" }));
   fireEvent.click(
-    within(screen.getByRole("dialog", { name: "Clear your bucket" })).getByRole(
+    within(screen.getByRole("dialog", { name: "Clear your saved activities" })).getByRole(
       "button",
       { name: "Keep activities" },
     ),
@@ -100,24 +100,24 @@ it("clears only bucket selections after confirmation, supports cancel and undo, 
   expect(JSON.parse(localStorage.getItem("tourism.bucket.v1")!)).toHaveLength(
     2,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Clear bucket" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear saved activities" }));
   fireEvent.click(
-    within(screen.getByRole("dialog", { name: "Clear your bucket" })).getByRole(
+    within(screen.getByRole("dialog", { name: "Clear your saved activities" })).getByRole(
       "button",
-      { name: "Clear bucket" },
+      { name: "Clear all" },
     ),
   );
-  expect(screen.getAllByText("Your bucket is empty.").length).toBeGreaterThan(
+  expect(screen.getAllByText("No saved activities yet.").length).toBeGreaterThan(
     0,
   );
   expect(container.querySelectorAll(".schedule-block")).toHaveLength(
     originalCount,
   );
   expect(
-    (screen.getByRole("button", { name: "Clear bucket" }) as HTMLButtonElement)
+    (screen.getByRole("button", { name: "Clear saved activities" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Undo clear bucket" }));
+  fireEvent.click(screen.getByRole("button", { name: "Undo clear saved activities" }));
   expect(JSON.parse(localStorage.getItem("tourism.bucket.v1")!)).toHaveLength(
     2,
   );

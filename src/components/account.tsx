@@ -87,7 +87,7 @@ export default function Account({ next }: { next?: string }) {
           {session
             ? "Your trip drafts are saved to this account."
             : planning
-              ? "Your trip drafts are saved to your account so you can pick them up anytime. Your bucket is kept while you sign in."
+              ? "Your trip drafts are saved to your account so you can pick them up anytime. Your saved activities are kept while you sign in."
               : "Exploring is open to everyone. Sign in to plan a trip and keep your drafts."}
         </p>
       </div>

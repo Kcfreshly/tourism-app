@@ -30,6 +30,7 @@ import { useCart } from "@/hooks/use-cart";
 import { useBucket } from "@/hooks/use-bucket";
 import { loadCatalogue } from "./whats-on";
 import { showToast } from "./toast";
+import { savedActivitiesHref } from "@/modules/catalogue/domain/explore-link";
 import Icon from "./icons";
 
 type Listing = Experience & { seedKey?: string };
@@ -288,7 +289,7 @@ function LineCard({ v, onRemove }: { v: LineView; onRemove: () => void }) {
                     onRemove();
                   }}
                 >
-                  Save to Bucket
+                  Save for later
                 </button>
               )}
             </div>
@@ -320,9 +321,9 @@ function LineCard({ v, onRemove }: { v: LineView; onRemove: () => void }) {
                 if (!ids.includes(v.saveId!)) toggle(v.saveId!);
                 onRemove();
                 showToast({
-                  message: `${v.title} moved to your Bucket.`,
-                  href: "/explore?view=bucket",
-                  action: "View Bucket",
+                  message: `${v.title} saved for later.`,
+                  href: savedActivitiesHref,
+                  action: "View saved activities",
                 });
               }}
             >
@@ -375,14 +376,14 @@ export default function CartPage() {
           <h2>Your cart is empty</h2>
           <p>
             Things you choose to book, with a date and guests, appear here.
-            Ideas you save live in your Bucket.
+            Activities you save appear in your saved activities.
           </p>
           <div className="actions">
             <Link className="button" href="/explore">
               Find things to do
             </Link>
-            <Link className="button secondary" href="/explore?view=bucket">
-              Open your Bucket
+            <Link className="button secondary" href={savedActivitiesHref}>
+              See saved activities
             </Link>
           </div>
         </div>

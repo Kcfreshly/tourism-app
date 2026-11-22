@@ -434,7 +434,7 @@ export default function Intake({
         </h1>
         <p className="lede">
           {stage === "saved"
-            ? "Nothing is booked. Add more ideas to your bucket, or start arranging your days."
+            ? "Nothing is booked. Save more activities, or start arranging your days."
             : stage === "review"
               ? "This is the profile Kemi and the planner will use. Correct anything that isn’t right."
               : "Your dates, who’s coming and what you love. You’ll check a summary before anything is saved."}
@@ -1006,7 +1006,7 @@ export default function Intake({
               </span>
               <h2>Explore experiences</h2>
               <p>
-                Browse Lagos and add favourites to your bucket. Saving doesn’t
+                Browse Lagos and save the activities you like. Saving doesn’t
                 book an activity or give it a time.
               </p>
               <Link

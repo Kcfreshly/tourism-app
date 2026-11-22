@@ -47,6 +47,7 @@ import { defaultDestination } from "@/modules/catalogue/domain/destinations";
 import {
   cardAnchor,
   exploreHref,
+  isSavedView,
   withBack,
 } from "@/modules/catalogue/domain/explore-link";
 export function money(n: number) {
@@ -201,7 +202,7 @@ export default function CatalogueBrowser({
   const { ids } = useBucket();
   const activeTrip = useActiveTrip();
   const currentTrip = tripId || activeTrip;
-  const [bucketOnly, setBucketOnly] = useState(initial.view === "bucket");
+  const [bucketOnly, setBucketOnly] = useState(isSavedView(initial.view));
   // Small screens fold the refining controls behind a Filters button.
   const [showFilters, setShowFilters] = useState(false);
   const [category, setCategory] = useState(initial.category ?? ""),
@@ -465,7 +466,7 @@ export default function CatalogueBrowser({
         <div className="results-title">
           <h2>
             {bucketOnly
-              ? "Your Bucket"
+              ? "Saved activities"
               : visit
                 ? `During your dates: ${rangeText(from, to)}`
                 : days.length && date !== "range"
@@ -479,7 +480,7 @@ export default function CatalogueBrowser({
               {filtered.length}{" "}
               {filtered.length === 1 ? "experience" : "experiences"}
             </strong>
-            {bucketOnly ? " in your Bucket" : ""}
+            {bucketOnly ? " saved" : ""}
             {filtering && (
               <button
                 type="button"
@@ -510,7 +511,7 @@ export default function CatalogueBrowser({
               onClick={() => setBucketOnly(true)}
             >
               <Icon name="bookmark" size={16} />
-              My Bucket <span className="count">{ids.length}</span>
+              Saved <span className="count">{ids.length}</span>
             </button>
           </div>
           <button
@@ -612,7 +613,7 @@ export default function CatalogueBrowser({
           <Icon name={bucketOnly ? "bookmark" : "search"} size={28} />
           <h2>
             {bucketOnly && !ids.length
-              ? "Your Bucket is empty"
+              ? "No saved activities yet"
               : accessible
                 ? "No confirmed wheelchair access yet"
                 : "Nothing matches those filters"}

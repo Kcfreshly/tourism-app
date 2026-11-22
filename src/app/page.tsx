@@ -115,8 +115,8 @@ export default async function Home() {
         <div>
           <Icon name="bookmark" size={22} />
           <p>
-            <strong>Save</strong> keeps an idea in your Bucket. No date, nothing
-            held.
+            <strong>Save</strong> keeps an activity in your saved activities. No
+            date, nothing held.
           </p>
         </div>
         <div>

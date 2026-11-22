@@ -50,8 +50,8 @@ export default async function Explore({
         <div className="empty-state">
           <h1>Experiences are unavailable right now</h1>
           <p>
-            We couldn’t load the catalogue. Your Bucket and cart are safe;
-            please try again shortly.
+            We couldn’t load the catalogue. Your saved activities and cart are
+            safe; please try again shortly.
           </p>
         </div>
       </section>

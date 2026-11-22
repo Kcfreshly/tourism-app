@@ -28,6 +28,7 @@ import {
   sumRows,
   type CartLine,
 } from "@/modules/bookings/domain/cart";
+import { eventDates, isEvent } from "@/modules/catalogue/domain/events";
 import { useCart } from "@/hooks/use-cart";
 import { BucketButton } from "./bucket";
 import AddToTrip from "./add-to-trip";
@@ -147,20 +148,31 @@ function Panel({
   const formId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const name = e.name.replace(/\s*[—-]\s*DEMO$/, "");
-  const visitDays = visit
-    ? rangeDays(visit.from, visit.to).filter(
-        (d) => d >= today && runsOn(e, d, now),
-      )
+  // A dated event only runs on its listed dates, so those are the only
+  // choices and the earliest is picked for the traveller.
+  const dated = isEvent(e);
+  const eventDays = dated
+    ? eventDates(e, today).filter((d) => runsOn(e, d, now))
     : [];
-  const upcoming = visitDays.length
-    ? visitDays.slice(0, 6)
-    : nextRunDates(e, today, 4, now);
+  const visitDays =
+    visit && !dated
+      ? rangeDays(visit.from, visit.to).filter(
+          (d) => d >= today && runsOn(e, d, now),
+        )
+      : [];
+  const upcoming = dated
+    ? eventDays
+    : visitDays.length
+      ? visitDays.slice(0, 6)
+      : nextRunDates(e, today, 4, now);
   // A date chosen elsewhere (a card, an edit) stays visible as a chip.
   const chips = (d: string) =>
     d && !upcoming.includes(d) && runsOn(e, d) ? [...upcoming, d] : upcoming;
   const [open, setOpen] = useState(startOpen);
   const [date, setDate] = useState(
-    editing?.date ?? (initialDate && runsOn(e, initialDate) ? initialDate : ""),
+    editing?.date ??
+      (initialDate && runsOn(e, initialDate) ? initialDate : eventDays[0]) ??
+      "",
   );
   const times = date ? startTimesOn(e, date, now) : [];
   // Runs that day, but every start is already inside the booking cutoff.
@@ -204,7 +216,7 @@ function Panel({
     details,
   );
   const problems = [
-    !date && "Choose a date.",
+    !date && (dated ? "This event has no upcoming dates." : "Choose a date."),
     date &&
       !times.length &&
       (tooLate
@@ -322,6 +334,15 @@ function Panel({
                 {rangeText(visit!.from, visit!.to)}.
               </p>
             )}
+            {dated && (
+              <p className="muted">
+                {!eventDays.length
+                  ? "No upcoming dates for this event."
+                  : eventDays.length === 1
+                    ? "This event runs on one date only."
+                    : "This event runs on these dates only."}
+              </p>
+            )}
             <div className="chip-row">
               {chips(date).map((d) => (
                 <button
@@ -335,15 +356,17 @@ function Panel({
                 </button>
               ))}
             </div>
-            <label className="field booking-date">
-              <span>Or pick a date</span>
-              <input
-                type="date"
-                min={today}
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </label>
+            {!dated && (
+              <label className="field booking-date">
+                <span>Or pick a date</span>
+                <input
+                  type="date"
+                  min={today}
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                />
+              </label>
+            )}
             {date && !times.length && (
               <p className="field-error">
                 {tooLate ? "Too late to book for" : "Doesn’t run on"}{" "}

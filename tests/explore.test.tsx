@@ -416,14 +416,14 @@ describe("explore browsing", () => {
 
   it("shows the Bucket view, its empty state and the way back to exploring", () => {
     explore();
-    fireEvent.click(screen.getByRole("button", { name: /My Bucket/ }));
-    expect(params().get("view")).toBe("bucket");
+    fireEvent.click(screen.getByRole("button", { name: /^Saved \d/ }));
+    expect(params().get("view")).toBe("saved");
     expect(
-      screen.getByRole("heading", { name: "Your Bucket is empty" }),
+      screen.getByRole("heading", { name: "No saved activities yet" }),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Keep exploring" }));
     expect(params().get("view")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /My Bucket/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Saved \d/ }));
     fireEvent.click(
       screen.getByRole("button", { name: "Browse all experiences" }),
     );
@@ -436,12 +436,14 @@ describe("explore browsing", () => {
       JSON.stringify([byId("gallery").offer.id, byId("suya").offer.id]),
     );
     explore({ view: "bucket" }, "trip-9");
-    expect(screen.getByRole("heading", { name: "Your Bucket" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Saved activities" }),
+    ).toBeTruthy();
     expect(cardTitles().sort()).toEqual(
       [nameOf("gallery"), nameOf("suya")].sort(),
     );
     expect(Object.fromEntries(params())).toEqual({
-      view: "bucket",
+      view: "saved",
       trip: "trip-9",
     });
     fireEvent.click(screen.getByRole("button", { name: "All experiences" }));
@@ -451,7 +453,7 @@ describe("explore browsing", () => {
     const tray = document.querySelector(".bucket-tray") as HTMLElement;
     fireEvent.click(within(tray).getAllByRole("button")[0]);
     expect(Object.fromEntries(params())).toEqual({
-      view: "bucket",
+      view: "saved",
       trip: "trip-9",
     });
     // Filtering inside the Bucket finds nothing: the filters message shows.

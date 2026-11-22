@@ -461,8 +461,8 @@ function ActivityDialog({
           {e.inspirationPhoto && <PhotoCredit photo={e.inspirationPhoto} />}
           <p className="sample-note">
             <Icon name="info" size={16} />
-            Sample listing. Save keeps the idea in your Bucket; booking starts
-            when you choose a date.
+            Sample listing. Save keeps it in your saved activities; booking
+            starts when you choose a date.
           </p>
         </div>
       </div>

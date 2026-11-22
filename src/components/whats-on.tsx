@@ -265,8 +265,8 @@ export function TripEvents({ start, end }: { start: string; end: string }) {
       {events.length ? (
         <>
           <p>
-            Add any you like to your bucket. Nothing is booked, and each event
-            only fits on the days it runs.
+            Save any you like. Nothing is booked, and each event only fits on
+            the days it runs.
           </p>
           <Agenda
             events={events}

@@ -3,7 +3,9 @@ import {
   cardAnchor,
   exploreHref,
   exploreQuery,
+  isSavedView,
   safeExploreHref,
+  savedActivitiesHref,
   withBack,
 } from "../src/modules/catalogue/domain/explore-link";
 
@@ -25,8 +27,16 @@ describe("explore link state", () => {
         trip: "trip-1",
       }),
     ).toBe(
-      "category=nature&q=kayak&date=2026-11-20&price=under-10k&family=1&arrival=SELF&area=LEKKI&kind=MAIN&access=1&view=bucket&trip=trip-1",
+      "category=nature&q=kayak&date=2026-11-20&price=under-10k&family=1&arrival=SELF&area=LEKKI&kind=MAIN&access=1&view=saved&trip=trip-1",
     );
+  });
+
+  it("links to saved activities as view=saved and still reads view=bucket", () => {
+    expect(savedActivitiesHref).toBe("/explore?view=saved");
+    expect(isSavedView("saved")).toBe(true);
+    expect(isSavedView("bucket")).toBe(true);
+    expect(isSavedView("")).toBe(false);
+    expect(isSavedView(undefined)).toBe(false);
   });
 
   it("writes a visit range as from/to and never as a date", () => {
