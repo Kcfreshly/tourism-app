@@ -494,7 +494,11 @@ function ActivityDialog({
             </button>
           ) : (
             <>
-              <AddToTrip offerId={e.offer.id} title={displayName(e.name)} />
+              <AddToTrip
+                offerId={e.offer.id}
+                title={displayName(e.name)}
+                onLeave={() => ref.current?.close()}
+              />
               <Link
                 className="button"
                 href={withBack(

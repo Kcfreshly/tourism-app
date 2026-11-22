@@ -19,12 +19,16 @@ export default function AddToTrip({
   title,
   date,
   className = "secondary",
+  onLeave,
 }: {
   offerId: string;
   title: string;
   // A date already chosen in the booking panel, used when it fits the plan.
   date?: string;
   className?: string;
+  // Closes whatever this was opened from (the experience overlay) before
+  // going to the planner, since that overlay outlives navigation.
+  onLeave?: () => void;
 }) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
@@ -61,6 +65,7 @@ export default function AddToTrip({
     if (date && date >= plan.profile.startDate && date <= plan.profile.endDate)
       query.set("day", date);
     dialog.current?.close();
+    onLeave?.();
     router.push(`/trips/${encodeURIComponent(plan.id)}/plan?${query}`);
   }
   return (
@@ -120,6 +125,10 @@ export default function AddToTrip({
           <Link
             className="button secondary"
             href={`/plan/new?mode=form&offer=${encodeURIComponent(offerId)}&fresh=1`}
+            onClick={() => {
+              dialog.current?.close();
+              onLeave?.();
+            }}
           >
             <Icon name="plus" size={16} />
             Start a new plan
