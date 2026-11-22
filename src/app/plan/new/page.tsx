@@ -1,7 +1,7 @@
 import Intake from "@/components/intake";
 import Icon from "@/components/icons";
 import { pages } from "@/bootstrap/container";
-import { packageBySlug, planSeed } from "@/modules/catalogue/domain/packages";
+import { planSeed } from "@/modules/catalogue/domain/packages";
 export default async function NewPlan({
   searchParams,
 }: {
@@ -19,7 +19,9 @@ export default async function NewPlan({
     ),
   ).toString();
   await pages.requireSignedIn(`/plan/new${query ? `?${query}` : ""}`);
-  const source = from ? packageBySlug(from) : undefined;
+  const source = from
+    ? await pages.publishedPackage(from).catch(() => undefined)
+    : undefined;
   return (
     <>
       <Intake

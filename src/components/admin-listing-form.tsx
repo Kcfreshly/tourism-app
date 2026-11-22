@@ -4,9 +4,8 @@ import categories from "../../tourism-v1-handoff/data/categories.json";
 import {
   arrivalModes,
   confirmationModes,
-  demoPublishIssues,
-  emptyReview,
   intensities,
+  listingReadiness,
   listingKinds,
   listingStatuses,
   wheelchairAccesses,
@@ -30,6 +29,7 @@ import {
 } from "@/modules/catalogue/domain/listing-details";
 import { eventTypeLabels, eventTypes } from "@/modules/catalogue/domain/events";
 import { nigeriaPhotos } from "@/modules/catalogue/domain/photos";
+import TagPicker from "./admin-tag-picker";
 
 export type Edit = z.infer<typeof catalogueEditSchema>;
 // The editor always holds every optional section filled in.
@@ -57,17 +57,17 @@ export const sections = [
   { id: "logistics", label: "Logistics & terms" },
   { id: "access", label: "Access & inclusions" },
   { id: "media", label: "Media & event" },
-  { id: "review", label: "Review & publish" },
+  { id: "review", label: "Publishing" },
 ] as const;
 export type SectionId = (typeof sections)[number]["id"];
 
 const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const statusHints: Record<string, string> = {
-  DRAFT: "Being written. Not visible to travellers.",
-  RESEARCHED: "Supplier facts gathered. Not visible to travellers.",
-  DEMO_VERIFIED: "All checks passed. Ready to publish.",
-  DEMO_PUBLISHED: "Live in the demo: browse, planner and booking.",
-  PAUSED: "Hidden from new selections; saved trips keep it.",
+  DRAFT: "Draft: not visible to travellers.",
+  RESEARCHED: "Researched: not visible to travellers.",
+  DEMO_VERIFIED: "Approved but not published: not visible to travellers.",
+  DEMO_PUBLISHED: "Published: live in browse, the planner and booking.",
+  PAUSED: "Unpublished: hidden from new bookings; saved trips keep it.",
 };
 
 // Shifts an HH:MM time by whole minutes; closing times past midnight are
@@ -82,7 +82,7 @@ function linesOf(text: string) {
   return text.split("\n");
 }
 
-function Money({
+export function Money({
   label,
   value,
   onChange,
@@ -113,7 +113,7 @@ function Money({
   );
 }
 
-function Num({
+export function Num({
   label,
   value,
   onChange,
@@ -145,7 +145,7 @@ function Num({
   );
 }
 
-function Choice<T extends string>({
+export function Choice<T extends string>({
   label,
   value,
   options,
@@ -175,7 +175,7 @@ function Choice<T extends string>({
   );
 }
 
-function Lines({
+export function Lines({
   label,
   value,
   onChange,
@@ -237,7 +237,10 @@ export default function ListingForm({
   const fixed = edit.schedulingType === "FIXED";
   const lateClose = edit.availability.closesAt >= "24:00";
   const photo = nigeriaPhotos.find((p) => p.id === edit.photoId);
-  const issues = demoPublishIssues(edit.review);
+  const missing = listingReadiness({
+    ...edit,
+    inclusions: edit.inclusions.filter((i) => i.trim()),
+  });
 
   switch (section) {
     case "basics":
@@ -289,16 +292,7 @@ export default function ListingForm({
               hint="Light activities fill gaps; full days take the whole day."
             />
           </div>
-          <label>
-            Tags
-            <input
-              value={edit.tags.join(", ")}
-              onChange={(e) => set({ tags: e.target.value.split(",") })}
-            />
-            <small className="form-hint">
-              Comma separated, for example: hosted, music, family.
-            </small>
-          </label>
+          <TagPicker value={edit.tags} onChange={(tags) => set({ tags })} />
         </>
       );
     case "story":
@@ -877,38 +871,36 @@ export default function ListingForm({
     case "review":
       return (
         <>
-          <Choice
-            label="Status"
-            value={edit.status}
-            options={listingStatuses}
-            onChange={(status) => set({ status })}
-            hint={statusHints[edit.status]}
-          />
-          <fieldset>
-            <legend>Review checklist</legend>
-            {(Object.keys(emptyReview) as (keyof typeof emptyReview)[]).map(
-              (key) => (
-                <label className="check" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={edit.review[key]}
-                    onChange={(e) =>
-                      set({
-                        review: { ...edit.review, [key]: e.target.checked },
-                      })
-                    }
-                  />
-                  {key[0].toUpperCase() + key.slice(1)} reviewed
-                </label>
-              ),
-            )}
-          </fieldset>
-          <p className="muted">
-            {issues.length
-              ? `Before verifying: ${issues.join(", ")}.`
-              : "All checks ticked."}{" "}
-            To publish: save as DEMO_VERIFIED, then DEMO_PUBLISHED.
+          <p className="admin-status-line">
+            <span className="status-dot" data-status={edit.status} />
+            {statusHints[edit.status]}
           </p>
+          <div className="admin-readiness">
+            <h3>Ready to publish?</h3>
+            {missing.length ? (
+              <ul>
+                {missing.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>Everything travellers need is filled in.</p>
+            )}
+            <p className="form-hint">
+              Use Publish below. As staff, publishing is your approval: the
+              review is recorded in the audit log.
+            </p>
+          </div>
+          <details className="admin-advanced">
+            <summary>Other statuses</summary>
+            <Choice
+              label="Status"
+              value={edit.status}
+              options={listingStatuses}
+              onChange={(status) => set({ status })}
+              hint="Saved with “Save changes”. Publish and Unpublish set this for you."
+            />
+          </details>
           <CustomerPreview edit={edit} />
         </>
       );

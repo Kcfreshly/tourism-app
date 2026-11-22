@@ -27,6 +27,35 @@ const row = {
   },
 };
 
+const draft = {
+  ...row,
+  id: "1b9e6a8e-3c1d-4c51-9f00-7d0c9a2b5e21",
+  seedKey: "demo-draft",
+  status: "DRAFT",
+  version: 1,
+  record: {
+    ...market,
+    id: "demo-draft",
+    name: "Rooftop jazz brunch — DEMO",
+    story: {
+      teaser: "Live jazz and brunch above the lagoon.",
+      summary: "A long Sunday brunch on a rooftop with a live jazz trio.",
+      why: "",
+    },
+    details: {
+      operator: "Rooftop Sessions (sample partner)",
+      venue: "Rooftop terrace, Victoria Island",
+      arrival: "SELF",
+      pickupRateMinor: 0,
+      childRateMinor: 0,
+      confirmation: "INSTANT",
+      partnerHours: 0,
+      freeCancellationHours: 48,
+    },
+  },
+  review: null,
+};
+
 // A fake /api/v1/admin/catalogue that echoes saved records back.
 const patches: Record<string, unknown>[] = [];
 beforeEach(() => {
@@ -39,18 +68,21 @@ beforeEach(() => {
         patches.push(edit);
         return Response.json({
           data: {
-            ...row,
-            version: 5,
+            ...(edit.id === draft.id ? draft : row),
+            status: edit.status,
+            review: edit.review,
+            version: edit.expectedVersion + 1,
             record: {
               ...market,
               story: edit.story,
               details: edit.details,
+              tags: edit.tags,
               offer: { ...market.offer, rateMinor: edit.rateMinor },
             },
           },
         });
       }
-      return Response.json({ data: [row] });
+      return Response.json({ data: [row, draft] });
     }),
   );
 });
@@ -77,7 +109,7 @@ describe("listings admin panel", () => {
     ).toBe("PARTNER");
     expect(
       screen.getByRole<HTMLButtonElement>("button", {
-        name: "Save audited changes",
+        name: "Save changes",
       }).disabled,
     ).toBe(true);
   });
@@ -93,9 +125,7 @@ describe("listings admin panel", () => {
       target: { value: "Fabric lanes and spice stalls with a host." },
     });
     expect(screen.getByText(/Unsaved changes/)).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save audited changes" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0]).toMatchObject({
       expectedVersion: 4,
@@ -116,11 +146,60 @@ describe("listings admin panel", () => {
     fireEvent.change(screen.getByLabelText(/Maximum party/), {
       target: { value: "2" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save audited changes" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     const alert = await screen.findByRole("alert");
     expect(within(alert).getByText(/Maximum party/)).toBeTruthy();
+    expect(patches).toHaveLength(0);
+  });
+
+  it("adds tags from the fixed list only", async () => {
+    await openMarket();
+    fireEvent.change(screen.getByLabelText("Add a tag"), {
+      target: { value: "family" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Remove Family friendly" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0].tags).toContain("family");
+  });
+
+  it("publishes a draft in one click, recording the staff approval", async () => {
+    render(<AdminCatalogue />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Rooftop jazz/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0]).toMatchObject({
+      status: "DEMO_PUBLISHED",
+      review: {
+        content: true,
+        rates: true,
+        capacity: true,
+        policy: true,
+        media: true,
+      },
+    });
+    expect(
+      await screen.findByText(/Published\. Travellers can see it now/),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Unpublish" })).toBeTruthy();
+  });
+
+  it("says what is missing instead of publishing an unready draft", async () => {
+    render(<AdminCatalogue />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Rooftop jazz/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pricing & party" }));
+    fireEvent.change(screen.getByLabelText(/^Rate/), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save & publish" }));
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("Set a price above ₦0")).toBeTruthy();
     expect(patches).toHaveLength(0);
   });
 });

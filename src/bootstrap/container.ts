@@ -13,6 +13,17 @@ import { ListCatalogueRecords } from "@/modules/catalogue/application/use-cases/
 import { ListPublishedExperiences } from "@/modules/catalogue/application/use-cases/list-published-experiences";
 import { UpdateCatalogueRecord } from "@/modules/catalogue/application/use-cases/update-catalogue-record";
 import { DrizzleCatalogueRepository } from "@/modules/catalogue/infrastructure/persistence/drizzle-catalogue-repository";
+import { CreatePackageDraft } from "@/modules/catalogue/application/use-cases/create-package-draft";
+import { ListPackageRecords } from "@/modules/catalogue/application/use-cases/list-package-records";
+import { ListPublishedPackages } from "@/modules/catalogue/application/use-cases/list-published-packages";
+import { UpdatePackage } from "@/modules/catalogue/application/use-cases/update-package";
+import { DrizzlePackageRepository } from "@/modules/catalogue/infrastructure/persistence/drizzle-package-repository";
+import {
+  createCreatePackageDraftController,
+  createListPackageRecordsController,
+  createListPackagesController,
+  createUpdatePackageController,
+} from "@/modules/catalogue/presentation/http/controllers/package-controllers";
 import { createCreateCatalogueDraftController } from "@/modules/catalogue/presentation/http/controllers/create-catalogue-draft-controller";
 import { createListCatalogueRecordsController } from "@/modules/catalogue/presentation/http/controllers/list-catalogue-records-controller";
 import { createUpdateCatalogueRecordController } from "@/modules/catalogue/presentation/http/controllers/update-catalogue-record-controller";
@@ -72,6 +83,8 @@ import { createOwnedTripLoader } from "@/modules/trips/presentation/http/owned-t
 const sessions = new BetterAuthSessionReader();
 const guestSessions = new DrizzleGuestSessionRepository(db);
 const catalogueRepository = new DrizzleCatalogueRepository(db);
+const packageRepository = new DrizzlePackageRepository(db);
+const listPublishedPackages = new ListPublishedPackages(packageRepository);
 const tripRepository = new DrizzleTripRepository(db);
 const transportSettings = new DrizzleTransportSettingsRepository(db);
 const getTransportSettings = new GetTransportSettings(transportSettings);
@@ -132,6 +145,23 @@ export const api = {
     update: createUpdateCatalogueRecordController(
       guards,
       new UpdateCatalogueRecord(catalogueRepository),
+    ),
+  },
+  packages: {
+    list: createListPackagesController(listPublishedPackages),
+  },
+  adminPackages: {
+    list: createListPackageRecordsController(
+      guards,
+      new ListPackageRecords(packageRepository),
+    ),
+    create: createCreatePackageDraftController(
+      guards,
+      new CreatePackageDraft(packageRepository),
+    ),
+    update: createUpdatePackageController(
+      guards,
+      new UpdatePackage(packageRepository),
     ),
   },
   adminTransportSettings: {
@@ -198,6 +228,9 @@ export const pages = {
   ...createPageGuards(sessions),
   requireAdmin: guards.requireAdmin,
   listPublishedExperiences: () => listPublished.execute(),
+  listPublishedPackages: () => listPublishedPackages.execute(),
+  publishedPackage: async (slug: string) =>
+    (await listPublishedPackages.execute()).find((p) => p.slug === slug),
   transportSettings: async () =>
     (await getTransportSettings.execute()).settings,
 };

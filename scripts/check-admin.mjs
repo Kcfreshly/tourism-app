@@ -35,9 +35,9 @@ const edit = {
   kind: "MAIN",
   durationMinMinutes: 120,
   durationMaxMinutes: 180,
-  rateMinor: 12345,
+  rateMinor: 0,
   capacityPerSlot: 2,
-  status: "DEMO_VERIFIED",
+  status: "DEMO_PUBLISHED",
   review: {
     content: false,
     rates: false,
@@ -46,6 +46,7 @@ const edit = {
     media: false,
   },
 };
+// Publishing records the staff member's approval: every review check ticked.
 assert.equal((await call("PATCH", edit)).status, 422);
 edit.review = {
   content: true,
@@ -54,19 +55,20 @@ edit.review = {
   policy: true,
   media: true,
 };
-edit.status = "DEMO_PUBLISHED";
+// Not ready: no price yet.
 assert.equal((await call("PATCH", edit)).status, 422);
-edit.status = "DEMO_VERIFIED";
+edit.tags = ["not-a-tag"];
+edit.rateMinor = 12345;
+assert.equal((await call("PATCH", edit)).status, 422);
+edit.tags = ["hosted", "family"];
+// Staff publish straight from draft; there is no separate verify step.
 assert.equal((await call("PATCH", edit)).status, 200);
 assert.equal((await call("PATCH", edit)).status, 409);
-edit.expectedVersion = 2;
-edit.status = "DEMO_PUBLISHED";
-assert.equal((await call("PATCH", edit)).status, 200);
 assert.equal(
   (await fetch(`${base}/api/v1/experiences/${row.seedKey}`)).status,
   200,
 );
-edit.expectedVersion = 3;
+edit.expectedVersion = 2;
 edit.status = "PAUSED";
 assert.equal((await call("PATCH", edit)).status, 200);
 assert.equal(
@@ -77,13 +79,66 @@ assert.equal(
   (
     await call("PATCH", {
       ...edit,
-      expectedVersion: 4,
+      expectedVersion: 3,
       status: "PUBLISHED",
       isDemo: false,
     })
   ).status,
   422,
 );
+
+// Ready-made trips: create, refuse an incomplete publish, publish, unpublish.
+async function trips(method, body) {
+  return fetch(base + "/api/v1/admin/packages", {
+    method,
+    headers: {
+      Origin: base,
+      "Content-Type": "application/json",
+      Cookie: state.cookie,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+}
+const published = async () =>
+  (await (await fetch(`${base}/api/v1/packages`)).json()).data.map(
+    (p) => p.slug,
+  );
+const made = await trips("POST", { title: "QA Obudu mountain weekend" });
+assert.equal(made.status, 201, await made.clone().text());
+const trip = (await made.json()).data;
+assert.ok(!(await published()).includes(trip.slug));
+const tripEdit = {
+  id: trip.id,
+  expectedVersion: 1,
+  status: "DEMO_PUBLISHED",
+  trip: trip.record,
+};
+assert.equal((await trips("PATCH", tripEdit)).status, 422);
+const soon = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+tripEdit.trip = {
+  ...trip.record,
+  summary: "Three cool days on the Obudu plateau with a guide and driver.",
+  operator: "QA Highland Tours (fictional)",
+  route: [
+    { day: 1, place: "Calabar → Obudu", plan: "Drive up to the plateau." },
+    { day: 2, place: "Obudu", plan: "Canopy walk and waterfall hike." },
+    {
+      day: 3,
+      place: "Obudu → Calabar",
+      plan: "Morning cable car, then return.",
+    },
+  ],
+  departures: [{ date: soon, seats: "OPEN" }],
+  priceMinor: 25000000,
+  bookingTerms: ["Pay in full to book (sample terms)."],
+  tags: ["mountains", "nature"],
+};
+assert.equal((await trips("PATCH", tripEdit)).status, 200);
+assert.ok((await published()).includes(trip.slug));
+tripEdit.expectedVersion = 2;
+tripEdit.status = "PAUSED";
+assert.equal((await trips("PATCH", tripEdit)).status, 200);
+assert.ok(!(await published()).includes(trip.slug));
 console.log(
-  "PASS: administrator-only draft creation, incomplete review denial, verify-before-publish, optimistic conflict, demo publish/detail visibility, pause removes sales visibility and live-promotion refusal. Fictional test draft retained as PAUSED.",
+  "PASS: administrator-only draft creation, approval and readiness before publish, tag vocabulary, direct publish, optimistic conflict, publish/detail visibility, pause removes sales visibility, live-promotion refusal, and ready-made trip create/publish/unpublish. Fictional test records retained as PAUSED.",
 );

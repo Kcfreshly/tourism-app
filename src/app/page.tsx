@@ -15,7 +15,10 @@ const hero = photoById("fanti-carnival");
 export default async function Home() {
   const today = lagosToday();
   // Sections hide when the catalogue can't be read; the search still works.
-  const records = await pages.listPublishedExperiences().catch(() => []);
+  const [records, packages] = await Promise.all([
+    pages.listPublishedExperiences().catch(() => []),
+    pages.listPublishedPackages().catch(() => []),
+  ]);
   return (
     <>
       <section className="home-hero">
@@ -58,6 +61,7 @@ export default async function Home() {
 
       <HomeSections
         records={records}
+        packages={packages}
         weekend={weekendDates(today)}
         today={today}
         city="lagos"

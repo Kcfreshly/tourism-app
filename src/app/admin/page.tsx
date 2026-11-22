@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { pages } from "@/bootstrap/container";
 import AdminCatalogue from "@/components/admin-catalogue";
+import AdminPackages from "@/components/admin-packages";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
 export const dynamic = "force-dynamic";
@@ -30,18 +31,26 @@ export default async function Admin() {
           <p className="eyebrow">Fastlife operations</p>
           <h1>Staff workspace</h1>
           <p>
-            Manage listings, transport rates and guide availability for the
-            Fastlife demo.
+            Create and publish activities and ready-made trips, and set
+            transport rates and guide availability for the Fastlife demo.
           </p>
         </div>
         <p className="admin-demo">Demo catalogue</p>
       </header>
       <nav className="admin-jump" aria-label="Staff workspace sections">
-        <a href="#listings">Listings</a>
+        <a href="#listings">Activities</a>
+        <a href="#packages">Ready-made trips</a>
         <a href="#transport">Transport &amp; guides</a>
       </nav>
       <section id="listings" aria-labelledby="admin-listings-heading">
         <AdminCatalogue />
+      </section>
+      <section
+        id="packages"
+        className="admin-section"
+        aria-labelledby="admin-packages-heading"
+      >
+        <AdminPackages />
       </section>
       <section
         id="transport"

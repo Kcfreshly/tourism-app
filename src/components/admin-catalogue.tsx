@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   catalogueEditSchema,
   emptyReview,
+  listingReadiness,
   listingStatuses,
 } from "@/modules/catalogue/domain/catalogue";
 import {
@@ -16,6 +17,7 @@ import {
   storyFor,
 } from "@/modules/catalogue/domain/experience-content";
 import { listingDetails } from "@/modules/catalogue/domain/listing-details";
+import { knownTags } from "@/modules/catalogue/domain/tags";
 import ListingForm, {
   sections,
   type Edit,
@@ -50,7 +52,7 @@ function editRow(row: Row): FullEdit {
     status: row.status as Edit["status"],
     review: row.review ?? emptyReview,
     story: storyFor(live),
-    tags: r.tags,
+    tags: knownTags(r.tags),
     priceBasis: r.offer.priceBasis as Edit["priceBasis"],
     capacityUnit: r.offer.capacityUnit as Edit["capacityUnit"],
     minParty: r.offer.minParty,
@@ -87,7 +89,7 @@ function cleanEdit(edit: FullEdit): Edit {
   const fixed = edit.schedulingType === "FIXED" || !!edit.event;
   return {
     ...edit,
-    tags: tidy(edit.tags),
+    tags: edit.tags,
     inclusions: tidy(edit.inclusions),
     exclusions: tidy(edit.exclusions),
     unavailableDates: tidy(edit.unavailableDates),
@@ -104,6 +106,14 @@ function cleanEdit(edit: FullEdit): Edit {
     },
   };
 }
+
+const approved = {
+  content: true,
+  rates: true,
+  capacity: true,
+  policy: true,
+  media: true,
+};
 
 function statusLabel(status: string) {
   return status.replace("DEMO_", "").replace("_", " ").toLowerCase();
@@ -181,17 +191,34 @@ export default function AdminCatalogue() {
   function set(patch: Partial<FullEdit>) {
     setEdit((e) => (e ? { ...e, ...patch } : e));
   }
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  // Saves the editor, optionally changing status. Publishing records the
+  // staff member's approval by ticking every review check.
+  async function save(change?: "PUBLISH" | "UNPUBLISH") {
     if (!edit) return;
-    const parsed = catalogueEditSchema.safeParse(cleanEdit(edit));
-    if (!parsed.success) {
+    const next: FullEdit =
+      change === "PUBLISH"
+        ? { ...edit, status: "DEMO_PUBLISHED", review: approved }
+        : change === "UNPUBLISH"
+          ? { ...edit, status: "PAUSED" }
+          : edit;
+    const parsed = catalogueEditSchema.safeParse(cleanEdit(next));
+    const missing =
+      parsed.success && change === "PUBLISH"
+        ? listingReadiness(parsed.data)
+        : [];
+    if (!parsed.success || missing.length) {
       setProblems(
-        parsed.error.issues.map((i) =>
-          i.path.length ? `${i.path.join(" › ")}: ${i.message}` : i.message,
-        ),
+        parsed.success
+          ? missing
+          : parsed.error.issues.map((i) =>
+              i.path.length ? `${i.path.join(" › ")}: ${i.message}` : i.message,
+            ),
       );
-      setStatus("Fix the problems below, then save again.");
+      setStatus(
+        change === "PUBLISH"
+          ? "Not ready to publish yet. Fix the items below."
+          : "Fix the problems below, then save again.",
+      );
       return;
     }
     setProblems([]);
@@ -207,10 +234,16 @@ export default function AdminCatalogue() {
       setRows((rows) =>
         rows.map((row) => (row.id === body.data.id ? body.data : row)),
       );
-      const next = editRow(body.data);
-      setEdit(next);
-      setBaseline(JSON.stringify(next));
-      setStatus(`Saved version ${body.data.version}. Audit recorded.`);
+      const saved = editRow(body.data);
+      setEdit(saved);
+      setBaseline(JSON.stringify(saved));
+      setStatus(
+        change === "PUBLISH"
+          ? "Published. Travellers can see it now."
+          : change === "UNPUBLISH"
+            ? "Unpublished. Hidden from new bookings."
+            : `Saved version ${body.data.version}.`,
+      );
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Save failed.");
     } finally {
@@ -350,7 +383,13 @@ export default function AdminCatalogue() {
         aria-label="Listing editor"
       >
         {edit ? (
-          <form onSubmit={save} noValidate>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              save();
+            }}
+            noValidate
+          >
             <div className="admin-editor-top">
               <a
                 href="#admin-listings-heading"
@@ -397,7 +436,8 @@ export default function AdminCatalogue() {
             <fieldset className="admin-editor-fields" disabled={busy}>
               {section === "review" && (
                 <p className="notice">
-                  Publishing makes this listing visible in the demo catalogue.
+                  New listings are added by staff, so publishing needs no second
+                  approval.
                 </p>
               )}
               <ListingForm edit={edit} set={set} section={section} />
@@ -426,7 +466,27 @@ export default function AdminCatalogue() {
                 >
                   Discard
                 </button>
-                <button disabled={!dirty || busy}>Save audited changes</button>
+                <button className="secondary" disabled={!dirty || busy}>
+                  Save changes
+                </button>
+                {current?.status === "DEMO_PUBLISHED" ? (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => save("UNPUBLISH")}
+                  >
+                    Unpublish
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => save("PUBLISH")}
+                  >
+                    {dirty ? "Save & publish" : "Publish"}
+                  </button>
+                )}
               </div>
             </div>
           </form>

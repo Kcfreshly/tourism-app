@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { categoryIds } from "../../trips/domain/profile";
 import { eventTypes } from "./events";
+import { tagIds } from "./tags";
+import { placeholderSummary } from "./experience-content";
 export const reviewSchema = z
   .object({
     content: z.boolean(),
@@ -89,7 +91,7 @@ export const catalogueEditSchema = z
       })
       .strict()
       .optional(),
-    tags: z.array(z.string().trim().min(2).max(30)).max(10).optional(),
+    tags: z.array(z.enum(tagIds)).max(10).optional(),
     // Pricing and party rules.
     priceBasis: z.enum(["PER_ADULT", "PER_GROUP"]).optional(),
     capacityUnit: z.enum(["PERSON", "GROUP"]).optional(),
@@ -209,6 +211,20 @@ export function nightReviewIssue(
       }
     : null;
 }
+// What a listing still needs before travellers can see it. Staff publish
+// directly (they are the approvers), so these checks stand in for a separate
+// verification step. Sections an older client didn't send are not checked.
+export function listingReadiness(edit: CatalogueEdit) {
+  const missing: string[] = [];
+  if (edit.rateMinor <= 0) missing.push("Set a price above ₦0");
+  if (edit.story && edit.story.summary === placeholderSummary)
+    missing.push("Write the story summary");
+  if (edit.details && /\(sample venue\)$/.test(edit.details.venue))
+    missing.push("Add the venue or meeting point");
+  if (edit.inclusions && !edit.inclusions.length)
+    missing.push("List at least one thing that is included");
+  return missing;
+}
 // Review rules for a staff edit. Returns the first reason the edit is refused.
 export function catalogueEditIssue(
   current: { status: string; isDemo: boolean },
@@ -223,14 +239,9 @@ export function catalogueEditIssue(
     const issues = demoPublishIssues(edit.review);
     if (issues.length)
       return { code: "REVIEW_REQUIRED", message: issues.join("; ") };
-    if (
-      !reviewedStatuses.includes(current.status) &&
-      edit.status === "DEMO_PUBLISHED"
-    )
-      return {
-        code: "VERIFY_FIRST",
-        message: "Save as demo verified before publishing.",
-      };
+    const missing = listingReadiness(edit);
+    if (missing.length)
+      return { code: "NOT_READY", message: missing.join("; ") };
   }
   return null;
 }

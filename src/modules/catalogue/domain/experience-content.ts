@@ -185,6 +185,10 @@ const stories: Record<string, Story> = {
   },
 };
 
+// Shown until staff write a summary; a listing with it can't be published.
+export const placeholderSummary =
+  "Details for this experience are being prepared.";
+
 export function storyFor(e: {
   seedKey?: string;
   categoryId: string;
@@ -195,7 +199,7 @@ export function storyFor(e: {
     e.story ??
     (seedKey ? stories[seedKey] : undefined) ?? {
       teaser: `A ${categoryShortLabels[categoryId]?.toLowerCase() ?? "local"} experience in Lagos.`,
-      summary: "Details for this experience are being prepared.",
+      summary: placeholderSummary,
       why: "",
     }
   );

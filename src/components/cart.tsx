@@ -14,9 +14,9 @@ import {
 import { lagosToday } from "@/modules/catalogue/domain/events";
 import { runsOn, shortDay } from "@/modules/catalogue/domain/schedule";
 import {
-  packageBySlug,
   packageLength,
   packageRoute,
+  type TripPackage,
 } from "@/modules/catalogue/domain/packages";
 import {
   cartTotals,
@@ -57,9 +57,14 @@ function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-function view(line: CartLine, catalogue: Listing[], today: string): LineView {
+function view(
+  line: CartLine,
+  catalogue: Listing[],
+  trips: TripPackage[],
+  today: string,
+): LineView {
   if (line.kind === "PACKAGE") {
-    const p = packageBySlug(line.packageSlug);
+    const p = trips.find((t) => t.slug === line.packageSlug);
     if (!p)
       return {
         line,
@@ -159,16 +164,26 @@ function view(line: CartLine, catalogue: Listing[], today: string): LineView {
   };
 }
 
+async function loadTrips(): Promise<TripPackage[]> {
+  const r = await fetch("/api/v1/packages");
+  const body = await r.json();
+  if (!r.ok) throw Error(body.error?.message ?? "Unable to load trips.");
+  return body.data;
+}
+
 // Resolves the browser cart against the published catalogue.
 export function useCartView() {
   const { lines, remove } = useCart();
   const [catalogue, setCatalogue] = useState<Listing[] | null>(null);
+  const [trips, setTrips] = useState<TripPackage[]>([]);
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    loadCatalogue()
-      .then((data) => {
-        if (active) setCatalogue(data);
+    Promise.all([loadCatalogue(), loadTrips()])
+      .then(([data, published]) => {
+        if (!active) return;
+        setTrips(published);
+        setCatalogue(data);
       })
       .catch(() => {
         if (active) {
@@ -181,7 +196,9 @@ export function useCartView() {
     };
   }, []);
   const today = lagosToday();
-  const views = catalogue ? lines.map((l) => view(l, catalogue, today)) : [];
+  const views = catalogue
+    ? lines.map((l) => view(l, catalogue, trips, today))
+    : [];
   const payable = views.filter((v) => !v.problem);
   return {
     loading: !catalogue,

@@ -28,7 +28,12 @@ export default async function DestinationPage({
 }) {
   const d = destinationById((await params).city);
   if (!d) notFound();
-  const records = await pages.listPublishedExperiences().catch(() => []);
+  const [records, trips] = await Promise.all([
+    pages.listPublishedExperiences().catch(() => []),
+    pages.listPublishedPackages().catch(() => []),
+  ]);
+  // Ready-made trips that leave from this city.
+  const packages = trips.filter((p) => p.startCity === d.name);
   return (
     <>
       <section className="home-hero destination-hero">
@@ -75,6 +80,7 @@ export default async function DestinationPage({
       </section>
       <HomeSections
         records={records}
+        packages={packages}
         weekend={weekendDates(lagosToday())}
         today={lagosToday()}
         city={d.id}

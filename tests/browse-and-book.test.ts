@@ -25,7 +25,7 @@ import {
   sumRows,
 } from "../src/modules/bookings/domain/cart";
 import {
-  packageBySlug,
+  demoPackages,
   planSeed,
 } from "../src/modules/catalogue/domain/packages";
 
@@ -179,7 +179,7 @@ describe("cart", () => {
 
 describe("ready-made trips", () => {
   it("prices travellers and single rooms, and seeds a custom plan", () => {
-    const p = packageBySlug("southwest-heritage")!;
+    const p = demoPackages.find((d) => d.slug === "southwest-heritage")!;
     expect(
       sumRows(packageLinePrice({ travellers: 2, singleRooms: 1 }, p)),
     ).toBe(2 * p.priceMinor + p.singleSupplementMinor);

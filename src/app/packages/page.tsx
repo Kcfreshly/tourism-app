@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Icon from "@/components/icons";
 import PackageCard from "@/components/package-card";
-import { packages } from "@/modules/catalogue/domain/packages";
+import { pages } from "@/bootstrap/container";
 
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Ready-made trips" };
 
-export default function Packages() {
+export default async function Packages() {
+  const packages = await pages.listPublishedPackages().catch(() => []);
   return (
     <section className="page packages-page">
       <header className="page-intro">
@@ -17,11 +19,18 @@ export default function Packages() {
           Prefer to shape your own days? Plan with Kemi instead.
         </p>
       </header>
-      <div className="package-grid">
-        {packages.map((p) => (
-          <PackageCard key={p.slug} p={p} />
-        ))}
-      </div>
+      {packages.length ? (
+        <div className="package-grid">
+          {packages.map((p) => (
+            <PackageCard key={p.slug} p={p} />
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <h2>No ready-made trips right now</h2>
+          <p>New trips from our partner operators are added regularly.</p>
+        </div>
+      )}
       <aside className="kemi-card">
         <span className="kemi-avatar" aria-hidden="true">
           K

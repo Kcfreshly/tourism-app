@@ -3,7 +3,7 @@ import type { PublishedExperience } from "@/modules/catalogue/domain/experience"
 import { listingDetails } from "@/modules/catalogue/domain/listing-details";
 import { runsOn, shortDay } from "@/modules/catalogue/domain/schedule";
 import { upcomingEvents } from "@/modules/catalogue/domain/events";
-import { packages } from "@/modules/catalogue/domain/packages";
+import type { TripPackage } from "@/modules/catalogue/domain/packages";
 import { ExperienceCard } from "./catalogue-browser";
 import PackageCard from "./package-card";
 import Icon from "./icons";
@@ -46,11 +46,13 @@ function Rail({
 // section hides itself when there is nothing to show.
 export default function HomeSections({
   records,
+  packages,
   weekend,
   today,
   city,
 }: {
   records: PublishedExperience[];
+  packages: TripPackage[];
   weekend: string[];
   today: string;
   city: string;

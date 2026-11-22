@@ -9,13 +9,15 @@ import {
   fastlifeSupport,
   inclusionLabels,
   inclusionStatusLabels,
-  packageBySlug,
   packageLength,
   packageRoute,
   seatLabels,
   type InclusionStatus,
 } from "@/modules/catalogue/domain/packages";
 import { shortDay } from "@/modules/catalogue/domain/schedule";
+import { pages } from "@/bootstrap/container";
+
+export const dynamic = "force-dynamic";
 
 const statusIcon: Record<InclusionStatus, "check" | "close" | "info"> = {
   INCLUDED: "check",
@@ -29,7 +31,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const p = packageBySlug((await params).slug);
+  const p = await pages
+    .publishedPackage((await params).slug)
+    .catch(() => undefined);
   return { title: p?.title ?? "Ready-made trip" };
 }
 
@@ -40,7 +44,7 @@ export default async function PackageDetail({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ edit?: string }>;
 }) {
-  const p = packageBySlug((await params).slug);
+  const p = await pages.publishedPackage((await params).slug);
   if (!p) notFound();
   const { edit } = await searchParams;
   return (
