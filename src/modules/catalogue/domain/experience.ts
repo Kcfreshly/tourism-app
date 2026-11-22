@@ -37,6 +37,8 @@ export type CatalogueRecord = {
   version: number;
   record: unknown;
   review: unknown;
+  // The partner who runs it; null or absent for Fastlife's own listings.
+  partnerId?: string | null;
 };
 export type PublishedExperience = Experience & { seedKey: string };
 // Adds display and scheduling defaults to a published row.

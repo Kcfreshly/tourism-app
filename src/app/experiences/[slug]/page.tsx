@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import PhotoCredit from "@/components/photo-credit";
 import Link from "next/link";
 import BookingPanel from "@/components/booking-panel";
+import ViewBeacon from "@/components/view-beacon";
 import Icon from "@/components/icons";
 import { notFound } from "next/navigation";
 import { pages } from "@/bootstrap/container";
@@ -61,6 +62,7 @@ export default async function Detail({
   const details = listingDetails(e);
   return (
     <section className="detail-page">
+      <ViewBeacon productType="EXPERIENCE" productId={e.id} />
       <Link className="text-link back-link" href={safeExploreHref(back)}>
         <Icon name="arrowLeft" size={16} /> Things to do
       </Link>

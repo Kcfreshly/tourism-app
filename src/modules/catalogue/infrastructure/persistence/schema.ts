@@ -20,6 +20,8 @@ export const catalogue = pgTable("catalogue", {
     policy: false,
     media: false,
   }),
+  // The partner who runs it; null for listings Fastlife runs itself.
+  partnerId: uuid(),
 });
 // Ready-made trips. `record` holds a TripPackage; the slug is fixed at
 // creation because cart lines refer to it.
@@ -30,6 +32,7 @@ export const packages = pgTable("packages", {
   version: integer().notNull().default(1),
   record: jsonb().notNull(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  partnerId: uuid(),
 });
 // Uploaded listing photos. Rows are never deleted, so a listing restored from
 // the audit trail gets its photos back.

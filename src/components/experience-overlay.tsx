@@ -1,4 +1,5 @@
 "use client";
+import ViewBeacon from "./view-beacon";
 import {
   createContext,
   useContext,
@@ -515,6 +516,7 @@ function ActivityDialog({
           )}
         </div>
       </div>
+      <ViewBeacon productType="EXPERIENCE" productId={e.id} />
     </dialog>,
     document.body,
   );

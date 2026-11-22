@@ -21,6 +21,7 @@ function snapshotOf(row: CatalogueRecord) {
     version: row.version,
     record: row.record,
     review: row.review,
+    partnerId: row.partnerId ?? null,
   };
 }
 
@@ -224,6 +225,7 @@ export class DrizzleCatalogueRepository implements CatalogueRepository {
           version: snapshot.version + 1,
           record: snapshot.record,
           review: snapshot.review,
+          partnerId: snapshot.partnerId ?? null,
         })
         .returning();
       await tx.insert(audit).values({

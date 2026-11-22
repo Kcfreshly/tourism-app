@@ -8,6 +8,7 @@ import {
   shortDay,
   shortestVisit,
 } from "../../catalogue/domain/schedule";
+import { formatDuration } from "../../catalogue/domain/experience-content";
 import {
   defaultTransportSettings,
   type TransportSettings,
@@ -378,8 +379,19 @@ export function assess(
       );
     if (offer.cityId !== profile.cityId)
       add("CITY_MISMATCH", "Choose an experience in your trip city.", item.id);
-    if (duration < shortestVisit(offer) || duration > offer.durationMaxMinutes)
-      add("DURATION", "Duration is outside the offer limits.", item.id);
+    // Say what is allowed and how long the block is, so the fix is obvious.
+    if (duration > offer.durationMaxMinutes)
+      add(
+        "DURATION",
+        `This can last up to ${formatDuration(offer.durationMaxMinutes)}, and this block is ${formatDuration(duration)}. Start later or end earlier.`,
+        item.id,
+      );
+    else if (duration > 0 && duration < shortestVisit(offer))
+      add(
+        "DURATION",
+        `Stay at least ${formatDuration(shortestVisit(offer))}; this block is ${formatDuration(duration)}.`,
+        item.id,
+      );
     if (
       profile.adults < offer.offer.minParty ||
       profile.adults > offer.offer.maxParty

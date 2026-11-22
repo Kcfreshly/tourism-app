@@ -64,6 +64,7 @@ function toRecord(row: typeof packages.$inferSelect): PackageRecord {
     status: row.status,
     version: row.version,
     record: row.record as TripPackage,
+    partnerId: row.partnerId,
   };
 }
 

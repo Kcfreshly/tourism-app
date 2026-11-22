@@ -2169,7 +2169,9 @@ export default function Planner({
                 <p className="form-hint">
                   {editingOffer.schedulingType === "FIXED"
                     ? "Session times are set by the host and can’t be changed."
-                    : `${shortestVisit(editingOffer) < editingOffer.durationMinMinutes ? `Usually ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}; drop in late and stay from ${formatDuration(shortestVisit(editingOffer))}.` : `Lasts ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}.`} Open ${editingOffer.availabilityLocal.opensAt}–${clockLabel(editingOffer.availabilityLocal.closesAt)}, Lagos time. The whole visit must fit.`}
+                    : // The stay range is the hard limit; the usual length
+                      // is only a guide.
+                      `Stay ${formatDuration(shortestVisit(editingOffer), editingOffer.durationMaxMinutes)}${shortestVisit(editingOffer) < editingOffer.durationMinMinutes ? ` (most visits are ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)})` : ""}. Open ${editingOffer.availabilityLocal.opensAt}–${clockLabel(editingOffer.availabilityLocal.closesAt)}, Lagos time. This block: ${formatDuration(Math.max(0, minutes(editing.endTime) - minutes(editing.startTime)))}.`}
                 </p>
               )}
               <label className="check">

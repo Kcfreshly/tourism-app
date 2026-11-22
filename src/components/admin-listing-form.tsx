@@ -64,6 +64,12 @@ export const sections = [
   { id: "history", label: "History" },
 ] as const;
 export type SectionId = (typeof sections)[number]["id"];
+// Partners fill in the same listing, then send it to staff. The publication
+// status, the night-time security review and the audit history stay with staff.
+export const partnerSections = sections
+  .filter((s) => s.id !== "history")
+  .map((s) => (s.id === "review" ? { ...s, label: "Submit" } : s));
+export type Audience = "staff" | "partner";
 
 const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const statusHints: Record<string, string> = {
@@ -231,11 +237,14 @@ export default function ListingForm({
   edit,
   set,
   section,
+  audience = "staff",
 }: {
   edit: FullEdit;
   set: (patch: Partial<FullEdit>) => void;
   section: SectionId;
+  audience?: Audience;
 }) {
+  const staff = audience === "staff";
   const details = (patch: Partial<FullEdit["details"]>) =>
     set({ details: { ...edit.details, ...patch } });
   const fixed = edit.schedulingType === "FIXED";
@@ -693,15 +702,17 @@ export default function ListingForm({
                 onChange={(pickupRateMinor) => details({ pickupRateMinor })}
               />
             )}
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={edit.nightVisitAllowed ?? false}
-                onChange={(e) => set({ nightVisitAllowed: e.target.checked })}
-              />
-              Night visit allowed: the night-time security review has passed.
-              Required to publish a listing that runs past midnight.
-            </label>
+            {staff && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={edit.nightVisitAllowed ?? false}
+                  onChange={(e) => set({ nightVisitAllowed: e.target.checked })}
+                />
+                Night visit allowed: the night-time security review has passed.
+                Required to publish a listing that runs past midnight.
+              </label>
+            )}
             <Choice
               label="Confirmation"
               value={edit.details.confirmation}
@@ -774,13 +785,16 @@ export default function ListingForm({
         </>
       );
     case "history":
-      return <ListingHistory id={edit.id} version={edit.expectedVersion} />;
+      return staff ? (
+        <ListingHistory id={edit.id} version={edit.expectedVersion} />
+      ) : null;
     case "media":
       return (
         <>
           <PhotoUploader
             images={edit.images}
             onChange={(images) => set({ images })}
+            uploadUrl={staff ? undefined : "/api/v1/partner/media"}
           />
           <label>
             Inspiration photo
@@ -881,6 +895,28 @@ export default function ListingForm({
         </>
       );
     case "review":
+      if (!staff)
+        return (
+          <>
+            <div className="admin-readiness">
+              <h3>Ready to submit?</h3>
+              {missing.length ? (
+                <ul>
+                  {missing.map((m) => (
+                    <li key={m}>{m}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Everything travellers need is filled in.</p>
+              )}
+              <p className="form-hint">
+                Use Submit for review below. Fastlife checks the listing and
+                either publishes it or sends it back with what to change.
+              </p>
+            </div>
+            <CustomerPreview edit={edit} />
+          </>
+        );
       return (
         <>
           <p className="admin-status-line">

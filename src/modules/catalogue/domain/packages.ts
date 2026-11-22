@@ -100,6 +100,8 @@ export type PackageRecord = {
   status: string;
   version: number;
   record: TripPackage;
+  // The partner who runs it; null or absent for Fastlife's own trips.
+  partnerId?: string | null;
 };
 
 export const packageEditSchema = z

@@ -17,6 +17,10 @@ Grant with the dev server stopped:
 `--super` for a super admin. The API enforces the roles; the admin panel only
 shows **Delete listing** to super admins.
 
+Partners are not a role: any account can apply at `/partner`, and staff verify
+the business under **Partners** in `/admin`. The same section is the queue for
+activities and trips partners submit. See [PARTNER_PORTAL.md](PARTNER_PORTAL.md).
+
 ## Audit trail, deleting and restoring
 
 `audit_events` is the backup. Every create, save, delete and restore of a

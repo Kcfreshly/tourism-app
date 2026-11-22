@@ -52,6 +52,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div>
                   <h2>Preview</h2>
+                  <Link href="/partner">Partner with us</Link>
                   <Link href="/photo-credits">Photo credits</Link>
                 </div>
               </nav>

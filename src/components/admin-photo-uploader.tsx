@@ -13,9 +13,12 @@ import {
 export default function PhotoUploader({
   images,
   onChange,
+  uploadUrl = "/api/v1/admin/media",
 }: {
   images: ListingImage[];
   onChange: (images: ListingImage[]) => void;
+  // Partners upload through their own route.
+  uploadUrl?: string;
 }) {
   const [uploading, setUploading] = useState(0),
     [errors, setErrors] = useState<string[]>([]);
@@ -33,7 +36,7 @@ export default function PhotoUploader({
         if (file.size > maxImageBytes) throw Error("larger than 5 MB");
         const form = new FormData();
         form.append("file", file);
-        const r = await fetch("/api/v1/admin/media", {
+        const r = await fetch(uploadUrl, {
           method: "POST",
           body: form,
         });

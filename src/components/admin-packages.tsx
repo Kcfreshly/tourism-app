@@ -21,14 +21,14 @@ import { Choice, Lines, Money, Num } from "./admin-listing-form";
 import TagPicker from "./admin-tag-picker";
 import PackageCard from "./package-card";
 
-type Draft = {
+export type Draft = {
   id: string;
   expectedVersion: number;
   status: PackageRecord["status"];
   trip: TripPackage & { tags: NonNullable<TripPackage["tags"]> };
 };
 
-const sections = [
+export const tripSections = [
   { id: "basics", label: "Basics" },
   { id: "route", label: "Route" },
   { id: "departures", label: "Departures" },
@@ -36,7 +36,7 @@ const sections = [
   { id: "included", label: "What's included" },
   { id: "publish", label: "Terms & publish" },
 ] as const;
-type SectionId = (typeof sections)[number]["id"];
+export type TripSectionId = (typeof tripSections)[number]["id"];
 
 const statusNames: Record<string, string> = {
   DRAFT: "Draft",
@@ -49,7 +49,7 @@ const statusHints: Record<string, string> = {
   PAUSED: "Unpublished: hidden; carts that hold it show it as unavailable.",
 };
 
-function draftOf(row: PackageRecord): Draft {
+export function draftOf(row: PackageRecord): Draft {
   return {
     id: row.id,
     expectedVersion: row.version,
@@ -59,7 +59,7 @@ function draftOf(row: PackageRecord): Draft {
 }
 
 // Drops blank terms, renumbers days and sorts departures before saving.
-function cleanTrip(trip: Draft["trip"]): TripPackage {
+export function cleanTrip(trip: Draft["trip"]): TripPackage {
   return {
     ...trip,
     route: trip.route.map((r, i) => ({ ...r, day: i + 1 })),
@@ -70,14 +70,17 @@ function cleanTrip(trip: Draft["trip"]): TripPackage {
   };
 }
 
-function TripForm({
+export function TripForm({
   trip,
   set,
   section,
+  audience = "staff",
 }: {
   trip: Draft["trip"];
   set: (patch: Partial<Draft["trip"]>) => void;
-  section: SectionId;
+  section: TripSectionId;
+  // Partners submit the trip for review instead of publishing it.
+  audience?: "staff" | "partner";
 }) {
   const today = lagosToday();
   switch (section) {
@@ -392,7 +395,9 @@ function TripForm({
             hint="One per line: payment, refunds by days before departure, and changes the operator may make."
           />
           <div className="admin-readiness">
-            <h3>Ready to publish?</h3>
+            <h3>
+              {audience === "staff" ? "Ready to publish?" : "Ready to submit?"}
+            </h3>
             {missing.length ? (
               <ul>
                 {missing.map((m) => (
@@ -417,7 +422,7 @@ export default function AdminPackages() {
   const [rows, setRows] = useState<PackageRecord[]>([]),
     [edit, setEdit] = useState<Draft | null>(null),
     [baseline, setBaseline] = useState(""),
-    [section, setSection] = useState<SectionId>("basics"),
+    [section, setSection] = useState<TripSectionId>("basics"),
     [status, setStatus] = useState("Loading trips…"),
     [problems, setProblems] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
@@ -692,7 +697,7 @@ export default function AdminPackages() {
                 )}
               </div>
               <nav className="admin-tabs" aria-label="Trip sections">
-                {sections.map((s) => (
+                {tripSections.map((s) => (
                   <button
                     key={s.id}
                     type="button"

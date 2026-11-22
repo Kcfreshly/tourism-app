@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { pages } from "@/bootstrap/container";
 import AdminCatalogue from "@/components/admin-catalogue";
 import AdminPackages from "@/components/admin-packages";
+import AdminPartners from "@/components/admin-partners";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
 import { isSuperAdmin } from "@/modules/identity/domain/actor";
@@ -40,11 +41,26 @@ export default async function Admin() {
       </header>
       <nav className="admin-jump" aria-label="Staff workspace sections">
         <a href="#listings">Activities</a>
+        <a href="#partners">Partners</a>
         <a href="#packages">Ready-made trips</a>
         <a href="#transport">Transport &amp; guides</a>
       </nav>
       <section id="listings" aria-labelledby="admin-listings-heading">
         <AdminCatalogue canDelete={isSuperAdmin(actor)} />
+      </section>
+      <section
+        id="partners"
+        className="admin-section"
+        aria-labelledby="admin-partners-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-partners-heading">Partners</h2>
+          <p className="muted">
+            Verify partner businesses, and approve or send back the activities
+            and trips they submit. Approved ones go live straight away.
+          </p>
+        </div>
+        <AdminPartners />
       </section>
       <section
         id="packages"

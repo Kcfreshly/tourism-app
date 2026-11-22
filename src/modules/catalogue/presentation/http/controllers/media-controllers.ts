@@ -6,14 +6,16 @@ import { imageUrl, maxImageBytes } from "../../../domain/images";
 import type { MediaRepository } from "../../../application/ports/media-repository";
 import type { UploadImage } from "../../../application/use-cases/upload-image";
 
-// Staff upload one photo per request as multipart form data, field "file".
+// Staff, or verified partners through their own route, upload one photo per
+// request as multipart form data, field "file".
 export function createUploadImageController(
   guards: RequestGuards,
   upload: UploadImage,
+  authorize: () => Promise<{ id: string }> = guards.requireAdmin,
 ) {
   return controller(async (request: Request) => {
     await guards.checkOrigin();
-    const actor = await guards.requireAdmin();
+    const actor = await authorize();
     await guards.throttle(`media-upload:${actor.id}`, 60);
     const declared = Number(request.headers.get("content-length") ?? 0);
     if (declared > maxImageBytes + 64 * 1024)

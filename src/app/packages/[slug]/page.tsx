@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Icon from "@/components/icons";
 import PackageBooking from "@/components/package-booking";
+import ViewBeacon from "@/components/view-beacon";
 import { PackageCover } from "@/components/package-card";
 import { lagosToday } from "@/modules/catalogue/domain/events";
 import {
@@ -49,6 +50,7 @@ export default async function PackageDetail({
   const { edit } = await searchParams;
   return (
     <section className="detail-page package-detail">
+      <ViewBeacon productType="PACKAGE" productId={p.slug} />
       <Link className="text-link back-link" href="/packages">
         <Icon name="arrowLeft" size={16} /> Ready-made trips
       </Link>

@@ -195,6 +195,33 @@ describe("listings admin panel", () => {
     expect(await screen.findByText(/Saved version 5/)).toBeTruthy();
   });
 
+  it("saves a published listing whose review was never recorded", async () => {
+    // Seeded demo rows are published without a ticked checklist.
+    const ticked = row.review;
+    row.review = {
+      content: false,
+      rates: false,
+      capacity: false,
+      policy: false,
+      media: false,
+    };
+    try {
+      await openMarket();
+      fireEvent.click(screen.getByRole("button", { name: "Pricing & party" }));
+      fireEvent.change(screen.getByLabelText(/^Rate/), {
+        target: { value: "19000" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      await waitFor(() => expect(patches).toHaveLength(1));
+      expect(patches[0]).toMatchObject({
+        status: "DEMO_PUBLISHED",
+        review: ticked,
+      });
+    } finally {
+      row.review = ticked;
+    }
+  });
+
   it("explains invalid values instead of sending them", async () => {
     await openMarket();
     fireEvent.click(screen.getByRole("button", { name: "Pricing & party" }));

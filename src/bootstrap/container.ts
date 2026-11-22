@@ -93,6 +93,47 @@ import { createGenerateProposalController } from "@/modules/trips/presentation/h
 import { createGetWorkspaceController } from "@/modules/trips/presentation/http/controllers/get-workspace-controller";
 import { createSaveWorkspaceController } from "@/modules/trips/presentation/http/controllers/save-workspace-controller";
 import { createOwnedTripLoader } from "@/modules/trips/presentation/http/owned-trip";
+import {
+  PublishPartnerExperience,
+  PublishPartnerPackage,
+} from "@/modules/catalogue/application/use-cases/publish-partner-listing";
+import type {
+  CatalogueRecord,
+  Experience,
+} from "@/modules/catalogue/domain/experience";
+import type { PackageRecord } from "@/modules/catalogue/domain/packages";
+import { isAdmin } from "@/modules/identity/domain/actor";
+import type {
+  ListingCatalogue,
+  LiveListing,
+} from "@/modules/partners/application/ports/listing-catalogue";
+import { PartnerAccess } from "@/modules/partners/application/services/partner-access";
+import { ApplyAsPartner } from "@/modules/partners/application/use-cases/apply-as-partner";
+import {
+  DecidePartner,
+  ListPartners,
+} from "@/modules/partners/application/use-cases/decide-partner";
+import {
+  DecideSubmission,
+  ListSubmissionQueue,
+} from "@/modules/partners/application/use-cases/decide-submission";
+import { ListPartnerListings } from "@/modules/partners/application/use-cases/list-partner-listings";
+import {
+  GetPartnerDashboard,
+  RecordListingVisit,
+} from "@/modules/partners/application/use-cases/partner-dashboard";
+import {
+  SaveSubmission,
+  WithdrawSubmission,
+} from "@/modules/partners/application/use-cases/save-submission";
+import { StartSubmission } from "@/modules/partners/application/use-cases/start-submission";
+import { DrizzleListingStatsRepository } from "@/modules/partners/infrastructure/persistence/drizzle-listing-stats-repository";
+import { DrizzlePartnerRepository } from "@/modules/partners/infrastructure/persistence/drizzle-partner-repository";
+import {
+  createAdminPartnerControllers,
+  createPartnerControllers,
+  createRecordVisitController,
+} from "@/modules/partners/presentation/http/controllers/partner-controllers";
 
 // Infrastructure. Repositories receive the lazy client, so nothing connects
 // until the first request.
@@ -121,6 +162,76 @@ const publishedOffers = {
   ids: async () =>
     new Set((await listPublished.execute()).map((e) => e.offer.id)),
 };
+
+// Partners, and the narrow view of the catalogue they need.
+const partnerRepository = new DrizzlePartnerRepository(db);
+const listingStats = new DrizzleListingStatsRepository(db);
+const partnerAccess = new PartnerAccess(partnerRepository);
+const liveExperience = (r: CatalogueRecord): LiveListing => ({
+  productType: "EXPERIENCE",
+  productId: r.id,
+  name: (r.record as Experience).name,
+  status: r.status,
+  version: r.version,
+  slug: r.seedKey,
+  offerId: (r.record as Experience).offer.id,
+  partnerId: r.partnerId ?? null,
+  record: r.record,
+});
+const livePackage = (r: PackageRecord): LiveListing => ({
+  productType: "PACKAGE",
+  productId: r.id,
+  name: r.record.title,
+  status: r.status,
+  version: r.version,
+  slug: r.slug,
+  partnerId: r.partnerId ?? null,
+  record: r.record,
+});
+const publishPartnerExperience = new PublishPartnerExperience(
+  catalogueRepository,
+);
+const publishPartnerPackage = new PublishPartnerPackage(packageRepository);
+const listingCatalogue: ListingCatalogue = {
+  async owned(partnerId) {
+    const [listings, trips] = await Promise.all([
+      catalogueRepository.listAll(),
+      packageRepository.listAll(),
+    ]);
+    return [
+      ...listings.filter((r) => r.partnerId === partnerId).map(liveExperience),
+      ...trips.filter((r) => r.partnerId === partnerId).map(livePackage),
+    ];
+  },
+  async find(productType, productId) {
+    if (productType === "EXPERIENCE") {
+      const row = (await catalogueRepository.listAll()).find(
+        (r) => r.id === productId,
+      );
+      return row ? liveExperience(row) : null;
+    }
+    const row = (await packageRepository.listAll()).find(
+      (r) => r.id === productId,
+    );
+    return row ? livePackage(row) : null;
+  },
+  approveExperience: (command) => publishPartnerExperience.execute(command),
+  approvePackage: (command) => publishPartnerPackage.execute(command),
+};
+const partnerApi = createPartnerControllers({
+  guards,
+  access: partnerAccess,
+  apply: new ApplyAsPartner(partnerRepository),
+  listings: new ListPartnerListings(partnerRepository, listingCatalogue),
+  start: new StartSubmission(partnerRepository, listingCatalogue),
+  save: new SaveSubmission(partnerRepository),
+  withdraw: new WithdrawSubmission(partnerRepository),
+  dashboard: new GetPartnerDashboard(
+    partnerRepository,
+    listingCatalogue,
+    listingStats,
+  ),
+});
 
 // Trips
 const selection = new OfferSelection(offers);
@@ -186,7 +297,26 @@ export const api = {
       new UploadImage(mediaRepository),
     ),
     get: createGetImageHandler(mediaRepository),
+    partnerUpload: createUploadImageController(
+      guards,
+      new UploadImage(mediaRepository),
+      partnerApi.authorizeUpload,
+    ),
   },
+  partner: partnerApi,
+  adminPartners: createAdminPartnerControllers({
+    guards,
+    list: new ListPartners(partnerRepository),
+    decide: new DecidePartner(partnerRepository),
+    queue: new ListSubmissionQueue(partnerRepository, listingCatalogue),
+    decideSubmission: new DecideSubmission(partnerRepository, listingCatalogue),
+  }),
+  views: createRecordVisitController({
+    guards,
+    access: partnerAccess,
+    record: new RecordListingVisit(listingStats),
+    isStaff: isAdmin,
+  }),
   packages: {
     list: createListPackagesController(listPublishedPackages),
   },
@@ -267,6 +397,8 @@ export const api = {
 export const pages = {
   ...createPageGuards(sessions),
   requireAdmin: guards.requireAdmin,
+  currentActor: guards.currentActor,
+  partnerFor: (userId: string) => partnerAccess.membership(userId),
   listPublishedExperiences: () => listPublished.execute(),
   listPublishedPackages: () => listPublishedPackages.execute(),
   publishedPackage: async (slug: string) =>
