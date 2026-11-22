@@ -2165,6 +2165,20 @@ body:has(.planner-page) .site-header-inner {
 .account-page .segmented {
   margin-bottom: var(--space-5);
 }
+.account-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.account-name h2 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.account-page .form-card .account-name-form {
+  margin-bottom: var(--space-2);
+}
 
 /* ===== Staff workspace ===== */
 .admin-page {

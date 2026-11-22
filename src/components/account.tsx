@@ -15,6 +15,29 @@ export default function Account({ next }: { next?: string }) {
     [password, setPassword] = useState(""),
     [status, setStatus] = useState(""),
     [busy, setBusy] = useState(false);
+  // The signed-in display name being edited, or null when not editing.
+  const [rename, setRename] = useState<string | null>(null);
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    const value = rename?.trim();
+    if (!value) return;
+    setBusy(true);
+    setStatus("Saving your name…");
+    try {
+      const result = await client.updateUser({ name: value });
+      if (result.error) throw Error(result.error.message);
+      setRename(null);
+      setStatus("Name updated.");
+    } catch (e) {
+      setStatus(
+        e instanceof Error && e.message
+          ? e.message
+          : "Unable to save your name. Retry.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   async function merge() {
     const r = await fetch("/api/v1/account/merge", { method: "POST" });
     const body = await r.json();
@@ -73,7 +96,51 @@ export default function Account({ next }: { next?: string }) {
           <p role="status">Checking session…</p>
         ) : session ? (
           <>
-            <h2>{session.user.name}</h2>
+            {rename === null ? (
+              <div className="account-name">
+                <h2>{session.user.name}</h2>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => {
+                    setRename(session.user.name);
+                    setStatus("");
+                  }}
+                >
+                  Change name
+                </button>
+              </div>
+            ) : (
+              <form className="account-name-form" onSubmit={saveName}>
+                <label>
+                  Display name
+                  <input
+                    required
+                    autoFocus
+                    maxLength={100}
+                    autoComplete="name"
+                    value={rename}
+                    onChange={(e) => setRename(e.target.value)}
+                  />
+                </label>
+                <div className="actions">
+                  <button disabled={busy || !rename.trim()} type="submit">
+                    {busy ? "Saving…" : "Save name"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setRename(null);
+                      setStatus("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
             <p>{session.user.email}</p>
             <p className="notice">
               Local demo account. Email ownership is not verified; no emails or
