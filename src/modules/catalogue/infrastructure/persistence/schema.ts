@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   timestamp,
+  customType,
 } from "drizzle-orm/pg-core";
 export const catalogue = pgTable("catalogue", {
   id: uuid().primaryKey(),
@@ -29,4 +30,18 @@ export const packages = pgTable("packages", {
   version: integer().notNull().default(1),
   record: jsonb().notNull(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+// Uploaded listing photos. Rows are never deleted, so a listing restored from
+// the audit trail gets its photos back.
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+});
+export const media = pgTable("media", {
+  id: uuid().primaryKey(),
+  contentType: text().notNull(),
+  bytes: integer().notNull(),
+  sha256: text().notNull().unique(),
+  data: bytea().notNull(),
+  uploadedBy: text().notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

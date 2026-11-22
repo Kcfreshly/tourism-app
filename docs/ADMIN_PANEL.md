@@ -5,6 +5,79 @@
 Every save is version-checked and writes an audit event that names the fields
 that changed.
 
+## Roles
+
+| Role          | Can                                                                         |
+| ------------- | --------------------------------------------------------------------------- |
+| `ADMIN`       | Create, edit, publish and unpublish; read history; restore deleted listings |
+| `SUPER_ADMIN` | Everything an admin can, plus delete listings                               |
+
+Grant with the dev server stopped:
+`npm run demo:grant-admin -- email@example.test` for an admin, or add
+`--super` for a super admin. The API enforces the roles; the admin panel only
+shows **Delete listing** to super admins.
+
+## Audit trail, deleting and restoring
+
+`audit_events` is the backup. Every create, save, delete and restore of a
+listing adds an event holding a **full snapshot** of the listing after the
+change, with who did it and when. Migration 0008 also records a starting
+snapshot of every existing listing, and the seed script does the same for new
+seeds.
+
+The table is append-only, enforced by the database rather than the app:
+
+- `UPDATE`, `DELETE` and `TRUNCATE` on it are refused by triggers.
+- `DROP TABLE`, dropping its triggers or functions, and `ALTER TABLE` (for
+  example to disable a trigger) are refused by event triggers.
+- A developer can lift this for one console session only, with
+  `SET app.allow_audit_ddl = 'on';`. The app never sets it, so no admin action
+  can change the trail.
+
+On a hosted Postgres, also give the app's database role only `INSERT` and
+`SELECT` on `audit_events`, and keep table ownership with a separate
+developer role.
+
+**Deleting.** A super admin opens the listing, goes to **Publishing**, adds an
+optional reason and clicks **Delete listing**. The listing leaves the
+catalogue straight away. A `CATALOGUE_DELETED` event keeps its last snapshot
+and the reason.
+
+**Restoring.** Any admin opens **Recently deleted** under the listings and
+clicks **Restore**. The listing comes back exactly as it was when deleted
+(same id, address, status and content, with its photos), at the next version
+number. This adds a `CATALOGUE_RESTORED` event. A restore is refused if
+another listing has taken its address in the meantime. `npm run db:seed:demo`
+never re-creates a deleted demo listing, so recovery always goes through
+Restore.
+
+**History.** The **History** tab of each listing lists its audit events
+(created, saved with the changed fields, deleted with the reason, restored),
+read-only for every admin.
+
+## Photos
+
+In **Photos & event**, staff upload JPEG, PNG or WebP photos, up to 5 MB each
+and 12 per listing. Each photo gets a description for screen readers. The
+first photo is the **primary** one; **Make primary** moves any photo to the
+front, and the arrows reorder the rest.
+
+- Cards and search results show the primary photo.
+- The full experience page shows every photo in a grid, primary first and
+  largest.
+- The quick-view overlay shows one photo at a time with previous and next
+  buttons.
+
+A listing with no uploaded photos keeps using the chosen licensed inspiration
+photo.
+
+Uploads go to `POST /api/v1/admin/media` (admins only, 60 a minute). The
+server checks the file type from its bytes, never its name, and refuses
+anything else, including SVG. Photos are stored in the `media` table and served
+from `/api/v1/media/<id>` with long caching, `nosniff` and a locked-down
+content security policy. Identical files are stored once. Photo rows are never
+deleted, so restored listings keep their photos.
+
 ## What a listing editor can change
 
 Values save to the listing's catalogue record. Browse, the experience overlay,
@@ -19,8 +92,8 @@ change shows up on the next page load.
 | Schedule            | Days, opening hours (closing may be after midnight), shortest/longest visit, booking notice, flexible or fixed, sessions (time, length, capacity, dates), closed dates | Date pickers, "runs on" hints, planner placement                       |
 | Logistics & terms   | Operator, venue, getting there, pickup add-on price, night visit allowed, confirmation mode and partner reply time, free cancellation                                  | Booking panel, cart; late listings need night visit allowed to publish |
 | Access & inclusions | Walking intensity, wheelchair access, included, not included                                                                                                           | "Good to know" and inclusion lists                                     |
-| Media & event       | Photo (licensed set), video URL, dated event type, what is always included, what may happen but is never promised                                                      | Hero image and credit, video, What's on, event dates                   |
-| Publishing          | What is still missing before publishing; other statuses                                                                                                                | Only `DEMO_PUBLISHED` listings are visible                             |
+| Photos & event      | Uploaded photos with a primary, licensed inspiration photo, video URL, dated event type, what is always included, what may happen but is never promised                | Hero image and credit, video, What's on, event dates                   |
+| Publishing          | What is still missing before publishing; other statuses; delete (super admin)                                                                                          | Only `DEMO_PUBLISHED` listings are visible                             |
 
 The editor opens with what travellers see today. For demo listings that means
 the sample copy and terms in `experience-content.ts` and `listing-details.ts`.

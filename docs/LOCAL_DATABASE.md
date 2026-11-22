@@ -48,6 +48,14 @@ Run in PowerShell from the project folder.
 7. Stop the server, then run `npm run demo:grant-admin -- you@example.com`.
 8. `npm run dev` again, sign in and open `/admin`.
 
+## The audit table is protected
+
+Since migration 0008, `audit_events` can only be added to and read. Updates,
+deletes, truncating, dropping or altering it are refused by the database
+itself. To change it from a developer console, run
+`SET app.allow_audit_ddl = 'on';` in that session first. See
+[ADMIN_PANEL.md](ADMIN_PANEL.md#audit-trail-deleting-and-restoring).
+
 ## Keeping a backup
 
 With the server stopped, copy the folder:

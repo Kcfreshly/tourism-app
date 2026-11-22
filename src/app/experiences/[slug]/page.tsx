@@ -66,15 +66,36 @@ export default async function Detail({
       </Link>
       <div className="detail">
         <div className="detail-content">
-          <figure className="detail-media">
-            <img
-              src={e.imagePath}
-              alt={e.inspirationPhoto?.title ?? displayName(e.name)}
-            />
-            {e.inspirationPhoto && (
-              <span className="image-label">Destination inspiration</span>
-            )}
-          </figure>
+          {e.photos && e.photos.length > 1 ? (
+            // The whole catalogue of photos, primary first and largest.
+            <ul className="detail-gallery" aria-label="Activity photos">
+              {e.photos.map((src, i) => (
+                <li key={src}>
+                  <img
+                    src={src}
+                    alt={
+                      e.photoAlts?.[i] ||
+                      `${displayName(e.name)}, photo ${i + 1}`
+                    }
+                    loading={i ? "lazy" : undefined}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <figure className="detail-media">
+              <img
+                src={e.imagePath}
+                alt={
+                  e.photoAlts?.[0] ||
+                  (e.inspirationPhoto?.title ?? displayName(e.name))
+                }
+              />
+              {e.inspirationPhoto && (
+                <span className="image-label">Destination inspiration</span>
+              )}
+            </figure>
+          )}
           <div className="detail-text">
             <p className="eyebrow">
               {categoryShortLabels[e.categoryId]} · {zoneLabel(e.zoneId)} ·{" "}

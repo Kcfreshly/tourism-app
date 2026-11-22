@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { sql } from "drizzle-orm";
 import { db } from "../src/database/client";
 import { sqlRows } from "../src/database/sql-rows";
+import { sqlStatements } from "../src/database/sql-statements";
 await db().execute(
   sql`CREATE TABLE IF NOT EXISTS migration_history (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`,
 );
@@ -20,7 +21,7 @@ for (const file of (await readdir("migrations"))
       sql`SELECT name FROM migration_history WHERE name=${name}`,
     );
     if (sqlRows(existing).length) return;
-    for (const statement of migration.split(";").filter((s) => s.trim()))
+    for (const statement of sqlStatements(migration))
       await tx.execute(sql.raw(statement));
     await tx.execute(sql`INSERT INTO migration_history(name) VALUES (${name})`);
   });

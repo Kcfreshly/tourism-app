@@ -4,6 +4,7 @@ import AdminCatalogue from "@/components/admin-catalogue";
 import AdminPackages from "@/components/admin-packages";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
+import { isSuperAdmin } from "@/modules/identity/domain/actor";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Staff workspace" };
 export default async function Admin() {
@@ -43,7 +44,7 @@ export default async function Admin() {
         <a href="#transport">Transport &amp; guides</a>
       </nav>
       <section id="listings" aria-labelledby="admin-listings-heading">
-        <AdminCatalogue />
+        <AdminCatalogue canDelete={isSuperAdmin(actor)} />
       </section>
       <section
         id="packages"

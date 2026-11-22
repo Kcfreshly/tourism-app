@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { AppError } from "@/shared/application/app-error";
-import { isAdmin } from "../../domain/actor";
+import { isAdmin, isSuperAdmin } from "../../domain/actor";
 import type { ResolveActor } from "../../application/use-cases/resolve-actor";
 import type { ThrottleRequest } from "../../application/use-cases/throttle-request";
 
@@ -30,6 +30,16 @@ export function createRequestGuards(deps: {
   return {
     currentActor,
     requireActor,
+    async requireSuperAdmin() {
+      const actor = await requireActor();
+      if (!isSuperAdmin(actor))
+        throw new AppError(
+          "FORBIDDEN",
+          "FORBIDDEN",
+          "Only a super admin can delete listings.",
+        );
+      return actor;
+    },
     async requireAdmin() {
       const actor = await requireActor();
       if (!isAdmin(actor))

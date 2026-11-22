@@ -245,7 +245,7 @@ function ActivityDialog({
                 failed.includes(selectedPhoto)
                   ? "Illustrated activity fallback"
                   : e.photos?.length
-                    ? displayName(e.name)
+                    ? e.photoAlts?.[photoIndex] || displayName(e.name)
                     : (e.inspirationPhoto?.title ??
                       "Category illustration; venue photos not supplied")
               }

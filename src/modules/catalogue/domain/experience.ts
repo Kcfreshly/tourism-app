@@ -2,6 +2,7 @@ import { photoById, photoForExperience, type Photo } from "./photos";
 import type { EventInfo } from "./events";
 import type { CatalogueEdit } from "./catalogue";
 import type { ListingDetails } from "./listing-details";
+import { imageUrl, type ListingImage } from "./images";
 import fixture from "../../../../tourism-v1-handoff/data/experiences.demo.json";
 export type Experience = (typeof fixture.experiences)[number] & {
   schedulingType?: "FLEXIBLE" | "FIXED";
@@ -13,7 +14,11 @@ export type Experience = (typeof fixture.experiences)[number] & {
   }[];
   unavailableDates?: string[];
   videoUrl?: string;
+  // Derived for display from `images`; not stored.
   photos?: string[];
+  photoAlts?: string[];
+  // Staff-uploaded photos, primary first.
+  images?: ListingImage[];
   inspirationPhoto?: Photo;
   photoId?: string;
   event?: EventInfo;
@@ -40,15 +45,23 @@ export function toPublishedExperience(
 ): PublishedExperience {
   const record = row.record as Experience;
   const fixed = ["cooking", "music", "local-market"].includes(row.seedKey);
-  // Events may name a specific photo or keep their own labelled illustration.
-  const inspiration = record.photoId
-    ? photoById(record.photoId)
-    : record.imagePath.startsWith("/assets/illustrations/category-")
-      ? photoForExperience(row.seedKey, record.categoryId)
-      : undefined;
+  // Uploaded photos come first. Otherwise events may name a licensed photo or
+  // keep their own labelled illustration.
+  const uploaded = record.images?.length ? record.images : undefined;
+  const inspiration = uploaded
+    ? undefined
+    : record.photoId
+      ? photoById(record.photoId)
+      : record.imagePath.startsWith("/assets/illustrations/category-")
+        ? photoForExperience(row.seedKey, record.categoryId)
+        : undefined;
   return {
     ...record,
-    imagePath: inspiration?.src ?? record.imagePath,
+    imagePath: uploaded
+      ? imageUrl(uploaded[0].id)
+      : (inspiration?.src ?? record.imagePath),
+    photos: uploaded?.map((i) => imageUrl(i.id)),
+    photoAlts: uploaded?.map((i) => i.alt),
     inspirationPhoto: inspiration,
     schedulingType: record.schedulingType ?? (fixed ? "FIXED" : "FLEXIBLE"),
     sessions:
@@ -137,6 +150,8 @@ export function editedRecord(old: Experience, edit: CatalogueEdit) {
     },
   };
   if (edit.photoId !== undefined) next.photoId = edit.photoId || undefined;
+  if (edit.images !== undefined)
+    next.images = edit.images.length ? edit.images : undefined;
   if (edit.videoUrl !== undefined) next.videoUrl = edit.videoUrl || undefined;
   if (edit.event !== undefined) next.event = edit.event ?? undefined;
   return JSON.parse(JSON.stringify(next)) as Experience;

@@ -77,6 +77,7 @@ function editRow(row: Row): FullEdit {
     inclusions: r.inclusions,
     exclusions: r.exclusions,
     photoId: r.photoId ?? "",
+    images: r.images ?? [],
     videoUrl: r.videoUrl ?? "",
     event: r.event ?? null,
   };
@@ -119,7 +120,21 @@ function statusLabel(status: string) {
   return status.replace("DEMO_", "").replace("_", " ").toLowerCase();
 }
 
-export default function AdminCatalogue() {
+type Deleted = {
+  auditId: string;
+  id: string;
+  name: string;
+  deletedAt: string;
+  deletedBy: string;
+  reason: string | null;
+};
+
+// `canDelete` is true for super admins; the API enforces the same rule.
+export default function AdminCatalogue({
+  canDelete = false,
+}: {
+  canDelete?: boolean;
+}) {
   const [rows, setRows] = useState<Row[]>([]),
     [edit, setEdit] = useState<FullEdit | null>(null),
     [baseline, setBaseline] = useState(""),
@@ -130,7 +145,9 @@ export default function AdminCatalogue() {
     [name, setName] = useState(""),
     [draftError, setDraftError] = useState(""),
     [query, setQuery] = useState(""),
-    [filter, setFilter] = useState("ALL");
+    [filter, setFilter] = useState("ALL"),
+    [deleted, setDeleted] = useState<Deleted[]>([]),
+    [reason, setReason] = useState("");
   const dirty = !!edit && JSON.stringify(edit) !== baseline;
   const current = rows.find((r) => r.id === edit?.id);
   const editor = useRef<HTMLDivElement>(null);
@@ -171,6 +188,78 @@ export default function AdminCatalogue() {
       active = false;
     };
   }, []);
+  async function loadDeleted() {
+    const r = await fetch("/api/v1/admin/catalogue/deleted");
+    const body = await r.json();
+    if (r.ok) setDeleted(body.data);
+  }
+  useEffect(() => {
+    let active = true;
+    fetch("/api/v1/admin/catalogue/deleted")
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((body) => {
+        if (active) setDeleted(body.data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function remove() {
+    if (!edit || !current) return;
+    if (
+      !window.confirm(
+        `Delete “${displayName(edit.name)}”? Travellers stop seeing it at once. A full copy stays in the audit trail and it can be restored from Recently deleted.`,
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/v1/admin/catalogue", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: current.id,
+          expectedVersion: current.version,
+          reason: reason.trim() || undefined,
+        }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw Error(body.error.message);
+      setRows((rows) => rows.filter((row) => row.id !== current.id));
+      setEdit(null);
+      setBaseline("");
+      setReason("");
+      setStatus("Deleted. Restore it from Recently deleted if needed.");
+      await loadDeleted();
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Delete failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restore(item: Deleted) {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/v1/admin/catalogue/deleted", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auditId: item.auditId }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw Error(body.error.message);
+      setRows((rows) => [body.data, ...rows]);
+      setDeleted((list) => list.filter((d) => d.auditId !== item.auditId));
+      setStatus(`Restored “${displayName(item.name)}”.`);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Restore failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -374,6 +463,34 @@ export default function AdminCatalogue() {
           ))}
           {!shown.length && <p className="muted">No listings match.</p>}
         </div>
+        {deleted.length > 0 && (
+          <details className="admin-deleted">
+            <summary>Recently deleted ({deleted.length})</summary>
+            <ul>
+              {deleted.map((d) => (
+                <li key={d.auditId}>
+                  <span>{displayName(d.name)}</span>
+                  <small className="muted">
+                    Deleted by {d.deletedBy} ·{" "}
+                    {new Date(d.deletedAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                    {d.reason ? ` · ${d.reason}` : ""}
+                  </small>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => restore(d)}
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </aside>
       <div
         className="card admin-editor"
@@ -442,6 +559,31 @@ export default function AdminCatalogue() {
               )}
               <ListingForm edit={edit} set={set} section={section} />
             </fieldset>
+            {section === "review" && canDelete && current && (
+              <div className="admin-danger">
+                <h3>Delete listing</h3>
+                <p className="form-hint">
+                  Super admins only. The listing disappears for travellers, and
+                  a full copy is kept in the audit trail so it can be restored.
+                </p>
+                <label>
+                  Reason (optional)
+                  <input
+                    maxLength={300}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={busy}
+                  onClick={remove}
+                >
+                  Delete listing
+                </button>
+              </div>
+            )}
             {problems.length > 0 && (
               <ul className="field-error admin-problems" role="alert">
                 {problems.map((p) => (

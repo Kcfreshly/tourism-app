@@ -8,6 +8,16 @@ import { DrizzleBucketRepository } from "@/modules/bucket/infrastructure/persist
 import { createGetBucketController } from "@/modules/bucket/presentation/http/controllers/get-bucket-controller";
 import { createSaveBucketController } from "@/modules/bucket/presentation/http/controllers/save-bucket-controller";
 import { CreateCatalogueDraft } from "@/modules/catalogue/application/use-cases/create-catalogue-draft";
+import { DeleteCatalogueRecord } from "@/modules/catalogue/application/use-cases/delete-catalogue-record";
+import { ListCatalogueHistory } from "@/modules/catalogue/application/use-cases/list-catalogue-history";
+import { ListDeletedListings } from "@/modules/catalogue/application/use-cases/list-deleted-listings";
+import { RestoreCatalogueRecord } from "@/modules/catalogue/application/use-cases/restore-catalogue-record";
+import {
+  createDeleteCatalogueRecordController,
+  createListCatalogueHistoryController,
+  createListDeletedListingsController,
+  createRestoreCatalogueRecordController,
+} from "@/modules/catalogue/presentation/http/controllers/catalogue-recovery-controllers";
 import { GetPublishedExperience } from "@/modules/catalogue/application/use-cases/get-published-experience";
 import { ListCatalogueRecords } from "@/modules/catalogue/application/use-cases/list-catalogue-records";
 import { ListPublishedExperiences } from "@/modules/catalogue/application/use-cases/list-published-experiences";
@@ -17,6 +27,12 @@ import { CreatePackageDraft } from "@/modules/catalogue/application/use-cases/cr
 import { ListPackageRecords } from "@/modules/catalogue/application/use-cases/list-package-records";
 import { ListPublishedPackages } from "@/modules/catalogue/application/use-cases/list-published-packages";
 import { UpdatePackage } from "@/modules/catalogue/application/use-cases/update-package";
+import { UploadImage } from "@/modules/catalogue/application/use-cases/upload-image";
+import { DrizzleMediaRepository } from "@/modules/catalogue/infrastructure/persistence/drizzle-media-repository";
+import {
+  createGetImageHandler,
+  createUploadImageController,
+} from "@/modules/catalogue/presentation/http/controllers/media-controllers";
 import { DrizzlePackageRepository } from "@/modules/catalogue/infrastructure/persistence/drizzle-package-repository";
 import {
   createCreatePackageDraftController,
@@ -84,6 +100,7 @@ const sessions = new BetterAuthSessionReader();
 const guestSessions = new DrizzleGuestSessionRepository(db);
 const catalogueRepository = new DrizzleCatalogueRepository(db);
 const packageRepository = new DrizzlePackageRepository(db);
+const mediaRepository = new DrizzleMediaRepository(db);
 const listPublishedPackages = new ListPublishedPackages(packageRepository);
 const tripRepository = new DrizzleTripRepository(db);
 const transportSettings = new DrizzleTransportSettingsRepository(db);
@@ -146,6 +163,29 @@ export const api = {
       guards,
       new UpdateCatalogueRecord(catalogueRepository),
     ),
+    remove: createDeleteCatalogueRecordController(
+      guards,
+      new DeleteCatalogueRecord(catalogueRepository),
+    ),
+    deleted: createListDeletedListingsController(
+      guards,
+      new ListDeletedListings(catalogueRepository),
+    ),
+    restore: createRestoreCatalogueRecordController(
+      guards,
+      new RestoreCatalogueRecord(catalogueRepository),
+    ),
+    history: createListCatalogueHistoryController(
+      guards,
+      new ListCatalogueHistory(catalogueRepository),
+    ),
+  },
+  media: {
+    upload: createUploadImageController(
+      guards,
+      new UploadImage(mediaRepository),
+    ),
+    get: createGetImageHandler(mediaRepository),
   },
   packages: {
     list: createListPackagesController(listPublishedPackages),

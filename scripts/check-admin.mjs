@@ -87,6 +87,19 @@ assert.equal(
   422,
 );
 
+// Deleting is for super admins; the QA account is a plain admin.
+assert.equal(
+  (await call("DELETE", { id: row.id, expectedVersion: 3 })).status,
+  403,
+);
+// Every admin can read a listing's history from the audit trail.
+const history = await fetch(
+  `${base}/api/v1/admin/catalogue/history?id=${row.id}`,
+  { headers: { Cookie: state.cookie } },
+);
+assert.equal(history.status, 200);
+assert.ok((await history.json()).data.length >= 4);
+
 // Ready-made trips: create, refuse an incomplete publish, publish, unpublish.
 async function trips(method, body) {
   return fetch(base + "/api/v1/admin/packages", {
@@ -140,5 +153,5 @@ tripEdit.status = "PAUSED";
 assert.equal((await trips("PATCH", tripEdit)).status, 200);
 assert.ok(!(await published()).includes(trip.slug));
 console.log(
-  "PASS: administrator-only draft creation, approval and readiness before publish, tag vocabulary, direct publish, optimistic conflict, publish/detail visibility, pause removes sales visibility, live-promotion refusal, and ready-made trip create/publish/unpublish. Fictional test records retained as PAUSED.",
+  "PASS: administrator-only draft creation, approval and readiness before publish, tag vocabulary, direct publish, optimistic conflict, publish/detail visibility, pause removes sales visibility, live-promotion refusal, delete refused for plain admins, readable history, and ready-made trip create/publish/unpublish. Fictional test records retained as PAUSED.",
 );

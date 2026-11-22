@@ -5,18 +5,22 @@ import { assertDemo } from "../src/config/environment";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 assertDemo();
+// `--super` grants SUPER_ADMIN, which can also delete listings.
+const args = process.argv.slice(2);
+const role = args.includes("--super") ? "SUPER_ADMIN" : "ADMIN";
+const target = args.find((a) => a !== "--super");
 const email =
-  process.argv[2] === "--qa-fixture"
+  target === "--qa-fixture"
     ? JSON.parse(await readFile(".local/qa-account.json", "utf8")).email
-    : process.argv[2]?.trim().toLowerCase();
+    : target?.trim().toLowerCase();
 if (!email)
   throw Error(
-    "Usage: npm run demo:grant-admin -- fictional-email@example.test (stop local server first)",
+    "Usage: npm run demo:grant-admin -- fictional-email@example.test [--super] (stop local server first)",
   );
 await db().transaction(async (tx) => {
   const [person] = await tx
     .update(user)
-    .set({ role: "ADMIN" })
+    .set({ role })
     .where(eq(user.email, email))
     .returning();
   if (!person) throw Error("Create the demo account through /account first.");
@@ -25,8 +29,12 @@ await db().transaction(async (tx) => {
     actorId: "local-owner-cli",
     action: "DEMO_ADMIN_GRANTED",
     entityId: person.id,
-    details: { mode: "demo" },
+    details: { mode: "demo", role },
   });
 });
-console.log("Local demo administrator role granted to the existing account.");
+console.log(
+  role === "SUPER_ADMIN"
+    ? "Local demo super admin role granted to the existing account."
+    : "Local demo administrator role granted to the existing account.",
+);
 process.exit(0);

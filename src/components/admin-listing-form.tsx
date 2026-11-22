@@ -30,6 +30,8 @@ import {
 import { eventTypeLabels, eventTypes } from "@/modules/catalogue/domain/events";
 import { nigeriaPhotos } from "@/modules/catalogue/domain/photos";
 import TagPicker from "./admin-tag-picker";
+import PhotoUploader from "./admin-photo-uploader";
+import ListingHistory from "./admin-listing-history";
 
 export type Edit = z.infer<typeof catalogueEditSchema>;
 // The editor always holds every optional section filled in.
@@ -46,6 +48,7 @@ export type FullEdit = Edit &
       | "inclusions"
       | "exclusions"
       | "unavailableDates"
+      | "images"
     >
   >;
 
@@ -56,8 +59,9 @@ export const sections = [
   { id: "schedule", label: "Schedule" },
   { id: "logistics", label: "Logistics & terms" },
   { id: "access", label: "Access & inclusions" },
-  { id: "media", label: "Media & event" },
+  { id: "media", label: "Photos & event" },
   { id: "review", label: "Publishing" },
+  { id: "history", label: "History" },
 ] as const;
 export type SectionId = (typeof sections)[number]["id"];
 
@@ -769,11 +773,17 @@ export default function ListingForm({
           />
         </>
       );
+    case "history":
+      return <ListingHistory id={edit.id} version={edit.expectedVersion} />;
     case "media":
       return (
         <>
+          <PhotoUploader
+            images={edit.images}
+            onChange={(images) => set({ images })}
+          />
           <label>
-            Photo
+            Inspiration photo
             <select
               value={edit.photoId ?? ""}
               onChange={(e) => set({ photoId: e.target.value })}
@@ -786,10 +796,12 @@ export default function ListingForm({
               ))}
             </select>
             <small className="form-hint">
-              Licensed inspiration photos only; credits are shown with them.
+              {edit.images.length
+                ? "Not shown while this listing has its own photos."
+                : "Used until you upload photos. Licensed photos only; credits are shown with them."}
             </small>
           </label>
-          {photo && (
+          {photo && !edit.images.length && (
             <img className="admin-photo" src={photo.src} alt={photo.title} />
           )}
           <label>

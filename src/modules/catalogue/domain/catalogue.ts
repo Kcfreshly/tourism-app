@@ -2,6 +2,7 @@ import { z } from "zod";
 import { categoryIds } from "../../trips/domain/profile";
 import { eventTypes } from "./events";
 import { tagIds } from "./tags";
+import { listingImageSchema, maxListingImages } from "./images";
 import { placeholderSummary } from "./experience-content";
 export const reviewSchema = z
   .object({
@@ -138,6 +139,15 @@ export const catalogueEditSchema = z
     exclusions: lines.optional(),
     // Media. An empty photo id falls back to the category photo.
     photoId: z.string().max(80).optional(),
+    // Uploaded photos in display order; the first is the primary photo.
+    images: z
+      .array(listingImageSchema)
+      .max(maxListingImages)
+      .refine(
+        (images) => new Set(images.map((i) => i.id)).size === images.length,
+        "Each photo can only be added once",
+      )
+      .optional(),
     videoUrl: z
       .union([z.literal(""), z.string().regex(/^(\/|https:\/\/)\S+$/)])
       .optional(),
