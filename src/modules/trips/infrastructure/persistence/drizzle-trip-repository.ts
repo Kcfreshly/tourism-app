@@ -5,7 +5,7 @@ import type {
   TripOwner,
   TripRepository,
 } from "../../application/ports/trip-repository";
-import { trips } from "./schema";
+import { proposals, trips } from "./schema";
 
 export function ownedBy(owner: TripOwner) {
   return and(eq(trips.ownerId, owner.id), eq(trips.ownerType, owner.kind));
@@ -77,5 +77,20 @@ export class DrizzleTripRepository implements TripRepository {
       changes,
     );
     return row ?? null;
+  }
+
+  deleteOwned(id: string, owner: TripOwner) {
+    return this.db().transaction(async (tx) => {
+      const [trip] = await tx
+        .select({ id: trips.id })
+        .from(trips)
+        .where(and(eq(trips.id, id), ownedBy(owner)))
+        .for("update");
+      if (!trip) return false;
+      // Proposals reference the trip without cascading.
+      await tx.delete(proposals).where(eq(proposals.tripId, id));
+      await tx.delete(trips).where(eq(trips.id, id));
+      return true;
+    });
   }
 }

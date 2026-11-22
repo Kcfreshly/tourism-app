@@ -37,6 +37,7 @@ import type { OfferCatalogue } from "@/modules/trips/application/ports/offer-cat
 import { OfferSelection } from "@/modules/trips/application/services/offer-selection";
 import { ApplyProposal } from "@/modules/trips/application/use-cases/apply-proposal";
 import { CreateTrip } from "@/modules/trips/application/use-cases/create-trip";
+import { DeleteTrip } from "@/modules/trips/application/use-cases/delete-trip";
 import { GenerateProposal } from "@/modules/trips/application/use-cases/generate-proposal";
 import { GetTrip } from "@/modules/trips/application/use-cases/get-trip";
 import { GetWorkspace } from "@/modules/trips/application/use-cases/get-workspace";
@@ -56,6 +57,7 @@ import {
 } from "@/modules/trips/presentation/http/controllers/transport-settings-controllers";
 import { createIntakeController } from "@/modules/trips/presentation/http/controllers/intake-controller";
 import { createCreateTripController } from "@/modules/trips/presentation/http/controllers/create-trip-controller";
+import { createDeleteTripController } from "@/modules/trips/presentation/http/controllers/delete-trip-controller";
 import { createGetTripController } from "@/modules/trips/presentation/http/controllers/get-trip-controller";
 import { createListTripsController } from "@/modules/trips/presentation/http/controllers/list-trips-controller";
 import { createUpdateTripProfileController } from "@/modules/trips/presentation/http/controllers/update-trip-profile-controller";
@@ -161,6 +163,7 @@ export const api = {
       guards,
       new UpdateTripProfile(tripRepository, offers, selection),
     ),
+    remove: createDeleteTripController(guards, new DeleteTrip(tripRepository)),
     getWorkspace: createGetWorkspaceController(
       ownedTrip,
       new GetWorkspace(offers, transportSettings),

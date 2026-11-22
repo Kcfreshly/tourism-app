@@ -15,3 +15,10 @@ export function activateTrip(id: string) {
   localStorage.setItem(storeKeys.activeTrip, id);
   notifyStore();
 }
+
+// Stops pointing at a trip that no longer exists.
+export function forgetTrip(id: string) {
+  if (localStorage.getItem(storeKeys.activeTrip) !== id) return;
+  localStorage.removeItem(storeKeys.activeTrip);
+  notifyStore();
+}

@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { activateTrip } from "@/hooks/use-active-trip";
+import { activateTrip, forgetTrip } from "@/hooks/use-active-trip";
+import { useBackdropDismiss } from "@/hooks/use-backdrop-dismiss";
 import { useSignOut } from "@/hooks/use-sign-out";
 import Icon from "./icons";
 import type { Profile } from "@/modules/trips/domain/profile";
@@ -43,6 +44,45 @@ export default function MyTrips({ saved }: { saved?: string }) {
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<Trip[]>([]),
     [status, setStatus] = useState("");
+  const confirmDialog = useRef<HTMLDialogElement>(null);
+  const dismissConfirm = useBackdropDismiss(confirmDialog);
+  const [doomed, setDoomed] = useState<Trip | null>(null),
+    [deleteError, setDeleteError] = useState("");
+  function askToDelete(trip: Trip) {
+    setDoomed(trip);
+    setDeleteError("");
+    confirmDialog.current?.showModal();
+  }
+  async function deletePlan() {
+    if (!doomed) return;
+    setBusy(true);
+    setDeleteError("");
+    try {
+      const response = await fetch(
+        `/api/v1/trips/${encodeURIComponent(doomed.id)}`,
+        { method: "DELETE" },
+      );
+      // Already gone counts as deleted.
+      if (!response.ok && response.status !== 404) {
+        const body = await response.json();
+        throw Error(body.error?.message);
+      }
+      forgetTrip(doomed.id);
+      setTrips((previous) => previous.filter((t) => t.id !== doomed.id));
+      setStatus(
+        `“${doomed.profile.draftName || "Your Lagos stay"}” was deleted.`,
+      );
+      confirmDialog.current?.close();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error && error.message
+          ? error.message
+          : "We couldn’t delete this plan. Please retry.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   useEffect(() => {
     fetch("/api/v1/trips")
       .then(async (r) => {
@@ -239,6 +279,13 @@ export default function MyTrips({ saved }: { saved?: string }) {
                     >
                       Duplicate profile
                     </button>
+                    <button
+                      className="text-button danger-text"
+                      disabled={busy}
+                      onClick={() => askToDelete(t)}
+                    >
+                      Delete plan
+                    </button>
                   </div>
                 </div>
               </article>
@@ -246,6 +293,53 @@ export default function MyTrips({ saved }: { saved?: string }) {
           })}
         </div>
       )}
+      <dialog
+        ref={confirmDialog}
+        className="sheet-dialog delete-plan-dialog"
+        aria-labelledby="delete-plan-title"
+        {...dismissConfirm}
+      >
+        <div className="sheet-header">
+          <div>
+            <p className="eyebrow">Delete plan</p>
+            <h2 id="delete-plan-title">
+              Delete {doomed?.profile.draftName || "Your Lagos stay"}?
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="icon-button close-button"
+            onClick={() => confirmDialog.current?.close()}
+          >
+            <Icon name="close" size={20} />
+            <span className="sr-only">Close</span>
+          </button>
+        </div>
+        <div className="sheet-body">
+          <p className="muted">
+            Its days and activities are removed for good. Your bucket and
+            anything already in your cart stay as they are.
+          </p>
+          {deleteError && <p role="alert">{deleteError}</p>}
+        </div>
+        <div className="sheet-footer">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => confirmDialog.current?.close()}
+          >
+            Keep plan
+          </button>
+          <button
+            type="button"
+            className="danger"
+            disabled={busy}
+            onClick={deletePlan}
+          >
+            {busy ? "Deleting…" : "Delete plan"}
+          </button>
+        </div>
+      </dialog>
       <div className="trips-footer">
         <p>
           Drafts are saved privately to your account. Nothing is booked or

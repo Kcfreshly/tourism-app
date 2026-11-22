@@ -38,4 +38,7 @@ export interface TripRepository {
     expectedVersion: number,
     changes: TripChanges,
   ): Promise<TripRow | null>;
+  // Removes the trip and its planner proposals. False when the actor owns
+  // no such trip.
+  deleteOwned(id: string, owner: TripOwner): Promise<boolean>;
 }
