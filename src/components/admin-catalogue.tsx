@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { showToast } from "./toast";
 import Link from "next/link";
 import {
   catalogueEditSchema,
@@ -138,6 +139,7 @@ export default function AdminCatalogue({
       setBaseline("");
       setReason("");
       setStatus("Deleted. Restore it from Recently deleted if needed.");
+      showToast({ message: `“${displayName(edit.name)}” deleted.` });
       await loadDeleted();
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Delete failed.");
@@ -159,6 +161,7 @@ export default function AdminCatalogue({
       setRows((rows) => [body.data, ...rows]);
       setDeleted((list) => list.filter((d) => d.auditId !== item.auditId));
       setStatus(`Restored “${displayName(item.name)}”.`);
+      showToast({ message: `Restored “${displayName(item.name)}”.` });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Restore failed.");
     } finally {
@@ -239,13 +242,16 @@ export default function AdminCatalogue({
       const saved = editRow(body.data);
       setEdit(saved);
       setBaseline(JSON.stringify(saved));
-      setStatus(
+      const message =
         change === "PUBLISH"
           ? "Published. Travellers can see it now."
           : change === "UNPUBLISH"
             ? "Unpublished. Hidden from new bookings."
-            : `Saved version ${body.data.version}.`,
-      );
+            : `Saved version ${body.data.version}.`;
+      setStatus(message);
+      showToast({
+        message: `“${displayName(body.data.record.name)}”: ${message}`,
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Save failed.");
     } finally {
@@ -304,6 +310,7 @@ export default function AdminCatalogue({
                   setName("");
                   setProblems([]);
                   setStatus("Fictional draft created.");
+                  showToast({ message: "Draft listing created." });
                   focusEditor();
                 } catch (e) {
                   setDraftError(

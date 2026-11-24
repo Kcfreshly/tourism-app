@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { showToast } from "./toast";
 import Link from "next/link";
 import {
   inclusionLabels,
@@ -523,14 +524,14 @@ export default function AdminPackages() {
       setRows((rows) =>
         rows.map((row) => (row.id === body.data.id ? body.data : row)),
       );
-      show(
-        body.data,
+      const message =
         change === "PUBLISH"
           ? "Published. Travellers can see and book it now."
           : change === "UNPUBLISH"
             ? "Unpublished. Hidden from travellers."
-            : `Saved version ${body.data.version}.`,
-      );
+            : `Saved version ${body.data.version}.`;
+      show(body.data, message);
+      showToast({ message: `“${body.data.record.title}”: ${message}` });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Save failed.");
     } finally {
@@ -579,6 +580,7 @@ export default function AdminPackages() {
                     body.data,
                     "Draft created. Fill in each section, then publish.",
                   );
+                  showToast({ message: "Draft trip created." });
                 } catch (e) {
                   setCreateError(
                     e instanceof Error ? e.message : "Unable to create trip.",

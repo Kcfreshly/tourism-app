@@ -1,0 +1,29 @@
+# Local development database: the same PostgreSQL 17 the production stack
+# uses (docker-compose.prod.yml), so local behaves like prod. The app itself
+# still runs on the host with `npm run dev`. See docs/LOCAL_DATABASE.md.
+#   docker compose up -d --wait        # start (data survives restarts)
+#   docker compose down                # stop; add -v to wipe the data
+name: tourism-app
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: tourism-postgres
+    restart: unless-stopped
+    environment:
+      # Local-only credentials; the port is bound to this machine only.
+      POSTGRES_USER: fastlife
+      POSTGRES_PASSWORD: fastlife-dev
+      POSTGRES_DB: fastlife
+    ports:
+      - "127.0.0.1:5440:5432"
+    volumes:
+      - tourism-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fastlife -d fastlife"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  tourism-pg-data:

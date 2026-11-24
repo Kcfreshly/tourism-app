@@ -61,6 +61,87 @@ anything unexpected 503.
 Server-rendered pages skip HTTP. For example, `src/app/trips/page.tsx` calls
 `pages.requireSignedIn()` from the container directly.
 
+### The `api` object in `container.ts`
+
+`api` is a plain object: **area → action → route handler**. Every leaf is a
+function with the signature Next.js expects of a route export,
+`(request: Request, context?) => Promise<Response>`, so a route file can
+export it as is:
+
+```ts
+// src/app/api/v1/admin/catalogue/route.ts
+export const GET = api.adminCatalogue.list;
+export const POST = api.adminCatalogue.create;
+```
+
+The keys are names for people, not URLs. `adminCatalogue.deleted` serves
+`/api/v1/admin/catalogue/deleted`, but only because that route file says so.
+The URL comes from the folder, the method from the export name.
+
+Each leaf is built in three layers, from the inside out:
+
+```ts
+restore: createRestoreCatalogueRecordController(   // 3. HTTP: guards, parse, respond
+  guards,                                          //    shared checks, built once
+  new RestoreCatalogueRecord(                      // 2. use case: the business rule
+    catalogueRepository,                           // 1. infrastructure: Drizzle, built once
+  ),
+),
+```
+
+1. **Repository** (`new DrizzleCatalogueRepository(db)`, near the top of the
+   file). Created once and shared by every use case that needs it. `db` is
+   lazy, so nothing connects until the first request.
+2. **Use case** (`new RestoreCatalogueRecord(repo)`). A class with one
+   `execute()` method. It receives its dependencies through the constructor
+   (the ports it declares), so tests can pass in fakes.
+3. **Controller factory** (`createXController(guards, useCase)`). A function
+   that takes its dependencies and returns the handler. The handler runs the
+   HTTP-only steps, in order: `checkOrigin()` on writes, then
+   `requireActor()` / `requireAdmin()`, `throttle()`, request parsing with
+   Zod, `useCase.execute()`, then `success(data)`. It is wrapped in
+   `controller()` from `responses.ts`, which turns any thrown `AppError` into
+   the `{ error: { code, message } }` envelope and its status code.
+
+Some controllers take no `guards` because they are public. For example,
+`experiences.list` gets only the use case. A few take extra arguments: the
+partner photo upload is the staff upload controller with a different
+`authorize` function.
+
+### `auth: authController`, the exception
+
+`api.auth` is not built from a factory, a use case or `guards`. It is a plain
+function
+([`auth-controller.ts`](../src/modules/identity/presentation/http/controllers/auth-controller.ts))
+that hands the whole request to Better Auth:
+
+```ts
+export function authController(request: Request) {
+  return auth().handler(request);
+}
+```
+
+- **Route.** `src/app/api/auth/[...all]/route.ts` exports it as both `GET` and
+  `POST`. The catch-all sends every `/api/auth/*` path (sign-up, sign-in,
+  sign-out, get-session, ...) to Better Auth, which does its own routing.
+- **`auth()`** ([`better-auth.ts`](../src/modules/identity/infrastructure/auth/better-auth.ts))
+  creates the Better Auth instance on first use and caches it on
+  `globalThis`, so dev-server reloads don't create a new one. The config:
+  email and password (8+ characters, no email verification), the Drizzle
+  adapter on our database, UUID ids, a `role` field that sign-up can't set
+  (`input: false`, default `CUSTOMER`), 7-day sessions, its own rate limit
+  (30 requests per 60 seconds), and `trustedOrigins` from the same allowlist
+  as `checkOrigin()`.
+- **Its own format.** Responses are Better Auth's, not our
+  `{ data, meta }` envelope. Errors don't go through `AppError`, and requests
+  don't use our `request_limits` throttle.
+- **How the rest of the app uses auth.** Not through `api.auth`. The
+  container creates `BetterAuthSessionReader`, which `ResolveActor` uses to
+  turn the session cookie into an `Actor` (id plus role from `auth_user`).
+  `guards.requireActor()` calls that. So `api.auth` is the browser's door
+  for signing in, and the session reader is how every other controller finds
+  out who signed in.
+
 ## 3. Folder map
 
 ### Frontend

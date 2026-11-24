@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { showToast } from "./toast";
 import {
   transportSettingsSchema,
   type TransportSettings,
@@ -120,6 +121,7 @@ export default function AdminTransportSettings() {
       setStored(data);
       setEdit(data.settings);
       setStatus(`Saved. Version ${data.version} applies to new estimates.`);
+      showToast({ message: "Transport settings saved." });
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Please retry.");
     } finally {

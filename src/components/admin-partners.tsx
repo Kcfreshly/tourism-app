@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { showToast } from "./toast";
 import { runsPastMidnight } from "@/modules/catalogue/domain/catalogue";
 import {
   changedFields,
@@ -427,6 +428,7 @@ export default function AdminPartners() {
                 q={q}
                 onDone={(message) => {
                   setStatus(message);
+                  showToast({ message });
                   load().catch((e) => setStatus(e.message));
                 }}
               />
@@ -451,6 +453,7 @@ export default function AdminPartners() {
                     list.map((x) => (x.id === next.id ? next : x)),
                   );
                   setStatus(message);
+                  showToast({ message });
                 }}
               />
             ))}
@@ -472,6 +475,7 @@ export default function AdminPartners() {
                     list.map((x) => (x.id === next.id ? next : x)),
                   );
                   setStatus(message);
+                  showToast({ message });
                 }}
               />
             ))}
