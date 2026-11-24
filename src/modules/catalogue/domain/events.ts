@@ -18,6 +18,9 @@ export type EventInfo = {
   // What every booking includes, and what may happen but is never promised.
   guaranteed?: string;
   bonus?: string;
+  // The partner lets buyers pay without an account: name, email and phone
+  // on the checkout form instead. Off unless chosen.
+  guestCheckout?: boolean;
 };
 
 type Dated = {

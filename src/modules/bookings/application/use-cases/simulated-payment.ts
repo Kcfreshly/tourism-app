@@ -1,3 +1,4 @@
+import { canView, type Viewer } from "../../domain/checkout";
 import type { CheckoutRepository } from "../ports/checkout-repository";
 
 // The local stand-in for the provider's hosted page.
@@ -14,14 +15,14 @@ export class SimulatedPayment {
     private readonly active: () => boolean,
   ) {}
 
-  private async own(userId: string, reference: string) {
+  private async own(viewer: Viewer, reference: string) {
     if (!this.active()) return null;
     const found = await this.checkouts.findByPaymentReference(reference);
-    return found?.payment && found.checkout.userId === userId ? found : null;
+    return found?.payment && canView(found.checkout, viewer) ? found : null;
   }
 
-  async view(userId: string, reference: string) {
-    const found = await this.own(userId, reference);
+  async view(viewer: Viewer, reference: string) {
+    const found = await this.own(viewer, reference);
     return found?.payment
       ? {
           reference,
@@ -33,11 +34,11 @@ export class SimulatedPayment {
   }
 
   async complete(
-    userId: string,
+    viewer: Viewer,
     reference: string,
     outcome: "SUCCESS" | "FAILED",
   ) {
-    if (!(await this.own(userId, reference))) return false;
+    if (!(await this.own(viewer, reference))) return false;
     return this.payments.complete(reference, outcome);
   }
 }

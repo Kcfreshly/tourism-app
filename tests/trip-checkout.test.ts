@@ -265,7 +265,10 @@ describe("paying for a trip", () => {
     gateway.paid.add(reference);
     expect((await confirm.execute(reference)).status).toBe("PAID");
 
-    const [order] = await checkouts.listOrders("u1");
+    const [order] = await checkouts.listOrders({
+      userId: "u1",
+      guestKeyHash: null,
+    });
     expect(order.tripId).toBe(trip.id);
     expect(order.totalMinor).toBe(trip.price.totalMinor);
     expect(order.bookings.map((b) => b.status)).toEqual(["CONFIRMED"]);
@@ -380,7 +383,10 @@ describe("matching drivers and guides", () => {
     );
     expect(stale?.code).toBe("VERSION_CONFLICT");
 
-    const [order] = await checkouts.listOrders("u1");
+    const [order] = await checkouts.listOrders({
+      userId: "u1",
+      guestKeyHash: null,
+    });
     const shown = order.services.find((s) => s.service === "CAR")!;
     expect(shown.status).toBe("MATCHED");
     expect(shown.assignee).toMatchObject({ name: "Tunde Bakare" });

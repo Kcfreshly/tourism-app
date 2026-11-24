@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { pages } from "@/bootstrap/container";
 import { OrderList } from "@/components/bookings";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My bookings" };
 
+// Account orders, plus tickets bought as a guest in this browser.
 export default async function Bookings() {
-  await pages.requireSignedIn("/bookings");
-  const actor = await pages.currentActor();
-  const orders = actor ? await pages.orders(actor.id) : [];
+  const viewer = await pages.viewer();
+  if (!viewer.userId && !viewer.guestKeyHash)
+    await pages.requireSignedIn("/bookings");
+  const orders = await pages.orders(viewer);
   return (
     <section className="page bookings-page">
       <header className="page-intro">
@@ -17,6 +20,13 @@ export default async function Bookings() {
           with its own status.
         </p>
       </header>
+      {!viewer.userId && (
+        <p className="notice">
+          These are tickets bought without an account in this browser.{" "}
+          <Link href="/account?next=%2Fbookings">Sign in</Link> to see bookings
+          made with an account.
+        </p>
+      )}
       <OrderList orders={orders} />
     </section>
   );

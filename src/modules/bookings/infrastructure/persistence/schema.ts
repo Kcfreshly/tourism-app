@@ -38,9 +38,11 @@ export const inventorySlots = pgTable("inventory_slots", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
+// A guest checkout (0012) has no user; its browser's key hash owns it.
 export const checkouts = pgTable("checkouts", {
   id: uuid().primaryKey(),
-  userId: text().notNull(),
+  userId: text(),
+  guestKeyHash: text(),
   status: text().notNull(),
   subtotalMinor: money().notNull(),
   feeMinor: money().notNull(),
@@ -87,7 +89,7 @@ export const checkoutLines = pgTable("checkout_lines", {
 export const orders = pgTable("orders", {
   id: uuid().primaryKey(),
   checkoutId: uuid().notNull().unique(),
-  userId: text().notNull(),
+  userId: text(),
   reference: text().notNull().unique(),
   tripId: uuid(),
   totalMinor: money().notNull(),
@@ -98,7 +100,7 @@ export const bookings = pgTable("bookings", {
   id: uuid().primaryKey(),
   orderId: uuid().notNull(),
   checkoutLineId: uuid().notNull().unique(),
-  userId: text().notNull(),
+  userId: text(),
   slotId: uuid().notNull(),
   productType: text().notNull(),
   productId: text().notNull(),

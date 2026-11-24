@@ -85,6 +85,7 @@ export class StartTripCheckout {
       {
         id: checkoutId,
         userId: command.user.id,
+        guestKeyHash: null,
         idempotencyKey: command.idempotencyKey,
         contact: { ...command.input.contact, email: command.user.email },
         subtotalMinor: trip.price.subtotalMinor,

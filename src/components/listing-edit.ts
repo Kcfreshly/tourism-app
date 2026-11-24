@@ -90,6 +90,7 @@ export function cleanEdit(edit: FullEdit): Edit {
       type: edit.event.type,
       guaranteed: edit.event.guaranteed?.trim() || undefined,
       bonus: edit.event.bonus?.trim() || undefined,
+      guestCheckout: edit.event.guestCheckout || undefined,
     },
   };
 }

@@ -1,5 +1,5 @@
 import { AppError } from "@/shared/application/app-error";
-import { holdMinutes, paymentReference } from "../../domain/checkout";
+import { canView, holdMinutes, paymentReference } from "../../domain/checkout";
 import type { CheckoutRepository } from "../ports/checkout-repository";
 import {
   PaymentProviderUnavailable,
@@ -19,16 +19,21 @@ export class PaymentStarter {
     private readonly callbackUrl: () => string,
   ) {}
 
-  // The earlier result of this press, or null if it is new.
+  // The earlier result of this press, or null if it is new. Only the same
+  // account, or for a guest the same browser, may continue it.
   async resume(
-    user: { id: string; email: string },
+    user: { id: string | null; email: string; guestKeyHash?: string | null },
     idempotencyKey: string,
     now: Date,
   ): Promise<StartedCheckout | null> {
     const existing = await this.checkouts.findByIdempotencyKey(idempotencyKey);
     if (!existing) return null;
     const { checkout, payment } = existing;
-    if (checkout.userId !== user.id)
+    const owner = {
+      userId: user.id,
+      guestKeyHash: user.id ? null : (user.guestKeyHash ?? null),
+    };
+    if (!canView(checkout, owner))
       throw new AppError(
         "CONFLICT",
         "IDEMPOTENCY_KEY_REUSED",

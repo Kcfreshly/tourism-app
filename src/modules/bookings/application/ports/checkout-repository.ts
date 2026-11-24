@@ -3,6 +3,7 @@ import type {
   BookingStatus,
   CheckoutStatus,
   OrderView,
+  Viewer,
 } from "../../domain/checkout";
 import type { LineTerms, SlotRef } from "../../domain/resolve-line";
 import type { ServiceLine } from "../../domain/trip-checkout";
@@ -22,7 +23,9 @@ export type HeldLine = {
 
 export type NewCheckout = {
   id: string;
-  userId: string;
+  // A guest checkout has no account; its browser's key hash owns it.
+  userId: string | null;
+  guestKeyHash: string | null;
   idempotencyKey: string;
   contact: { name: string; email: string; phone: string };
   subtotalMinor: number;
@@ -42,7 +45,8 @@ export type HoldResult =
 export type CheckoutPayment = {
   checkout: {
     id: string;
-    userId: string;
+    userId: string | null;
+    guestKeyHash: string | null;
     status: CheckoutStatus;
     totalMinor: number;
     currency: string;
@@ -104,7 +108,8 @@ export interface CheckoutRepository {
   // Places left per slot (keyed by slotKey): the slot's current capacity
   // minus paid bookings and unexpired holds.
   remaining(slots: SlotRef[], now: Date): Promise<Map<string, number>>;
-  // In one transaction: lapses this traveller's other open holds, locks the
+  // In one transaction: lapses this traveller's (or guest browser's) other
+  // open holds, locks the
   // slots in id order, re-checks capacity and stores the checkout as HELD.
   hold(checkout: NewCheckout, now: Date): Promise<HoldResult>;
   findByIdempotencyKey(key: string): Promise<CheckoutPayment | null>;
@@ -135,6 +140,7 @@ export interface CheckoutRepository {
   // Stores a webhook; returns its id, or null when it was already handled.
   recordEvent(event: PaymentEvent): Promise<string | null>;
   finishEvent(id: string, error: string | null): Promise<void>;
-  listOrders(userId: string): Promise<OrderView[]>;
-  findOrder(userId: string, reference: string): Promise<OrderView | null>;
+  // The viewer's account orders plus guest orders made in this browser.
+  listOrders(viewer: Viewer): Promise<OrderView[]>;
+  findOrder(viewer: Viewer, reference: string): Promise<OrderView | null>;
 }

@@ -65,6 +65,8 @@ export const startCheckoutSchema = z
           .string()
           .trim()
           .regex(/^\+?[0-9][0-9 ()-]{6,19}$/),
+        // Guests only; a signed-in buyer's receipt goes to their account email.
+        email: z.string().trim().email().max(254).optional(),
       })
       .strict(),
     agreed: z.literal(true),
@@ -82,6 +84,25 @@ export const startTripCheckoutSchema = z
   })
   .strict();
 export type StartTripCheckoutInput = z.infer<typeof startTripCheckoutSchema>;
+
+// A guest buyer's browser keeps a random key in this cookie; the server
+// stores only its hash on the checkout (presentation/http/guest-key.ts).
+export const guestKeyCookie = "fl_guest";
+
+// Who is asking about a checkout or order: the signed-in account, and the
+// hash of this browser's guest key. Either may be null.
+export type Viewer = { userId: string | null; guestKeyHash: string | null };
+
+// An account's checkouts belong to that account. A guest checkout belongs to
+// the browser holding its key, so signing in later doesn't lose it.
+export function canView(
+  owner: { userId: string | null; guestKeyHash: string | null },
+  viewer: Viewer,
+) {
+  return owner.userId
+    ? owner.userId === viewer.userId
+    : !!owner.guestKeyHash && owner.guestKeyHash === viewer.guestKeyHash;
+}
 
 // Traveller-facing order reference, e.g. FL-7K3Q9P. No 0/O or 1/I.
 const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";

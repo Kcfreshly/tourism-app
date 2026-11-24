@@ -324,6 +324,12 @@ function Panel({
               <Icon name="users" size={14} />
               {ageLabel(details)}
             </li>
+            {e.event?.guestCheckout && (
+              <li data-tone="ok">
+                <Icon name="user" size={14} />
+                No account needed to buy tickets
+              </li>
+            )}
           </ul>
           <fieldset className="booking-field">
             <legend>Date</legend>

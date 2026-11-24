@@ -9,6 +9,7 @@ import { ConfirmationChip, Totals, useCartView } from "./cart";
 import { authClient } from "./auth-client";
 import Icon from "./icons";
 import { showToast } from "./toast";
+import { ensureGuestKey } from "./guest-key";
 
 type ApiError = { code: string; message: string; details?: unknown };
 
@@ -29,16 +30,21 @@ async function post<T>(
 // Final review of the cart before paying. Each line is shown as the separate
 // booking it will become, with its own terms and what happens after payment.
 // The server's quote is the price paid: it is fetched on load and again on Pay.
+// Signed out, it takes a guest's name, email and phone instead, but only when
+// every item is an event whose partner allows that; otherwise it asks to sign in.
 export default function CheckoutReview({
   paymentsEnabled,
+  signedIn,
 }: {
   paymentsEnabled: boolean;
+  signedIn: boolean;
 }) {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const { loading, lines, payable, views, totals } = useCartView();
   const [agreed, setAgreed] = useState(false);
   const [name, setName] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState("");
@@ -94,14 +100,26 @@ export default function CheckoutReview({
       </section>
     );
 
+  const guest = !signedIn && !session;
+  const needsAccount = guest ? views.filter((v) => !v.guestCheckout) : [];
+  if (needsAccount.length)
+    return (
+      <AccountRequired
+        needsAccount={needsAccount.map((v) => v.title)}
+        guestReady={views.some((v) => v.guestCheckout)}
+      />
+    );
+
   const server = new Map(quote?.lines.map((l) => [l.id, l]));
   const ready = payable.filter((v) => quote && !server.get(v.line.id)?.problem);
   const skipped = views.length - ready.length;
   const leadName = name ?? session?.user.name ?? "";
   const phoneValid = /^\+?[0-9][0-9 ()-]{6,19}$/.test(phone.trim());
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const shownTotals = quote?.totals ?? totals;
   const problems = [
     leadName.trim().length < 2 && "Add the lead guest’s name.",
+    guest && !emailValid && "Add the email address your tickets go to.",
     !phoneValid && "Add a phone number partners can reach on the day.",
     !agreed && "Tick the box to agree to each booking’s terms.",
   ].filter((p): p is string => !!p);
@@ -113,6 +131,7 @@ export default function CheckoutReview({
     setPaying(true);
     setNotice("");
     payKey.current ||= crypto.randomUUID();
+    if (guest) ensureGuestKey();
     try {
       const { data, error } = await post<
         | { status: "PAYMENT_REDIRECT"; authorizationUrl: string }
@@ -122,7 +141,11 @@ export default function CheckoutReview({
         {
           lines: ready.map((v) => v.line),
           shownTotalMinor: quote.totals.totalMinor,
-          contact: { name: leadName.trim(), phone: phone.trim() },
+          contact: {
+            name: leadName.trim(),
+            phone: phone.trim(),
+            ...(guest ? { email: email.trim() } : {}),
+          },
           agreed: true,
         },
         { "Idempotency-Key": payKey.current },
@@ -141,6 +164,10 @@ export default function CheckoutReview({
       if (code !== "PAYMENT_PROVIDER_UNAVAILABLE") payKey.current = "";
       const fresh = (error?.details as { quote?: Quote } | undefined)?.quote;
       if (fresh) setQuote(fresh);
+      if (code === "SIGN_IN_REQUIRED") {
+        router.push("/account?next=%2Fcheckout");
+        return;
+      }
       if (code === "PRICE_CHANGED" && fresh) {
         setAgreed(false);
         setNotice(
@@ -195,24 +222,46 @@ export default function CheckoutReview({
             </p>
           )}
           <section className="checkout-section" aria-labelledby="contact-title">
-            <h2 id="contact-title">Lead guest</h2>
+            <h2 id="contact-title">{guest ? "Your details" : "Lead guest"}</h2>
+            {guest && (
+              <p className="muted checkout-guest-note">
+                No account needed for these tickets. Already have one?{" "}
+                <Link href="/account?next=%2Fcheckout">Sign in</Link>
+              </p>
+            )}
             <div className="field-grid">
               <label className="field">
                 <span>Name</span>
                 <input
                   value={leadName}
                   autoComplete="name"
+                  aria-invalid={tried && leadName.trim().length < 2}
                   onChange={(e) => setName(e.target.value)}
                 />
               </label>
               <label className="field">
-                <span>Email (receipt goes here)</span>
-                <input
-                  type="email"
-                  value={session?.user.email ?? ""}
-                  readOnly
-                  autoComplete="email"
-                />
+                <span>
+                  {guest
+                    ? "Email (tickets go here)"
+                    : "Email (receipt goes here)"}
+                </span>
+                {guest ? (
+                  <input
+                    type="email"
+                    value={email}
+                    autoComplete="email"
+                    inputMode="email"
+                    aria-invalid={tried && !emailValid}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                ) : (
+                  <input
+                    type="email"
+                    value={session?.user.email ?? ""}
+                    readOnly
+                    autoComplete="email"
+                  />
+                )}
               </label>
               <label className="field">
                 <span>Phone (for partners on the day)</span>
@@ -337,6 +386,40 @@ export default function CheckoutReview({
             Back to cart
           </Link>
         </aside>
+      </div>
+    </section>
+  );
+}
+
+// Signed out with something in the cart that needs an account.
+function AccountRequired({
+  needsAccount,
+  guestReady,
+}: {
+  needsAccount: string[];
+  guestReady: boolean;
+}) {
+  return (
+    <section className="page checkout-page">
+      <div className="empty-state">
+        <Icon name="user" size={28} />
+        <h1>Sign in to book</h1>
+        <p>
+          {needsAccount.length === 1
+            ? `${needsAccount[0]} needs an account to book.`
+            : `${needsAccount.length} items in your cart need an account to book.`}{" "}
+          {guestReady
+            ? "Your event tickets don’t: remove the other items from your cart to buy those without signing in."
+            : "Signing in keeps your bookings together in one place."}
+        </p>
+        <div className="actions">
+          <Link className="button" href="/account?next=%2Fcheckout">
+            Sign in or create an account
+          </Link>
+          <Link className="button secondary" href="/cart">
+            Back to cart
+          </Link>
+        </div>
       </div>
     </section>
   );

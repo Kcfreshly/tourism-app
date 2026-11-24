@@ -1,5 +1,11 @@
 // Composition root: the only place that creates infrastructure and hands it to
 // use cases and controllers. Route files and server pages import from here.
+import { cookies } from "next/headers";
+import type { Viewer } from "@/modules/bookings/domain/checkout";
+import {
+  guestKeyCookie,
+  guestKeyHash,
+} from "@/modules/bookings/presentation/http/guest-key";
 import {
   allowedOrigins,
   kemiSettings,
@@ -611,11 +617,17 @@ export const pages = {
       return false;
     }
   },
-  confirmOwnPayment: (userId: string, reference: string) =>
-    confirmOwnPayment.execute(userId, reference),
-  simulatedPayment: (userId: string, reference: string) =>
-    simulatedPayment.view(userId, reference),
-  orders: (userId: string) => listOrders.execute(userId),
-  order: (userId: string, reference: string) =>
-    getOrder.execute(userId, reference),
+  // The signed-in account and this browser's guest checkout key, either of
+  // which may own a payment or order.
+  viewer: async (): Promise<Viewer> => ({
+    userId: (await guards.currentActor())?.id ?? null,
+    guestKeyHash: guestKeyHash((await cookies()).get(guestKeyCookie)?.value),
+  }),
+  confirmOwnPayment: (viewer: Viewer, reference: string) =>
+    confirmOwnPayment.execute(viewer, reference),
+  simulatedPayment: (viewer: Viewer, reference: string) =>
+    simulatedPayment.view(viewer, reference),
+  orders: (viewer: Viewer) => listOrders.execute(viewer),
+  order: (viewer: Viewer, reference: string) =>
+    getOrder.execute(viewer, reference),
 };

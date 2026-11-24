@@ -10,7 +10,9 @@ import type { RequestGuards } from "@/modules/identity/presentation/http/request
 import {
   startCheckoutSchema,
   startTripCheckoutSchema,
+  type Viewer,
 } from "../../../domain/checkout";
+import { guestKeyFromCookies, guestKeyHash } from "../guest-key";
 import type { StartCheckout } from "../../../application/use-cases/start-checkout";
 import type { StartTripCheckout } from "../../../application/use-cases/start-trip-checkout";
 import type { RecordPaymentEvent } from "../../../application/use-cases/record-payment-event";
@@ -24,24 +26,57 @@ import type { SimulatedPayment } from "../../../application/use-cases/simulated-
 const idempotencyKey = /^[A-Za-z0-9-]{16,64}$/;
 const maxWebhookBytes = 64 * 1024;
 
-// The checks every Pay press passes: same origin, signed in, payments on,
-// throttled, an Idempotency-Key (one per press, reused when retrying it),
-// a valid body and an email for the receipt.
-async function payPress<T>(
+const signIn = () =>
+  new AppError("UNAUTHENTICATED", "SIGN_IN_REQUIRED", "Sign in to continue.");
+
+// The signed-in account and this browser's guest key, either of which may
+// own a checkout. Refuses a caller with neither.
+async function viewerOf(guards: RequestGuards, request: Request) {
+  const actor = await guards.currentActor();
+  const viewer: Viewer = {
+    userId: actor?.id ?? null,
+    guestKeyHash: guestKeyHash(
+      guestKeyFromCookies(request.headers.get("cookie")),
+    ),
+  };
+  if (!viewer.userId && !viewer.guestKeyHash) throw signIn();
+  return viewer;
+}
+
+// Throttle key: the account, or the address of a guest.
+async function caller(guards: RequestGuards, viewer: Viewer) {
+  return viewer.userId ?? `guest:${await guards.clientAddress()}`;
+}
+
+// The checks every Pay press passes: same origin, signed in (or, where
+// allowed, a guest with the guest key cookie), payments on, throttled, an
+// Idempotency-Key (one per press, reused when retrying it), a valid body and
+// an email for the receipt: the account's, or the one a guest typed.
+async function payPress<T extends { contact: { email?: string } }>(
   guards: RequestGuards,
   enabled: () => boolean,
   request: Request,
   schema: z.ZodType<T>,
+  allowGuest = false,
 ) {
   await guards.checkOrigin();
-  const actor = await guards.requireActor();
+  const actor = allowGuest
+    ? await guards.currentActor()
+    : await guards.requireActor();
+  const guestHash = actor
+    ? null
+    : guestKeyHash(guestKeyFromCookies(request.headers.get("cookie")));
+  if (!actor && !guestHash) throw signIn();
   if (!enabled())
     throw new AppError(
       "FORBIDDEN",
       "PAYMENTS_DISABLED",
       "Payments aren’t switched on in this preview.",
     );
-  await guards.throttle(`checkout:${actor.id}`, 10);
+  await guards.throttle(
+    `checkout:${actor?.id ?? `guest:${await guards.clientAddress()}`}`,
+    10,
+  );
   const key = request.headers.get("idempotency-key") ?? "";
   if (!idempotencyKey.test(key))
     throw new AppError(
@@ -54,22 +89,30 @@ async function payPress<T>(
     throw new AppError(
       "INVALID",
       "INVALID_CHECKOUT",
-      "Add your name and a phone number, and agree to the terms.",
+      actor
+        ? "Add your name and a phone number, and agree to the terms."
+        : "Add your name, email and a phone number, and agree to the terms.",
     );
-  if (!actor.email)
+  const email = actor ? actor.email : input.data.contact.email;
+  if (!email)
     throw new AppError(
       "INVALID",
       "EMAIL_REQUIRED",
-      "Your account needs an email address to pay.",
+      actor
+        ? "Your account needs an email address to pay."
+        : "Add the email address your tickets should go to.",
     );
   return {
-    user: { id: actor.id, email: actor.email },
+    user: actor
+      ? { id: actor.id, email }
+      : { id: null, email, guestKeyHash: guestHash },
     idempotencyKey: key,
     input: input.data,
   };
 }
 
-// POST /checkouts: Pay pressed on the cart.
+// POST /checkouts: Pay pressed on the cart. A guest may pay too; StartCheckout
+// checks that every line is an event whose partner allows guest checkout.
 export function createStartCheckoutController(deps: {
   guards: RequestGuards;
   start: StartCheckout;
@@ -78,14 +121,20 @@ export function createStartCheckoutController(deps: {
   return controller(async (request: Request) =>
     success(
       await deps.start.execute(
-        await payPress(deps.guards, deps.enabled, request, startCheckoutSchema),
+        await payPress(
+          deps.guards,
+          deps.enabled,
+          request,
+          startCheckoutSchema,
+          true,
+        ),
       ),
       201,
     ),
   );
 }
 
-// POST /trips/{id}/checkout: Pay pressed on a planned trip.
+// POST /trips/{id}/checkout: Pay pressed on a planned trip. Needs an account.
 export function createStartTripCheckoutController(deps: {
   guards: RequestGuards;
   start: StartTripCheckout;
@@ -98,10 +147,18 @@ export function createStartTripCheckoutController(deps: {
       request,
       startTripCheckoutSchema,
     );
+    if (!press.user.id) throw signIn();
     const { id } = await params;
     if (!z.uuid().safeParse(id).success)
       throw new AppError("NOT_FOUND", "NOT_FOUND", "Trip not found.");
-    return success(await deps.start.execute({ ...press, tripId: id }), 201);
+    return success(
+      await deps.start.execute({
+        ...press,
+        user: { id: press.user.id, email: press.user.email },
+        tripId: id,
+      }),
+      201,
+    );
   });
 }
 
@@ -153,8 +210,8 @@ const simulatedSchema = z
   .strict();
 
 // POST /payments/simulated: the local payment page's buttons. Only exists
-// while PAYMENT_PROVIDER=simulated; only the traveller who started it can
-// complete it.
+// while PAYMENT_PROVIDER=simulated; only the traveller (or guest browser) who
+// started it can complete it.
 export function createSimulatedPaymentController(deps: {
   guards: RequestGuards;
   simulated: SimulatedPayment;
@@ -162,13 +219,13 @@ export function createSimulatedPaymentController(deps: {
   const { guards } = deps;
   return controller(async (request: Request) => {
     await guards.checkOrigin();
-    const actor = await guards.requireActor();
-    await guards.throttle(`simulated-pay:${actor.id}`, 20);
+    const viewer = await viewerOf(guards, request);
+    await guards.throttle(`simulated-pay:${await caller(guards, viewer)}`, 20);
     const input = simulatedSchema.safeParse(await request.json());
     if (!input.success)
       throw new AppError("INVALID", "INVALID_PAYMENT", "Choose an outcome.");
     const done = await deps.simulated.complete(
-      actor.id,
+      viewer,
       input.data.reference,
       input.data.outcome,
     );
@@ -187,15 +244,15 @@ export function createVerifyPaymentController(deps: {
   const { guards } = deps;
   return controller(async (request: Request) => {
     await guards.checkOrigin();
-    const actor = await guards.requireActor();
-    await guards.throttle(`payment-verify:${actor.id}`, 30);
+    const viewer = await viewerOf(guards, request);
+    await guards.throttle(`payment-verify:${await caller(guards, viewer)}`, 30);
     const input = z
       .object({ reference: z.string().min(1).max(100) })
       .strict()
       .safeParse(await request.json());
     if (!input.success)
       throw new AppError("INVALID", "INVALID_PAYMENT", "Send a reference.");
-    return success(await deps.confirm.execute(actor.id, input.data.reference));
+    return success(await deps.confirm.execute(viewer, input.data.reference));
   });
 }
 
@@ -206,13 +263,16 @@ export function createOrderControllers(deps: {
 }) {
   const { guards } = deps;
   return {
-    list: controller(async () => {
-      const actor = await guards.requireActor();
-      return success(await deps.list.execute(actor.id));
+    list: controller(async (request: Request) => {
+      return success(await deps.list.execute(await viewerOf(guards, request)));
     }),
-    get: controller(async (_: Request, { params }: IdParams) => {
-      const actor = await guards.requireActor();
-      return success(await deps.get.execute(actor.id, (await params).id));
+    get: controller(async (request: Request, { params }: IdParams) => {
+      return success(
+        await deps.get.execute(
+          await viewerOf(guards, request),
+          (await params).id,
+        ),
+      );
     }),
   };
 }

@@ -12,11 +12,12 @@ export default async function SimulatedPayment({
   searchParams: Promise<{ reference?: string }>;
 }) {
   const reference = ((await searchParams).reference ?? "").slice(0, 100);
-  await pages.requireSignedIn(
-    `/checkout/simulated?reference=${encodeURIComponent(reference)}`,
-  );
-  const actor = await pages.currentActor();
-  const payment = actor && (await pages.simulatedPayment(actor.id, reference));
+  const viewer = await pages.viewer();
+  if (!viewer.userId && !viewer.guestKeyHash)
+    await pages.requireSignedIn(
+      `/checkout/simulated?reference=${encodeURIComponent(reference)}`,
+    );
+  const payment = await pages.simulatedPayment(viewer, reference);
   if (!payment) notFound();
   if (!payment.open)
     redirect(`/checkout/return?reference=${encodeURIComponent(reference)}`);

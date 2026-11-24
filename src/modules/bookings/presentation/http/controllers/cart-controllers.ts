@@ -40,11 +40,15 @@ export function createCartControllers(deps: {
         await deps.save.execute({ userId: actor.id, ...input.data }),
       );
     }),
-    // A POST because the lines travel in the body; nothing is stored.
+    // A POST because the lines travel in the body; nothing is stored. Open
+    // to guests, whose checkout page prices event tickets with it.
     quote: controller(async (request: Request) => {
       await guards.checkOrigin();
-      const actor = await guards.requireActor();
-      await guards.throttle(`cart-quote:${actor.id}`, 60);
+      const actor = await guards.currentActor();
+      await guards.throttle(
+        `cart-quote:${actor?.id ?? `guest:${await guards.clientAddress()}`}`,
+        60,
+      );
       const input = quoteSchema.safeParse(await request.json());
       if (!input.success)
         throw new AppError(

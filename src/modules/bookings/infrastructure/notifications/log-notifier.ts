@@ -4,8 +4,16 @@ import { serviceStatusLabel } from "../../domain/trip-checkout";
 // Phase 1 (D8): no email provider yet. The audit trail already records each
 // order; this makes the events visible in the server log as well.
 export class LogNotifier implements Notifier {
-  async orderPaid(event: { userId: string; orderReference: string }) {
-    console.info(JSON.stringify({ event: "ORDER_PAID", ...event }));
+  // The email is left out of the log; the order holds it.
+  async orderPaid(event: Parameters<Notifier["orderPaid"]>[0]) {
+    console.info(
+      JSON.stringify({
+        event: "ORDER_PAID",
+        userId: event.userId,
+        guest: !event.userId,
+        orderReference: event.orderReference,
+      }),
+    );
   }
 
   async needsReview(event: { checkoutId: string; reason: string }) {

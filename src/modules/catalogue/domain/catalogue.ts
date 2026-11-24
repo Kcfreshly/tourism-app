@@ -157,6 +157,7 @@ export const catalogueEditSchema = z
         type: z.enum(eventTypes),
         guaranteed: z.string().trim().max(300).optional(),
         bonus: z.string().trim().max(300).optional(),
+        guestCheckout: z.boolean().optional(),
       })
       .strict()
       .nullable()

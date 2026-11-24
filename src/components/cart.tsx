@@ -49,6 +49,8 @@ export type LineView = {
   totalMinor: number;
   problem?: string;
   saveId?: string;
+  // An event whose partner lets buyers pay without an account.
+  guestCheckout?: boolean;
 };
 
 function plural(n: number, one: string, many: string) {
@@ -167,6 +169,7 @@ function view(
     totalMinor: r.totalMinor,
     saveId: e.offer.id,
     problem: r.problem,
+    guestCheckout: !!e.event?.guestCheckout,
   };
 }
 

@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Payment" };
 
 // Where the payment page sends the traveller back. Verifies the payment
 // itself rather than waiting for the webhook; both lead to the same order.
+// A guest buyer is recognised by their browser's guest key.
 export default async function PaymentReturn({
   searchParams,
 }: {
@@ -15,16 +16,19 @@ export default async function PaymentReturn({
 }) {
   const query = await searchParams;
   const reference = (query.reference ?? query.trxref ?? "").slice(0, 100);
-  await pages.requireSignedIn(
-    `/checkout/return?reference=${encodeURIComponent(reference)}`,
-  );
-  const actor = await pages.currentActor();
-  if (!actor || !reference) notFound();
+  const here = `/checkout/return?reference=${encodeURIComponent(reference)}`;
+  const viewer = await pages.viewer();
+  if (!viewer.userId && !viewer.guestKeyHash) await pages.requireSignedIn(here);
+  if (!reference) notFound();
   let state;
   try {
-    state = await pages.confirmOwnPayment(actor.id, reference);
+    state = await pages.confirmOwnPayment(viewer, reference);
   } catch (e) {
-    if (e instanceof AppError && e.kind === "NOT_FOUND") notFound();
+    if (e instanceof AppError && e.kind === "NOT_FOUND") {
+      // Perhaps an account payment, opened while signed out.
+      if (!viewer.userId) await pages.requireSignedIn(here);
+      notFound();
+    }
     throw e;
   }
   if (state.status === "PAID")

@@ -1,8 +1,10 @@
 import { AppError } from "@/shared/application/app-error";
 import {
+  canView,
   defaultCommissionBps,
   initialBookingStatus,
   orderReference,
+  type Viewer,
 } from "../../domain/checkout";
 import type { CheckoutRepository } from "../ports/checkout-repository";
 import {
@@ -91,6 +93,7 @@ export class ConfirmPayment {
     if (settled.created)
       await this.notifier.orderPaid({
         userId: checkout.userId,
+        email: checkout.contactEmail,
         orderReference: settled.orderReference,
       });
     return { status: "PAID", orderReference: settled.orderReference };
@@ -103,16 +106,17 @@ export class ConfirmPayment {
   }
 }
 
-// The return page: only the traveller who paid may confirm and see it.
+// The return page: only the traveller (or guest browser) who paid may
+// confirm and see it.
 export class ConfirmOwnPayment {
   constructor(
     private readonly checkouts: CheckoutRepository,
     private readonly confirm: ConfirmPayment,
   ) {}
 
-  async execute(userId: string, reference: string) {
+  async execute(viewer: Viewer, reference: string) {
     const found = await this.checkouts.findByPaymentReference(reference);
-    if (!found || found.checkout.userId !== userId)
+    if (!found || !canView(found.checkout, viewer))
       throw new AppError("NOT_FOUND", "NOT_FOUND", "Payment not found.");
     return this.confirm.execute(reference);
   }

@@ -890,6 +890,25 @@ export default function ListingForm({
                   For example a live shoot during a studio visit.
                 </small>
               </label>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={!!edit.event.guestCheckout}
+                  onChange={(e) =>
+                    set({
+                      event: {
+                        ...edit.event!,
+                        guestCheckout: e.target.checked,
+                      },
+                    })
+                  }
+                />
+                Buyers can pay without creating an account
+              </label>
+              <small className="form-hint">
+                They enter their name, email and phone at checkout. Leave this
+                off to ask every buyer to sign in first.
+              </small>
             </>
           )}
         </>

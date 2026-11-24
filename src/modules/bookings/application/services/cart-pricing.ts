@@ -85,6 +85,14 @@ export class CartPricing {
       lines: quoted,
       totals: cartTotals(held.map((h) => h.subtotalMinor)),
     };
-    return { quote, held };
+    return { quote, held, guestCheckout: lines.every(guestAllowed) };
+
+    // Only events whose partner allows it can be bought without an account.
+    function guestAllowed(line: CartLine) {
+      const product = find(line);
+      return (
+        product?.kind === "EXPERIENCE" && !!product.listing.event?.guestCheckout
+      );
+    }
   }
 }

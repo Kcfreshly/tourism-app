@@ -65,5 +65,15 @@ export function createRequestGuards(deps: {
     throttle(key: string, max: number) {
       return deps.throttle.execute(key, max);
     },
+    // The caller's address, for throttling requests made without an account.
+    // Behind a proxy this is the first X-Forwarded-For hop.
+    async clientAddress() {
+      const h = await headers();
+      return (
+        h.get("x-forwarded-for")?.split(",")[0].trim() ||
+        h.get("x-real-ip") ||
+        "local"
+      );
+    },
   };
 }

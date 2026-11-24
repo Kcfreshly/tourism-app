@@ -25,11 +25,25 @@ export class StartCheckout {
   ) {}
 
   async execute(command: {
-    user: { id: string; email: string };
+    // A guest has no id: their browser's key hash owns the checkout, and
+    // every line must be an event whose partner allows guest checkout.
+    user: { id: string | null; email: string; guestKeyHash?: string | null };
     idempotencyKey: string;
     input: StartCheckoutInput;
   }): Promise<StartedCheckout> {
     const now = this.clock();
+    const owner = {
+      userId: command.user.id,
+      guestKeyHash: command.user.id
+        ? null
+        : (command.user.guestKeyHash ?? null),
+    };
+    if (!owner.userId && !owner.guestKeyHash)
+      throw new AppError(
+        "UNAUTHENTICATED",
+        "SIGN_IN_REQUIRED",
+        "Sign in to pay.",
+      );
     const earlier = await this.payments.resume(
       command.user,
       command.idempotencyKey,
@@ -37,7 +51,16 @@ export class StartCheckout {
     );
     if (earlier) return earlier;
 
-    const { quote, held } = await this.pricing.price(command.input.lines, now);
+    const { quote, held, guestCheckout } = await this.pricing.price(
+      command.input.lines,
+      now,
+    );
+    if (!owner.userId && !guestCheckout)
+      throw new AppError(
+        "UNAUTHENTICATED",
+        "SIGN_IN_REQUIRED",
+        "Sign in to book these. Only some event tickets can be bought without an account.",
+      );
     const unavailable = quote.lines.filter((l) => l.problem);
     if (unavailable.length)
       throw new AppError(
@@ -58,9 +81,13 @@ export class StartCheckout {
     const hold = await this.checkouts.hold(
       {
         id: checkoutId,
-        userId: command.user.id,
+        ...owner,
         idempotencyKey: command.idempotencyKey,
-        contact: { ...command.input.contact, email: command.user.email },
+        contact: {
+          name: command.input.contact.name,
+          phone: command.input.contact.phone,
+          email: command.user.email,
+        },
         ...quote.totals,
         currency: "NGN",
         priceVersion,

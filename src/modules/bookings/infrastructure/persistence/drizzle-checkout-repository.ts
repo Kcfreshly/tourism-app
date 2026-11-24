@@ -28,6 +28,7 @@ import {
   type CheckoutStatus,
   type OrderView,
   type ServiceView,
+  type Viewer,
 } from "../../domain/checkout";
 import { slotKey, type SlotRef } from "../../domain/resolve-line";
 import type { ServiceLine, ServiceStatus } from "../../domain/trip-checkout";
@@ -166,7 +167,9 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           .set({ expiresAt: now, updatedAt: now })
           .where(
             and(
-              eq(checkouts.userId, checkout.userId),
+              checkout.userId
+                ? eq(checkouts.userId, checkout.userId)
+                : eq(checkouts.guestKeyHash, checkout.guestKeyHash ?? ""),
               inArray(checkouts.status, openStatuses),
               gt(checkouts.expiresAt, now),
             ),
@@ -226,6 +229,7 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         await tx.insert(checkouts).values({
           id: checkout.id,
           userId: checkout.userId,
+          guestKeyHash: checkout.guestKeyHash,
           status: "HELD",
           subtotalMinor: checkout.subtotalMinor,
           feeMinor: checkout.feeMinor,
@@ -309,6 +313,7 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
       checkout: {
         id: c.id,
         userId: c.userId,
+        guestKeyHash: c.guestKeyHash,
         status: c.status as CheckoutStatus,
         totalMinor: c.totalMinor,
         currency: c.currency,
@@ -566,23 +571,30 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           })),
         );
       }
-      const requested = services.map((l) => {
-        const line = l.cartLine as ServiceLine;
-        return {
-          id: randomUUID(),
-          orderId,
-          checkoutLineId: l.id,
-          userId: checkout.userId,
-          tripId: checkout.tripId,
-          service: line.service,
-          localDate: line.date,
-          startTime: line.startTime,
-          status: "REQUESTED",
-          matchBy: new Date(line.matchBy),
-          totalMinor: l.totalMinor,
-          feeMinor: l.feeMinor,
-        };
-      });
+      // Cars and guides only come with a planned trip, which needs an
+      // account; a guest checkout never has them.
+      const accountId = checkout.userId;
+      if (services.length && !accountId)
+        throw new Error(`Guest checkout ${checkout.id} has trip services`);
+      const requested = !accountId
+        ? []
+        : services.map((l) => {
+            const line = l.cartLine as ServiceLine;
+            return {
+              id: randomUUID(),
+              orderId,
+              checkoutLineId: l.id,
+              userId: accountId,
+              tripId: checkout.tripId,
+              service: line.service,
+              localDate: line.date,
+              startTime: line.startTime,
+              status: "REQUESTED",
+              matchBy: new Date(line.matchBy),
+              totalMinor: l.totalMinor,
+              feeMinor: l.feeMinor,
+            };
+          });
       if (requested.length) {
         await tx.insert(serviceRequests).values(requested);
         await tx.insert(serviceRequestHistory).values(
@@ -609,12 +621,15 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           updatedAt: req.now,
         })
         .where(eq(checkouts.id, checkout.id));
-      // The paid lines leave the saved cart; anything else stays.
-      const [cart] = await tx
-        .select()
-        .from(accountCarts)
-        .where(eq(accountCarts.userId, checkout.userId))
-        .for("update");
+      // The paid lines leave the saved cart; anything else stays. A guest's
+      // cart lives only in their browser, which clears it on the order page.
+      const [cart] = checkout.userId
+        ? await tx
+            .select()
+            .from(accountCarts)
+            .where(eq(accountCarts.userId, checkout.userId))
+            .for("update")
+        : [];
       const paidIds = new Set(lines.map((l) => l.cartLineId));
       if (cart && cart.lines.some((l) => paidIds.has(l.id)))
         await tx
@@ -624,10 +639,10 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
             version: sql`${accountCarts.version} + 1`,
             updatedAt: req.now,
           })
-          .where(eq(accountCarts.userId, checkout.userId));
+          .where(eq(accountCarts.userId, cart.userId));
       await tx.insert(audit).values({
         id: randomUUID(),
-        actorId: checkout.userId,
+        actorId: checkout.userId ?? "GUEST",
         action: "ORDER_PAID",
         entityId: orderId,
         details: {
@@ -757,13 +772,28 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
     }));
   }
 
-  listOrders(userId: string) {
-    return this.orderViews(eq(orders.userId, userId), 50);
+  // Same rule as canView(): account orders by account, guest orders by the
+  // browser's key hash.
+  private ownedBy(viewer: Viewer) {
+    const conditions = [
+      viewer.userId ? eq(orders.userId, viewer.userId) : undefined,
+      viewer.guestKeyHash
+        ? and(
+            isNull(orders.userId),
+            eq(checkouts.guestKeyHash, viewer.guestKeyHash),
+          )
+        : undefined,
+    ].filter((c) => c !== undefined);
+    return conditions.length ? or(...conditions) : sql`false`;
   }
 
-  async findOrder(userId: string, reference: string) {
+  listOrders(viewer: Viewer) {
+    return this.orderViews(and(this.ownedBy(viewer)), 50);
+  }
+
+  async findOrder(viewer: Viewer, reference: string) {
     const [order] = await this.orderViews(
-      and(eq(orders.userId, userId), eq(orders.reference, reference)),
+      and(this.ownedBy(viewer), eq(orders.reference, reference)),
       1,
     );
     return order ?? null;

@@ -225,6 +225,7 @@ const refusal = (p: Promise<unknown>) =>
   );
 const referenceOf = (r: Awaited<ReturnType<typeof pay>>) =>
   r.status === "PAYMENT_REDIRECT" ? r.reference : "";
+const account = (userId: string) => ({ userId, guestKeyHash: null });
 
 describe("cart rules", () => {
   it("merges a guest cart into the saved one at sign-in", () => {
@@ -373,7 +374,7 @@ describe("payment", () => {
     expect(b).toEqual(paid);
     expect(notes.filter((n) => n.startsWith("paid"))).toHaveLength(1);
 
-    const [order] = await checkouts.listOrders("u1");
+    const [order] = await checkouts.listOrders(account("u1"));
     expect(order.reference).toMatch(/^FL-[2-9A-HJ-NP-Z]{6}$/);
     expect(order.bookings.map((b) => b.status)).toEqual([
       "CONFIRMED",
@@ -386,7 +387,9 @@ describe("payment", () => {
     );
     // Paid lines leave the saved cart; the unpaid one stays.
     expect((await carts.load("u1")).lines).toHaveLength(1);
-    expect(await checkouts.findOrder("u2", order.reference)).toBeNull();
+    expect(
+      await checkouts.findOrder(account("u2"), order.reference),
+    ).toBeNull();
     const [{ commission_bps }] = (
       await pg.query<{ commission_bps: number | null }>(
         "SELECT commission_bps FROM bookings WHERE partner_id IS NOT NULL",
@@ -414,7 +417,7 @@ describe("payment", () => {
     expect(await confirm.execute(reference)).toEqual({
       status: "REQUIRES_REVIEW",
     });
-    expect(await checkouts.listOrders("u1")).toEqual([]);
+    expect(await checkouts.listOrders(account("u1"))).toEqual([]);
   });
 
   it("books a late payment only if its places are still free", async () => {
@@ -438,8 +441,10 @@ describe("payment", () => {
   it("only shows a payment to the traveller who made it", async () => {
     const reference = referenceOf(await pay("u1", [walkLine()]));
     const own = new ConfirmOwnPayment(checkouts, confirm);
-    expect((await own.execute("u1", reference)).status).toBe("PENDING");
-    expect((await refusal(own.execute("u2", reference)))?.code).toBe(
+    expect((await own.execute(account("u1"), reference)).status).toBe(
+      "PENDING",
+    );
+    expect((await refusal(own.execute(account("u2"), reference)))?.code).toBe(
       "NOT_FOUND",
     );
   });
@@ -457,7 +462,7 @@ describe("payment", () => {
     };
     expect(await record.execute(event)).toEqual({ handled: true });
     expect(await record.execute(event)).toEqual({ handled: false });
-    expect(await checkouts.listOrders("u1")).toHaveLength(1);
+    expect(await checkouts.listOrders(account("u1"))).toHaveLength(1);
   });
 
   it("checks Paystack webhook signatures", () => {

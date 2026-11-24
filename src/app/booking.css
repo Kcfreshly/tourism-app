@@ -1205,6 +1205,9 @@ body:has(.booking-panel) .toast-region {
   margin: 0;
   font-size: var(--text-xl);
 }
+.checkout-guest-note {
+  margin: 0;
+}
 .checkout-line {
   display: grid;
   gap: var(--space-2);

@@ -23,16 +23,21 @@ export default async function Booking({
   searchParams: Promise<{ paid?: string }>;
 }) {
   const { reference } = await params;
-  await pages.requireSignedIn(`/bookings/${encodeURIComponent(reference)}`);
-  const actor = await pages.currentActor();
-  if (!actor) notFound();
+  const here = `/bookings/${encodeURIComponent(reference)}`;
+  // A guest buyer's browser holds the key to their order.
+  const viewer = await pages.viewer();
+  if (!viewer.userId && !viewer.guestKeyHash) await pages.requireSignedIn(here);
   let order;
   try {
-    order = await pages.order(actor.id, reference);
+    order = await pages.order(viewer, reference);
   } catch (e) {
-    if (e instanceof AppError && e.kind === "NOT_FOUND") notFound();
+    if (e instanceof AppError && e.kind === "NOT_FOUND") {
+      if (!viewer.userId) await pages.requireSignedIn(here);
+      notFound();
+    }
     throw e;
   }
+  const guest = !viewer.userId;
   const paid = (await searchParams).paid === "1";
   const waiting =
     order.bookings.filter((b) => b.status === "AWAITING_PARTNER").length +
@@ -83,7 +88,10 @@ export default async function Booking({
       {paid && !waiting && (
         <p className="notice" role="status">
           <Icon name="check" size={16} /> Thank you. Keep the reference{" "}
-          <strong>{order.reference}</strong>; it’s also in My bookings.
+          <strong>{order.reference}</strong>
+          {guest
+            ? `. Your tickets are saved in this browser under My bookings. Show this page or the reference at the door; tickets go to ${order.contact.email} once email is switched on.`
+            : "; it’s also in My bookings."}
         </p>
       )}
       <OrderDetail order={order} />
