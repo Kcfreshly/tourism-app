@@ -9,5 +9,5 @@ export default async function CheckoutPage({
 }) {
   const { id } = await params;
   await pages.requireSignedIn(`/trips/${encodeURIComponent(id)}/checkout`);
-  return <Checkout id={id} />;
+  return <Checkout id={id} paymentsEnabled={pages.paymentsEnabled()} />;
 }

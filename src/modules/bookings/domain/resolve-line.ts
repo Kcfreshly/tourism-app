@@ -109,11 +109,6 @@ function resolveExperience(
     e.offer,
     d,
   );
-  const fixed =
-    e.schedulingType === "FIXED" || (e.sessions ?? []).some((s) => s.dates);
-  const session = e.sessions?.find((s) => s.startTime === line.time);
-  const unit: CapacityUnit =
-    e.offer.capacityUnit === "GROUP" ? "GROUP" : "PERSON";
   const day = shortDay(line.date);
   const today = lagosToday(now);
   const tooLate =
@@ -146,28 +141,56 @@ function resolveExperience(
     title: displayName(e.name),
     rows,
     totalMinor: sumRows(rows),
-    terms: {
-      operator: d.operator.replace(/ \(sample.*\)$/, ""),
-      where:
-        pickup || d.arrival === "PICKUP_REQUIRED"
-          ? `Pickup from ${line.pickupAddress}`
-          : d.venue,
-      confirmation: d.confirmation,
-      partnerHours: d.partnerHours,
-      freeCancellationHours: d.freeCancellationHours,
-      cancellation: cancellationLabel(d),
-    },
-    slot: {
-      productType: "EXPERIENCE",
-      productId: product.productId,
-      partnerId: product.partnerId,
-      localDate: line.date,
-      startTime: fixed && e.kind !== "FULL_DAY" ? line.time : "DAY",
-      capacity: session?.capacity ?? e.offer.capacityPerSlot,
-      capacityUnit: unit,
-      units: unit === "GROUP" ? 1 : guests,
-    },
+    terms: experienceTerms(
+      e,
+      pickup || d.arrival === "PICKUP_REQUIRED"
+        ? `Pickup from ${line.pickupAddress}`
+        : d.venue,
+    ),
+    slot: experienceSlot(product, line.date, line.time, guests),
     problem,
+  };
+}
+
+// The booked terms of a listing.
+export function experienceTerms(
+  e: PublishedExperience,
+  where: string,
+): LineTerms {
+  const d = listingDetails(e);
+  return {
+    operator: d.operator.replace(/ \(sample.*\)$/, ""),
+    where,
+    confirmation: d.confirmation,
+    partnerHours: d.partnerHours,
+    freeCancellationHours: d.freeCancellationHours,
+    cancellation: cancellationLabel(d),
+  };
+}
+
+// The slot a visit takes places from: its session for fixed listings, the
+// day for drop-in ones (D3). A group takes one place whatever its size.
+export function experienceSlot(
+  product: Extract<Bookable, { kind: "EXPERIENCE" }>,
+  date: string,
+  time: string,
+  guests: number,
+): SlotRef {
+  const e = product.listing;
+  const fixed =
+    e.schedulingType === "FIXED" || (e.sessions ?? []).some((s) => s.dates);
+  const session = e.sessions?.find((s) => s.startTime === time);
+  const unit: CapacityUnit =
+    e.offer.capacityUnit === "GROUP" ? "GROUP" : "PERSON";
+  return {
+    productType: "EXPERIENCE",
+    productId: product.productId,
+    partnerId: product.partnerId,
+    localDate: date,
+    startTime: fixed && e.kind !== "FULL_DAY" ? time : "DAY",
+    capacity: session?.capacity ?? e.offer.capacityPerSlot,
+    capacityUnit: unit,
+    units: unit === "GROUP" ? 1 : guests,
   };
 }
 

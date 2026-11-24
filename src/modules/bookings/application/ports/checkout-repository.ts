@@ -5,17 +5,19 @@ import type {
   OrderView,
 } from "../../domain/checkout";
 import type { LineTerms, SlotRef } from "../../domain/resolve-line";
+import type { ServiceLine } from "../../domain/trip-checkout";
 
-// A line ready to hold: priced, with its slot and booked terms.
+// A line ready to hold: priced, with its slot and booked terms. A trip's
+// car or guide has no slot; it becomes a service request when paid.
 export type HeldLine = {
-  line: CartLine;
+  line: CartLine | ServiceLine;
   title: string;
   rows: PriceRow[];
   subtotalMinor: number;
   feeMinor: number;
   totalMinor: number;
   terms: LineTerms;
-  slot: SlotRef;
+  slot: SlotRef | null;
 };
 
 export type NewCheckout = {
@@ -29,6 +31,8 @@ export type NewCheckout = {
   currency: string;
   priceVersion: string;
   expiresAt: Date;
+  // The planned trip and version this checkout pays for; null for a cart.
+  trip: { id: string; version: number } | null;
   lines: HeldLine[];
 };
 
@@ -79,7 +83,8 @@ export type SettleRequest = {
   payload: unknown;
   now: Date;
   orderReference: () => string;
-  // Decides each booking's starting status; runs inside the transaction.
+  // Decides each booking's starting status, for lines that hold places;
+  // runs inside the transaction. Service lines become service requests.
   plan: (lines: StoredLine[]) => SettledLine[];
 };
 

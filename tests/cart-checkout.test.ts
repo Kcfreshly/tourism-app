@@ -41,6 +41,7 @@ import type { Notifier } from "../src/modules/bookings/application/ports/notifie
 import { CartPricing } from "../src/modules/bookings/application/services/cart-pricing";
 import { SaveCart } from "../src/modules/bookings/application/use-cases/cart";
 import { StartCheckout } from "../src/modules/bookings/application/use-cases/start-checkout";
+import { PaymentStarter } from "../src/modules/bookings/application/services/payment-starter";
 import {
   ConfirmOwnPayment,
   ConfirmPayment,
@@ -177,15 +178,18 @@ beforeAll(async () => {
 beforeEach(async () => {
   // Each test starts with no holds, bookings or carts.
   await pg.exec(
-    "TRUNCATE booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots, account_carts",
+    "TRUNCATE service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots, account_carts",
   );
   gateway = new FakeGateway();
   clock = new Date();
   start = new StartCheckout(
     pricing,
     checkouts,
-    () => gateway,
-    () => "http://app.test/checkout/return",
+    new PaymentStarter(
+      checkouts,
+      () => gateway,
+      () => "http://app.test/checkout/return",
+    ),
     () => clock,
   );
   confirm = new ConfirmPayment(

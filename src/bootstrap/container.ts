@@ -26,6 +26,9 @@ import {
 import { RecordPaymentEvent } from "@/modules/bookings/application/use-cases/record-payment-event";
 import { SimulatedPayment } from "@/modules/bookings/application/use-cases/simulated-payment";
 import { StartCheckout } from "@/modules/bookings/application/use-cases/start-checkout";
+import { StartTripCheckout } from "@/modules/bookings/application/use-cases/start-trip-checkout";
+import { PaymentStarter } from "@/modules/bookings/application/services/payment-starter";
+import type { TripSource } from "@/modules/bookings/application/ports/trip-source";
 import { LogNotifier } from "@/modules/bookings/infrastructure/notifications/log-notifier";
 import {
   PaystackGateway,
@@ -40,6 +43,7 @@ import {
   createPaystackWebhookController,
   createSimulatedPaymentController,
   createStartCheckoutController,
+  createStartTripCheckoutController,
   createVerifyPaymentController,
 } from "@/modules/bookings/presentation/http/controllers/checkout-controllers";
 import { toPublishedExperience } from "@/modules/catalogue/domain/experience";
@@ -339,16 +343,40 @@ const simulatedPayment = new SimulatedPayment(
   simulatedGateway,
   () => paymentProvider() === "simulated",
 );
+const paymentStarter = new PaymentStarter(
+  checkoutRepository,
+  paymentGateway,
+  () => `${publicAppUrl()}/checkout/return`,
+);
+const paymentsOn = () => paymentProvider() !== "disabled";
 const listOrders = new ListOrders(checkoutRepository);
 const getOrder = new GetOrder(checkoutRepository);
 
 // Trips
 const selection = new OfferSelection(offers);
 const proposals = new DrizzleProposalRepository(db);
-const ownedTrip = createOwnedTripLoader(
-  guards,
-  new LoadOwnedTrip(tripRepository),
-);
+// What trip checkout reads: the traveller's own trip, freshly priced.
+const loadOwnedTrip = new LoadOwnedTrip(tripRepository);
+const getWorkspace = new GetWorkspace(offers, transportSettings);
+const tripSource: TripSource = {
+  async load(userId, tripId) {
+    const context = await loadOwnedTrip.execute(tripId, {
+      id: userId,
+      kind: "ACCOUNT",
+    });
+    const { price } = await getWorkspace.execute(context);
+    return {
+      id: context.trip.id,
+      version: context.trip.version,
+      profile: context.profile,
+      items: context.items,
+      services: context.services,
+      price,
+      blockers: price.blockers,
+    };
+  },
+};
+const ownedTrip = createOwnedTripLoader(guards, loadOwnedTrip);
 
 export const api = {
   auth: authController,
@@ -469,13 +497,18 @@ export const api = {
   checkouts: {
     start: createStartCheckoutController({
       guards,
-      start: new StartCheckout(
-        cartPricing,
+      start: new StartCheckout(cartPricing, checkoutRepository, paymentStarter),
+      enabled: paymentsOn,
+    }),
+    trip: createStartTripCheckoutController({
+      guards,
+      start: new StartTripCheckout(
+        tripSource,
+        bookableCatalogue,
         checkoutRepository,
-        paymentGateway,
-        () => `${publicAppUrl()}/checkout/return`,
+        paymentStarter,
       ),
-      enabled: () => paymentProvider() !== "disabled",
+      enabled: paymentsOn,
     }),
   },
   payments: {
@@ -512,10 +545,7 @@ export const api = {
       new UpdateTripProfile(tripRepository, offers, selection),
     ),
     remove: createDeleteTripController(guards, new DeleteTrip(tripRepository)),
-    getWorkspace: createGetWorkspaceController(
-      ownedTrip,
-      new GetWorkspace(offers, transportSettings),
-    ),
+    getWorkspace: createGetWorkspaceController(ownedTrip, getWorkspace),
     saveWorkspace: createSaveWorkspaceController(
       guards,
       ownedTrip,

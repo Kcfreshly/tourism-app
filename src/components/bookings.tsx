@@ -4,9 +4,14 @@ import {
   bookingStatusLabels,
   type BookingStatus,
   type OrderView,
+  type ServiceView,
 } from "@/modules/bookings/domain/checkout";
 import { formatMoney } from "@/modules/catalogue/domain/experience-content";
 import { clockLabel, shortDay } from "@/modules/catalogue/domain/schedule";
+import {
+  serviceStatusLabel,
+  serviceTitles,
+} from "@/modules/bookings/domain/trip-checkout";
 import Icon from "./icons";
 
 const plural = (n: number, one: string, many: string) =>
@@ -47,6 +52,24 @@ function StatusChip({ status }: { status: BookingStatus }) {
         size={14}
       />
       {bookingStatusLabels[status]}
+    </span>
+  );
+}
+
+function ServiceChip({ s }: { s: ServiceView }) {
+  const tone =
+    s.status === "MATCHED" || s.status === "COMPLETED"
+      ? "ok"
+      : s.status === "REQUESTED"
+        ? "wait"
+        : undefined;
+  return (
+    <span className="status-chip" data-tone={tone}>
+      <Icon
+        name={tone === "ok" ? "check" : tone === "wait" ? "clock" : "info"}
+        size={14}
+      />
+      {serviceStatusLabel(s.service, s.status)}
     </span>
   );
 }
@@ -92,6 +115,17 @@ export function OrderList({ orders }: { orders: OrderView[] }) {
                   </small>
                 </span>
                 <StatusChip status={b.status} />
+              </li>
+            ))}
+            {o.services.map((sv) => (
+              <li key={sv.id}>
+                <span>
+                  <strong>{serviceTitles[sv.service]}</strong>
+                  <small>
+                    {shortDay(sv.date)} · {clockLabel(sv.startTime)}
+                  </small>
+                </span>
+                <ServiceChip s={sv} />
               </li>
             ))}
           </ul>
@@ -150,6 +184,54 @@ export function OrderDetail({ order }: { order: OrderView }) {
             <p className="checkout-line-terms">
               <strong>Cancellation:</strong> {b.terms.cancellation}
             </p>
+          </li>
+        ))}
+        {order.services.map((sv) => (
+          <li key={sv.id} className="checkout-line card">
+            <div className="checkout-line-head">
+              <span className="checkout-line-number">
+                {sv.service.endsWith("GUIDE") ? "Guide" : "Transport"}
+              </span>
+              <ServiceChip s={sv} />
+            </div>
+            <h3>{serviceTitles[sv.service]}</h3>
+            <p className="cart-line-when">
+              <Icon name="calendar" size={14} />
+              {shortDay(sv.date)} · {sv.label}
+            </p>
+            {sv.status === "REQUESTED" && (
+              <p className="checkout-line-after">
+                <strong>Next:</strong> we match you and send their name and
+                phone by {lagosTime(sv.matchBy)}. If we can’t, this part is
+                refunded in full.
+              </p>
+            )}
+            {sv.assignee && (
+              <dl className="booking-rows service-assignee">
+                {Object.entries(sv.assignee).map(([k, v]) => (
+                  <div key={k}>
+                    <dt>{k}</dt>
+                    <dd>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <dl className="booking-rows">
+              {sv.rows.map((row) => (
+                <div key={row.label}>
+                  <dt>{row.label}</dt>
+                  <dd>{formatMoney(row.totalMinor)}</dd>
+                </div>
+              ))}
+              <div>
+                <dt>Service fee</dt>
+                <dd>{formatMoney(sv.feeMinor)}</dd>
+              </div>
+              <div className="booking-rows-total">
+                <dt>Paid for this</dt>
+                <dd>{formatMoney(sv.totalMinor)}</dd>
+              </div>
+            </dl>
           </li>
         ))}
       </ol>

@@ -23,9 +23,25 @@ with its own status, terms and refund path. Staff confirm or decline partner
 bookings and issue refunds from the admin panel. Paystack runs in **test mode**
 only.
 
-**Phase 2: trip checkout.** Cars, night cars and guides from the planner.
-These need vehicle and guide pools with capacity per zone and day. This is
-where the MIT `service_requests` / `service_assignments` tables come in.
+**Phase 2: trip checkout.** Agreed 2026-11-24, replacing the earlier idea
+of vehicle and guide pools:
+
+- A planned trip is paid in **one payment** at the planner's price.
+  Activities hold places like cart lines. Cars, night cars and guides become
+  **service requests** that Fastlife staff match after payment, and the
+  traveller is updated at each stage ("matched with your driver").
+- A driver or guide must be matched **48 hours** before they start, or that
+  request is refunded. Checkout refuses a car or guide starting sooner.
+- **Accommodation** is supplied by Fastlife staff, and it is **optional**: a
+  trip is confirmed without it. Staff send offers into a paid trip; the
+  traveller accepts one and pays it as a second checkout on the same order.
+  The offer price has Fastlife's **markup built in**, with no separate fee
+  line.
+- Build steps, each reviewed before the next: (1) trip checkout and service
+  requests, built in migration `0011_trip_checkout.sql`; (2) staff matching
+  queue and traveller updates; (3) accommodation offers; (4) optional
+  one-tap charge of the saved card for offers. Until refunds exist, an
+  unmatched request is marked "refund due" for staff to handle.
 
 **Partner portal (section 9).** Partners sign in, submit experiences and
 planned trips (packages) for admin approval, confirm their own bookings and

@@ -27,8 +27,10 @@ import {
   type BookingView,
   type CheckoutStatus,
   type OrderView,
+  type ServiceView,
 } from "../../domain/checkout";
 import { slotKey, type SlotRef } from "../../domain/resolve-line";
+import type { ServiceLine, ServiceStatus } from "../../domain/trip-checkout";
 import {
   accountCarts,
   bookingStatusHistory,
@@ -39,6 +41,8 @@ import {
   orders,
   paymentEvents,
   payments,
+  serviceRequestHistory,
+  serviceRequests,
 } from "./schema";
 
 type Runner = Pick<Database, "select">;
@@ -92,12 +96,14 @@ async function takenBySlot(
     )
     .groupBy(checkoutLines.slotId);
   for (const row of [...booked, ...holding])
-    taken.set(row.slotId, (taken.get(row.slotId) ?? 0) + Number(row.units));
+    if (row.slotId)
+      taken.set(row.slotId, (taken.get(row.slotId) ?? 0) + Number(row.units));
   return taken;
 }
 
 // Locks slots in id order, so two checkouts sharing slots can't deadlock.
 async function lockSlots(tx: Tx, ids: string[]) {
+  if (!ids.length) return [];
   return tx
     .select()
     .from(inventorySlots)
@@ -165,8 +171,12 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
               gt(checkouts.expiresAt, now),
             ),
           );
+        // Service lines (a trip's cars and guides) take no places.
+        const placed = checkout.lines.flatMap((l) =>
+          l.slot ? [{ line: l.line, slot: l.slot }] : [],
+        );
         const slotIds = new Map<string, string>();
-        for (const { slot } of checkout.lines) {
+        for (const { slot } of placed) {
           const key = slotKey(slot);
           if (slotIds.has(key)) continue;
           const [row] = await tx
@@ -201,7 +211,7 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           now,
         );
         const needed = new Map<string, number>();
-        for (const { line, slot } of checkout.lines) {
+        for (const { line, slot } of placed) {
           const id = slotIds.get(slotKey(slot))!;
           const want = (needed.get(id) ?? 0) + slot.units;
           needed.set(id, want);
@@ -227,6 +237,8 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           contactName: checkout.contact.name,
           contactEmail: checkout.contact.email,
           contactPhone: checkout.contact.phone,
+          tripId: checkout.trip?.id ?? null,
+          tripVersion: checkout.trip?.version ?? null,
         });
         await tx.insert(checkoutLines).values(
           checkout.lines.map((l, i) => ({
@@ -234,13 +246,25 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
             checkoutId: checkout.id,
             lineNo: i + 1,
             cartLineId: l.line.id,
-            productType: l.slot.productType,
-            productId: l.slot.productId,
-            partnerId: l.slot.partnerId,
-            slotId: slotIds.get(slotKey(l.slot))!,
-            localDate: l.slot.localDate,
-            startTime: l.slot.startTime,
-            units: l.slot.units,
+            ...(l.slot
+              ? {
+                  productType: l.slot.productType,
+                  productId: l.slot.productId,
+                  partnerId: l.slot.partnerId,
+                  slotId: slotIds.get(slotKey(l.slot))!,
+                  localDate: l.slot.localDate,
+                  startTime: l.slot.startTime,
+                  units: l.slot.units,
+                }
+              : {
+                  productType: "SERVICE",
+                  productId: (l.line as ServiceLine).service,
+                  partnerId: null,
+                  slotId: null,
+                  localDate: (l.line as ServiceLine).date,
+                  startTime: (l.line as ServiceLine).startTime,
+                  units: 1,
+                }),
             title: l.title,
             cartLine: l.line,
             priceRows: l.rows,
@@ -431,18 +455,24 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         .from(checkoutLines)
         .where(eq(checkoutLines.checkoutId, checkout.id))
         .orderBy(asc(checkoutLines.lineNo));
+      // Lines that hold places become bookings; a trip's cars and guides
+      // become service requests.
+      const placed = lines.flatMap((l) =>
+        l.slotId ? [{ ...l, slotId: l.slotId }] : [],
+      );
+      const services = lines.filter((l) => !l.slotId);
 
       const holdValid =
         openStatuses.includes(checkout.status as CheckoutStatus) &&
         checkout.expiresAt > req.now;
       if (!holdValid) {
         // Paid after the hold lapsed: take the places again if still free.
-        const slotIds = [...new Set(lines.map((l) => l.slotId))];
+        const slotIds = [...new Set(placed.map((l) => l.slotId))];
         const locked = await lockSlots(tx, slotIds);
         const taken = await takenBySlot(tx, slotIds, req.now, checkout.id);
         const lost = locked.some(
           (s) =>
-            lines
+            placed
               .filter((l) => l.slotId === s.id)
               .reduce((n, l) => n + l.units, 0) >
             s.capacity - (taken.get(s.id) ?? 0),
@@ -491,16 +521,17 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         userId: checkout.userId,
         reference,
         totalMinor: checkout.totalMinor,
+        tripId: checkout.tripId,
       });
       const plan = req.plan(
-        lines.map((l) => ({
+        placed.map((l) => ({
           id: l.id,
           cartLineId: l.cartLineId,
           partnerId: l.partnerId,
           terms: l.terms,
         })),
       );
-      const created = lines.map((l) => {
+      const created = placed.map((l) => {
         const p = plan.find((x) => x.checkoutLineId === l.id)!;
         return {
           id: randomUUID(),
@@ -521,18 +552,51 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           feeMinor: l.feeMinor,
         };
       });
-      await tx.insert(bookings).values(created);
-      await tx.insert(bookingStatusHistory).values(
-        created.map((b) => ({
+      if (created.length) {
+        await tx.insert(bookings).values(created);
+        await tx.insert(bookingStatusHistory).values(
+          created.map((b) => ({
+            id: randomUUID(),
+            bookingId: b.id,
+            fromStatus: null,
+            toStatus: b.status,
+            actorType: "SYSTEM",
+            actorId: "payments",
+            reason: `Paid with ${req.reference}`,
+          })),
+        );
+      }
+      const requested = services.map((l) => {
+        const line = l.cartLine as ServiceLine;
+        return {
           id: randomUUID(),
-          bookingId: b.id,
-          fromStatus: null,
-          toStatus: b.status,
-          actorType: "SYSTEM",
-          actorId: "payments",
-          reason: `Paid with ${req.reference}`,
-        })),
-      );
+          orderId,
+          checkoutLineId: l.id,
+          userId: checkout.userId,
+          tripId: checkout.tripId,
+          service: line.service,
+          localDate: line.date,
+          startTime: line.startTime,
+          status: "REQUESTED",
+          matchBy: new Date(line.matchBy),
+          totalMinor: l.totalMinor,
+          feeMinor: l.feeMinor,
+        };
+      });
+      if (requested.length) {
+        await tx.insert(serviceRequests).values(requested);
+        await tx.insert(serviceRequestHistory).values(
+          requested.map((r) => ({
+            id: randomUUID(),
+            serviceRequestId: r.id,
+            fromStatus: null,
+            toStatus: r.status,
+            actorType: "SYSTEM",
+            actorId: "payments",
+            note: `Paid with ${req.reference}`,
+          })),
+        );
+      }
       await tx
         .update(payments)
         .set(paymentSucceeded)
@@ -572,6 +636,7 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           paymentReference: req.reference,
           totalMinor: checkout.totalMinor,
           bookings: created.map((b) => ({ id: b.id, status: b.status })),
+          services: requested.map((r) => ({ id: r.id, service: r.service })),
         },
       });
       return { status: "PAID", orderReference: reference, created: true };
@@ -615,6 +680,7 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         reference: orders.reference,
         createdAt: orders.createdAt,
         totalMinor: orders.totalMinor,
+        tripId: orders.tripId,
         name: checkouts.contactName,
         email: checkouts.contactEmail,
         phone: checkouts.contactPhone,
@@ -636,8 +702,23 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         ),
       )
       .orderBy(asc(checkoutLines.lineNo));
+    const requests = await this.db()
+      .select({ request: serviceRequests, line: checkoutLines })
+      .from(serviceRequests)
+      .innerJoin(
+        checkoutLines,
+        eq(checkoutLines.id, serviceRequests.checkoutLineId),
+      )
+      .where(
+        inArray(
+          serviceRequests.orderId,
+          rows.map((r) => r.id),
+        ),
+      )
+      .orderBy(asc(checkoutLines.lineNo));
     return rows.map((o) => ({
       reference: o.reference,
+      tripId: o.tripId,
       createdAt: o.createdAt.toISOString(),
       totalMinor: o.totalMinor,
       contact: { name: o.name, email: o.email, phone: o.phone },
@@ -656,7 +737,22 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           feeMinor: b.feeMinor,
           rows: l.priceRows,
           terms: l.terms,
-          line: l.cartLine,
+          line: l.cartLine as BookingView["line"],
+        })),
+      services: requests
+        .filter((i) => i.request.orderId === o.id)
+        .map(({ request: q, line: l }): ServiceView => ({
+          id: q.id,
+          service: q.service as ServiceView["service"],
+          date: q.localDate,
+          startTime: q.startTime,
+          label: (l.cartLine as ServiceLine).label,
+          status: q.status as ServiceStatus,
+          matchBy: q.matchBy.toISOString(),
+          assignee: q.assignee,
+          totalMinor: q.totalMinor,
+          feeMinor: q.feeMinor,
+          rows: l.priceRows,
         })),
     }));
   }

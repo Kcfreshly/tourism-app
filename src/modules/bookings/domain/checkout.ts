@@ -9,6 +9,7 @@ import {
   type PriceRow,
 } from "./cart";
 import type { LineTerms } from "./resolve-line";
+import type { ServiceKind, ServiceStatus } from "./trip-checkout";
 
 export const holdMinutes = rules.holdMinutes;
 export const priceVersion = rules.version;
@@ -71,6 +72,17 @@ export const startCheckoutSchema = z
   .strict();
 export type StartCheckoutInput = z.infer<typeof startCheckoutSchema>;
 
+export const startTripCheckoutSchema = z
+  .object({
+    // The trip version and total the traveller reviewed.
+    expectedVersion: z.number().int().min(1),
+    shownTotalMinor: z.number().int().min(1),
+    contact: startCheckoutSchema.shape.contact,
+    agreed: z.literal(true),
+  })
+  .strict();
+export type StartTripCheckoutInput = z.infer<typeof startTripCheckoutSchema>;
+
 // Traveller-facing order reference, e.g. FL-7K3Q9P. No 0/O or 1/I.
 const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 export function orderReference() {
@@ -122,10 +134,28 @@ export type BookingView = {
   line: CartLine;
 };
 
+// A paid car, night car or guide and who was matched to it.
+export type ServiceView = {
+  id: string;
+  service: ServiceKind;
+  date: string;
+  startTime: string;
+  label: string;
+  status: ServiceStatus;
+  matchBy: string;
+  assignee: Record<string, string> | null;
+  totalMinor: number;
+  feeMinor: number;
+  rows: PriceRow[];
+};
+
 export type OrderView = {
   reference: string;
+  // Set when the order paid for a planned trip.
+  tripId: string | null;
   createdAt: string;
   totalMinor: number;
   contact: { name: string; email: string; phone: string };
   bookings: BookingView[];
+  services: ServiceView[];
 };

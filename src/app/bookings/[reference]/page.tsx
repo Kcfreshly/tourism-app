@@ -34,9 +34,10 @@ export default async function Booking({
     throw e;
   }
   const paid = (await searchParams).paid === "1";
-  const waiting = order.bookings.filter(
-    (b) => b.status === "AWAITING_PARTNER",
-  ).length;
+  const waiting =
+    order.bookings.filter((b) => b.status === "AWAITING_PARTNER").length +
+    order.services.filter((sv) => sv.status === "REQUESTED").length;
+  const parts = order.bookings.length + order.services.length;
   return (
     <section className="page checkout-page">
       {paid && <ClearPaidLines ids={order.bookings.map((b) => b.cartLineId)} />}
@@ -44,10 +45,9 @@ export default async function Booking({
         <p className="eyebrow">Order {order.reference}</p>
         <h1>{paid ? "Payment received" : "Your booking"}</h1>
         <p className="lede">
-          {order.bookings.length}{" "}
-          {order.bookings.length === 1 ? "booking" : "bookings"}
+          {parts} {parts === 1 ? "part" : "parts"}
           {waiting
-            ? `; ${waiting} ${waiting === 1 ? "waits" : "wait"} for the operator to confirm.`
+            ? `; ${waiting} still being confirmed or matched.`
             : ", all confirmed."}
         </p>
       </header>

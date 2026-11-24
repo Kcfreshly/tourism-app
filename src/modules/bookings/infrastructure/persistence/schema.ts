@@ -12,8 +12,9 @@ import {
 import { user } from "../../../identity/infrastructure/persistence/schema";
 import type { CartLine, PriceRow } from "../../domain/cart";
 import type { LineTerms } from "../../domain/resolve-line";
+import type { ServiceLine } from "../../domain/trip-checkout";
 
-// See migrations/0010_cart_checkout.sql.
+// See migrations/0010_cart_checkout.sql and 0011_trip_checkout.sql.
 const money = () => bigint({ mode: "number" });
 
 export const accountCarts = pgTable("account_carts", {
@@ -52,6 +53,9 @@ export const checkouts = pgTable("checkouts", {
   contactEmail: text().notNull(),
   contactPhone: text().notNull(),
   reviewReason: text(),
+  // Set when a planned trip was paid; the version it was priced from.
+  tripId: uuid(),
+  tripVersion: integer(),
   version: integer().notNull().default(1),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -65,12 +69,14 @@ export const checkoutLines = pgTable("checkout_lines", {
   productType: text().notNull(),
   productId: text().notNull(),
   partnerId: uuid(),
-  slotId: uuid().notNull(),
+  // Null for service lines (cars, guides), which hold no places.
+  slotId: uuid(),
   localDate: date().notNull(),
   startTime: text().notNull(),
   units: integer().notNull(),
   title: text().notNull(),
-  cartLine: jsonb().$type<CartLine>().notNull(),
+  // What was bought: a cart line, or a trip's car or guide.
+  cartLine: jsonb().$type<CartLine | ServiceLine>().notNull(),
   priceRows: jsonb().$type<PriceRow[]>().notNull(),
   subtotalMinor: money().notNull(),
   feeMinor: money().notNull(),
@@ -83,6 +89,7 @@ export const orders = pgTable("orders", {
   checkoutId: uuid().notNull().unique(),
   userId: text().notNull(),
   reference: text().notNull().unique(),
+  tripId: uuid(),
   totalMinor: money().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
@@ -148,4 +155,34 @@ export const paymentEvents = pgTable("payment_events", {
   receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   processedAt: timestamp({ withTimezone: true }),
   error: text(),
+});
+
+export const serviceRequests = pgTable("service_requests", {
+  id: uuid().primaryKey(),
+  orderId: uuid().notNull(),
+  checkoutLineId: uuid().notNull().unique(),
+  userId: text().notNull(),
+  tripId: uuid(),
+  service: text().notNull(),
+  localDate: date().notNull(),
+  startTime: text().notNull(),
+  status: text().notNull(),
+  matchBy: timestamp({ withTimezone: true }).notNull(),
+  assignee: jsonb().$type<Record<string, string>>(),
+  totalMinor: money().notNull(),
+  feeMinor: money().notNull(),
+  version: integer().notNull().default(1),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const serviceRequestHistory = pgTable("service_request_history", {
+  id: uuid().primaryKey(),
+  serviceRequestId: uuid().notNull(),
+  fromStatus: text(),
+  toStatus: text().notNull(),
+  actorType: text().notNull(),
+  actorId: text().notNull(),
+  note: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

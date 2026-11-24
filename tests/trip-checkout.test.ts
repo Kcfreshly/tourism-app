@@ -1,0 +1,295 @@
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { readFileSync, readdirSync } from "node:fs";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
+import * as schema from "../src/database/schema";
+import type { Database } from "../src/database/client";
+import { sqlStatements } from "../src/database/sql-statements";
+import { AppError } from "../src/shared/application/app-error";
+import {
+  toPublishedExperience,
+  type Experience,
+} from "../src/modules/catalogue/domain/experience";
+import { lagosToday } from "../src/modules/catalogue/domain/events";
+import {
+  addDays,
+  lagosInstant,
+} from "../src/modules/catalogue/domain/schedule";
+import {
+  assess,
+  type Item,
+  type PriceLine,
+  type Services,
+} from "../src/modules/trips/domain/planner";
+import { initialProfile } from "../src/modules/trips/domain/profile";
+import type { Bookable } from "../src/modules/bookings/domain/resolve-line";
+import {
+  shareFee,
+  tripCheckoutLines,
+  type TripForCheckout,
+} from "../src/modules/bookings/domain/trip-checkout";
+import type { PaymentGateway } from "../src/modules/bookings/application/ports/payment-gateway";
+import type { TripSource } from "../src/modules/bookings/application/ports/trip-source";
+import { PaymentStarter } from "../src/modules/bookings/application/services/payment-starter";
+import { StartTripCheckout } from "../src/modules/bookings/application/use-cases/start-trip-checkout";
+import { ConfirmPayment } from "../src/modules/bookings/application/use-cases/confirm-payment";
+import { DrizzleCheckoutRepository } from "../src/modules/bookings/infrastructure/persistence/drizzle-checkout-repository";
+
+const pg = new PGlite();
+const db = drizzle(pg, { schema, casing: "snake_case" }) as unknown as Database;
+const checkouts = new DrizzleCheckoutRepository(() => db);
+
+const offers = fixture.experiences.map((e) =>
+  toPublishedExperience({
+    id: e.id,
+    seedKey: e.id,
+    record: e as Experience,
+  }),
+);
+const bookables: Bookable[] = offers.map((listing) => ({
+  kind: "EXPERIENCE",
+  productId: randomUUID(),
+  partnerId: null,
+  listing,
+}));
+
+// A two-day trip: a nature walk with a car for the day and a full-day guide.
+function plannedTrip(day: string) {
+  const profile = {
+    ...initialProfile,
+    startDate: day,
+    endDate: addDays(day, 1),
+    zoneId: "LEKKI" as const,
+    accommodation: "Lekki Phase 1",
+  };
+  const items: Item[] = [
+    {
+      id: randomUUID(),
+      localDate: day,
+      startTime: "10:00",
+      endTime: "12:00",
+      kind: "EXPERIENCE",
+      offerId: "offer-nature-walk",
+      title: "Nature walk",
+      locked: false,
+    },
+  ];
+  const services: Services = {
+    assistance: "FULL_DAY_GUIDE",
+    vehicleWindows: { [day]: { startTime: "09:00", hours: 8 } },
+    guideItemIds: [],
+    guideDays: [day],
+  };
+  const price = assess(profile, items, services, offers);
+  return { id: randomUUID(), version: 3, profile, items, services, price };
+}
+
+class FakeGateway implements PaymentGateway {
+  readonly provider = "FAKE";
+  amounts = new Map<string, number>();
+  paid = new Set<string>();
+  async initialize(input: Parameters<PaymentGateway["initialize"]>[0]) {
+    this.amounts.set(input.reference, input.amountMinor);
+    return {
+      authorizationUrl: `https://pay.test/${input.reference}`,
+      accessCode: null,
+    };
+  }
+  async verify(reference: string) {
+    return {
+      status: this.paid.has(reference)
+        ? ("SUCCESS" as const)
+        : ("PENDING" as const),
+      amountMinor: this.amounts.get(reference) ?? 0,
+      currency: "NGN",
+      channel: "card",
+      paidAt: new Date(),
+      payload: {},
+    };
+  }
+}
+
+let trip: ReturnType<typeof plannedTrip>;
+let gateway: FakeGateway;
+let start: StartTripCheckout;
+let confirm: ConfirmPayment;
+const source: TripSource = {
+  load: async () => ({ ...trip, blockers: trip.price.blockers }),
+};
+const contact = { name: "Ada Lovelace", phone: "+234 801 234 5678" };
+const user = { id: "u1", email: "u1@example.com" };
+
+beforeAll(async () => {
+  for (const file of readdirSync("migrations")
+    .filter((f) => f.endsWith(".sql"))
+    .sort())
+    for (const statement of sqlStatements(
+      readFileSync(`migrations/${file}`, "utf8"),
+    ))
+      await pg.exec(statement);
+  await pg.query(
+    "INSERT INTO auth_user (id, name, email) VALUES ('u1', 'u1', 'u1@example.com')",
+  );
+});
+
+beforeEach(async () => {
+  await pg.exec(
+    "TRUNCATE service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots",
+  );
+  trip = plannedTrip(addDays(lagosToday(), 10));
+  gateway = new FakeGateway();
+  start = new StartTripCheckout(
+    source,
+    { load: async () => bookables },
+    checkouts,
+    new PaymentStarter(
+      checkouts,
+      () => gateway,
+      () => "http://app.test/r",
+    ),
+  );
+  confirm = new ConfirmPayment(checkouts, () => gateway, {
+    orderPaid: async () => {},
+    needsReview: async () => {},
+  });
+});
+
+const pay = (
+  input: Partial<{ expectedVersion: number; shownTotalMinor: number }> = {},
+) =>
+  start.execute({
+    user,
+    tripId: trip.id,
+    idempotencyKey: randomUUID(),
+    input: {
+      expectedVersion: trip.version,
+      shownTotalMinor: trip.price.totalMinor,
+      contact,
+      agreed: true,
+      ...input,
+    },
+  });
+const refusal = (p: Promise<unknown>) =>
+  p.then(
+    () => null,
+    (e) => (e instanceof AppError ? e : Promise.reject(e)),
+  );
+
+describe("trip checkout lines", () => {
+  it("turns every planner charge into exactly one line", () => {
+    expect(trip.price.blockers).toEqual([]);
+    const { lines, problems } = tripCheckoutLines(trip, bookables, Date.now());
+    expect(problems).toEqual([]);
+    expect(
+      lines.map((l) =>
+        l.line.kind === "SERVICE" ? l.line.service : l.line.kind,
+      ),
+    ).toEqual(["EXPERIENCE", "CAR", "FULL_DAY_GUIDE"]);
+    expect(lines.reduce((n, l) => n + l.subtotalMinor, 0)).toBe(
+      trip.price.subtotalMinor,
+    );
+    expect(lines[0].slot?.units).toBe(trip.profile.adults);
+    expect(lines[1].slot).toBeNull();
+  });
+
+  it("folds a cross-area surcharge into that day's car", () => {
+    const day = addDays(lagosToday(), 10);
+    const line = (key: string, totalMinor: number): PriceLine => ({
+      key,
+      label: `${day} · ${key}`,
+      group: "transport",
+      quantity: 1,
+      unitRateMinor: totalMinor,
+      totalMinor,
+      rule: "",
+    });
+    const withSurcharge: TripForCheckout = {
+      ...trip,
+      price: {
+        lines: [
+          ...trip.price.lines.filter((l) => l.group === "activities"),
+          line(`vehicle:${day}`, 4500000),
+          line(`cross-zone:${day}`, 500000),
+          line(`mystery:${day}`, 100),
+        ],
+        subtotalMinor: 0,
+        feeMinor: 0,
+        totalMinor: 0,
+      },
+    };
+    const { lines, problems } = tripCheckoutLines(
+      withSurcharge,
+      bookables,
+      Date.now(),
+    );
+    const car = lines.find((l) => l.line.kind === "SERVICE")!;
+    expect(car.subtotalMinor).toBe(5000000);
+    expect(car.rows).toHaveLength(2);
+    // An unknown charge is never silently dropped.
+    expect(problems.join(" ")).toMatch(/can’t book yet/);
+  });
+
+  it("shares the fee so the lines add up to the planner's fee", () => {
+    const fees = shareFee([333, 333, 334], 100);
+    expect(fees.reduce((n, f) => n + f, 0)).toBe(100);
+  });
+
+  it("needs 48 hours' notice for drivers and guides", () => {
+    const soon = plannedTrip(addDays(lagosToday(), 1));
+    const { problems } = tripCheckoutLines(soon, bookables, Date.now());
+    expect(problems.join(" ")).toMatch(/48 hours’ notice/);
+  });
+});
+
+describe("paying for a trip", () => {
+  it("takes one payment and asks staff to match the driver and guide", async () => {
+    const started = await pay();
+    expect(started.status).toBe("PAYMENT_REDIRECT");
+    const reference =
+      started.status === "PAYMENT_REDIRECT" ? started.reference : "";
+    expect(gateway.amounts.get(reference)).toBe(trip.price.totalMinor);
+    gateway.paid.add(reference);
+    expect((await confirm.execute(reference)).status).toBe("PAID");
+
+    const [order] = await checkouts.listOrders("u1");
+    expect(order.tripId).toBe(trip.id);
+    expect(order.totalMinor).toBe(trip.price.totalMinor);
+    expect(order.bookings.map((b) => b.status)).toEqual(["CONFIRMED"]);
+    expect(order.services.map((s) => [s.service, s.status])).toEqual([
+      ["CAR", "REQUESTED"],
+      ["FULL_DAY_GUIDE", "REQUESTED"],
+    ]);
+    const car = order.services[0];
+    expect(Date.parse(car.matchBy)).toBe(
+      lagosInstant(car.date, "09:00") - 48 * 3600000,
+    );
+    const paid = [...order.bookings, ...order.services];
+    expect(paid.reduce((n, l) => n + l.feeMinor, 0)).toBe(trip.price.feeMinor);
+    expect(paid.reduce((n, l) => n + l.totalMinor, 0)).toBe(
+      trip.price.totalMinor,
+    );
+  });
+
+  it("refuses a trip that changed, a stale total or a trip with blockers", async () => {
+    expect((await refusal(pay({ expectedVersion: 2 })))?.code).toBe(
+      "TRIP_CHANGED",
+    );
+    expect((await refusal(pay({ shownTotalMinor: 1 })))?.code).toBe(
+      "PRICE_CHANGED",
+    );
+    trip.price = {
+      ...trip.price,
+      blockers: [{ code: "X", message: "Fix this" }],
+    };
+    expect((await refusal(pay()))?.code).toBe("TRIP_NOT_READY");
+  });
+
+  // The planner's own notice rule may refuse first; either way, no payment.
+  it("refuses cars and guides that can't be matched in time", async () => {
+    trip = plannedTrip(addDays(lagosToday(), 1));
+    const refused = await refusal(pay());
+    expect(refused?.code).toBe("TRIP_NOT_READY");
+  });
+});

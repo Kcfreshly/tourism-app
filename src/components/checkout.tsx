@@ -1,6 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authClient } from "./auth-client";
 import type { Item, Services, assess } from "@/modules/trips/domain/planner";
 import { stayLabel, type Profile } from "@/modules/trips/domain/profile";
 import { unplannedDays } from "@/modules/trips/domain/checkout";
@@ -12,6 +14,7 @@ import Icon from "./icons";
 type Workspace = {
   trip: {
     id: string;
+    version: number;
     profile: Profile;
     items: Item[];
     services: Services;
@@ -35,12 +38,28 @@ function friendly(message: string) {
   );
 }
 
-// Final review before paying. Payment is not connected in this preview, so the
-// pay button stays disabled and explains why; nothing is held or charged.
-export default function Checkout({ id }: { id: string }) {
+// Final review before paying for a planned trip: one payment for its
+// activities, cars and guides. Activities are held while the traveller
+// pays; drivers and guides are matched afterwards.
+export default function Checkout({
+  id,
+  paymentsEnabled,
+}: {
+  id: string;
+  paymentsEnabled: boolean;
+}) {
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
   const [data, setData] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [name, setName] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+  const [tried, setTried] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [notice, setNotice] = useState("");
+  // One key per Pay press, kept only when retrying after the provider failed.
+  const payKey = useRef("");
   useEffect(() => {
     let active = true;
     fetch(`/api/v1/trips/${encodeURIComponent(id)}/workspace`)
@@ -77,6 +96,58 @@ export default function Checkout({ id }: { id: string }) {
   const planned = trip.items.some((i) => i.kind === "EXPERIENCE");
   const blocked = price.blockers.length > 0 || !planned;
   const pickup = price.warnings.find((w) => w.code === "PICKUP_ADDRESS");
+  const leadName = name ?? session?.user.name ?? "";
+  const phoneValid = /^\+?[0-9][0-9 ()-]{6,19}$/.test(phone.trim());
+  const problems = [
+    leadName.trim().length < 2 && "Add the lead guest’s name.",
+    !phoneValid && "Add a phone number your driver can reach.",
+    !agreed && "Tick the box to agree to the terms.",
+  ].filter((p): p is string => !!p);
+
+  async function pay() {
+    setTried(true);
+    if (problems.length || blocked || !paymentsEnabled || paying) return;
+    setPaying(true);
+    setNotice("");
+    payKey.current ||= crypto.randomUUID();
+    try {
+      const response = await fetch(
+        `/api/v1/trips/${encodeURIComponent(id)}/checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": payKey.current,
+          },
+          body: JSON.stringify({
+            expectedVersion: trip.version,
+            shownTotalMinor: price.totalMinor,
+            contact: { name: leadName.trim(), phone: phone.trim() },
+            agreed: true,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (body.data?.status === "PAYMENT_REDIRECT") {
+        window.location.assign(body.data.authorizationUrl);
+        return;
+      }
+      if (body.data?.status === "PAID") {
+        router.push(`/bookings/${body.data.orderReference}?paid=1`);
+        return;
+      }
+      if (body.error?.code !== "PAYMENT_PROVIDER_UNAVAILABLE")
+        payKey.current = "";
+      setNotice(body.error?.message ?? "Payment couldn’t start. Try again.");
+    } catch {
+      setNotice(
+        "We couldn’t reach Fastlife. Check your connection and press Pay again.",
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
+
   return (
     <section className="page checkout-page">
       <ol className="journey-steps checkout-steps" aria-label="Booking steps">
@@ -178,18 +249,40 @@ export default function Checkout({ id }: { id: string }) {
           </p>
           <ol className="checkout-next">
             <li>
-              Your places are held for {rules.holdMinutes} minutes while you
-              pay.
+              Your activity places are held for {rules.holdMinutes} minutes
+              while you pay.
             </li>
             <li>
               Each activity, driver and guide is confirmed on its own, at these
-              prices. You’ll see each one’s status.
+              prices. You’ll see each one’s status in My bookings.
             </li>
             <li>
-              You get your confirmation straight away, and your driver’s details
-              48 hours before you arrive.
+              We match your driver and guide and send their details at least 48
+              hours before they start. If we can’t, that part is refunded in
+              full.
             </li>
           </ol>
+          <div className="field-grid checkout-contact">
+            <label className="field">
+              <span>Lead guest</span>
+              <input
+                value={leadName}
+                autoComplete="name"
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>Phone (for your driver and guide)</span>
+              <input
+                type="tel"
+                value={phone}
+                autoComplete="tel"
+                placeholder="+234 …"
+                aria-invalid={tried && !phoneValid}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+          </div>
           <label className="check">
             <input
               type="checkbox"
@@ -199,19 +292,34 @@ export default function Checkout({ id }: { id: string }) {
             I’ve checked my days and agree to each activity’s cancellation
             policy.
           </label>
-          <button type="button" disabled aria-describedby="pay-preview-note">
+          {notice && (
+            <p className="field-error" role="alert">
+              {notice}
+            </p>
+          )}
+          {tried && problems.length > 0 && (
+            <ul className="field-error booking-problems" role="alert">
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            disabled={blocked || !paymentsEnabled || paying}
+            aria-describedby="pay-preview-note"
+            onClick={pay}
+          >
             <Icon name="lock" size={16} />
-            Pay {money(price.totalMinor)}
+            {paying ? "Opening payment…" : `Pay ${money(price.totalMinor)}`}
           </button>
           <p id="pay-preview-note" className="checkout-preview-note">
             <Icon name="info" size={14} />
             {blocked
-              ? "Sort out the items above first. "
-              : agreed
-                ? ""
-                : "Tick the box above to continue. "}
-            Payments aren’t switched on in this preview, so nothing can be held
-            or charged yet.
+              ? "Sort out the items above first."
+              : paymentsEnabled
+                ? "One payment on the secure payment page. Test mode: no real money moves."
+                : "Payments aren’t switched on in this preview, so nothing can be held or charged yet."}
           </p>
           <Link className="text-link" href={`/trips/${id}/plan`}>
             <Icon name="arrowLeft" size={16} />

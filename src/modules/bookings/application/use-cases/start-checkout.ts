@@ -1,27 +1,17 @@
 import { AppError } from "@/shared/application/app-error";
 import {
   holdMinutes,
-  paymentReference,
   priceVersion,
   type StartCheckoutInput,
 } from "../../domain/checkout";
 import type { CheckoutRepository } from "../ports/checkout-repository";
-import {
-  PaymentProviderUnavailable,
-  type PaymentGateway,
-} from "../ports/payment-gateway";
 import type { CartPricing } from "../services/cart-pricing";
+import type {
+  PaymentStarter,
+  StartedCheckout,
+} from "../services/payment-starter";
 
-export type StartedCheckout =
-  | { status: "PAYMENT_REDIRECT"; authorizationUrl: string; reference: string }
-  | { status: "PAID"; orderReference: string };
-
-const providerDown = () =>
-  new AppError(
-    "UNAVAILABLE",
-    "PAYMENT_PROVIDER_UNAVAILABLE",
-    `We couldn’t reach the payment page. Your places are held for ${holdMinutes} minutes; press Pay again.`,
-  );
+export type { StartedCheckout };
 
 // Pay pressed: reprice on the server, hold the places, then open a payment
 // with the provider. One Idempotency-Key per press, so a double press or a
@@ -30,8 +20,7 @@ export class StartCheckout {
   constructor(
     private readonly pricing: CartPricing,
     private readonly checkouts: CheckoutRepository,
-    private readonly gateway: () => PaymentGateway,
-    private readonly callbackUrl: () => string,
+    private readonly payments: PaymentStarter,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
@@ -41,18 +30,12 @@ export class StartCheckout {
     input: StartCheckoutInput;
   }): Promise<StartedCheckout> {
     const now = this.clock();
-    const existing = await this.checkouts.findByIdempotencyKey(
+    const earlier = await this.payments.resume(
+      command.user,
       command.idempotencyKey,
+      now,
     );
-    if (existing) {
-      if (existing.checkout.userId !== command.user.id)
-        throw new AppError(
-          "CONFLICT",
-          "IDEMPOTENCY_KEY_REUSED",
-          "Reload the page and press Pay again.",
-        );
-      return this.resume(existing, command.user.email, now);
-    }
+    if (earlier) return earlier;
 
     const { quote, held } = await this.pricing.price(command.input.lines, now);
     const unavailable = quote.lines.filter((l) => l.problem);
@@ -82,6 +65,7 @@ export class StartCheckout {
         currency: "NGN",
         priceVersion,
         expiresAt: new Date(now.getTime() + holdMinutes * 60000),
+        trip: null,
         lines: held,
       },
       now,
@@ -95,75 +79,10 @@ export class StartCheckout {
         { cartLineId: hold.cartLineId, remaining: hold.remaining },
       );
     }
-    return this.openPayment(
+    return this.payments.open(
       checkoutId,
       quote.totals.totalMinor,
       command.user.email,
     );
-  }
-
-  private async resume(
-    existing: NonNullable<
-      Awaited<ReturnType<CheckoutRepository["findByIdempotencyKey"]>>
-    >,
-    email: string,
-    now: Date,
-  ): Promise<StartedCheckout> {
-    const { checkout, payment } = existing;
-    if (checkout.status === "PAID" && existing.orderReference)
-      return { status: "PAID", orderReference: existing.orderReference };
-    const open =
-      ["HELD", "PAYMENT_PENDING"].includes(checkout.status) &&
-      checkout.expiresAt > now;
-    if (!open)
-      throw new AppError(
-        "CONFLICT",
-        "CHECKOUT_EXPIRED",
-        "This checkout has ended. Review your cart and press Pay again.",
-      );
-    if (payment?.authorizationUrl)
-      return {
-        status: "PAYMENT_REDIRECT",
-        authorizationUrl: payment.authorizationUrl,
-        reference: payment.reference,
-      };
-    // Held, but the provider didn't answer last time.
-    return this.openPayment(checkout.id, checkout.totalMinor, email);
-  }
-
-  private async openPayment(
-    checkoutId: string,
-    amountMinor: number,
-    email: string,
-  ): Promise<StartedCheckout> {
-    const gateway = this.gateway();
-    const reference = paymentReference();
-    let opened;
-    try {
-      opened = await gateway.initialize({
-        reference,
-        amountMinor,
-        currency: "NGN",
-        email,
-        callbackUrl: this.callbackUrl(),
-        metadata: { checkoutId },
-      });
-    } catch (e) {
-      if (e instanceof PaymentProviderUnavailable) throw providerDown();
-      throw e;
-    }
-    await this.checkouts.attachPayment(checkoutId, {
-      reference,
-      provider: gateway.provider,
-      accessCode: opened.accessCode,
-      authorizationUrl: opened.authorizationUrl,
-      amountMinor,
-      currency: "NGN",
-    });
-    return {
-      status: "PAYMENT_REDIRECT",
-      authorizationUrl: opened.authorizationUrl,
-      reference,
-    };
   }
 }
