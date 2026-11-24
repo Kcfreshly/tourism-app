@@ -23,13 +23,14 @@ MAIN=$(git rev-parse --show-toplevel)       # the main checkout
 BASE=$(git branch --show-current)           # the branch you were given, e.g. kemi-agent
 BASE_SHA=$(git rev-parse HEAD)              # where you started
 TASK=<short-kebab-name>                     # e.g. partner-invites
-git worktree add "$MAIN/.claude/worktrees/$TASK" -b "crew/$TASK" "$BASE"
+WT="$MAIN/.claude/worktrees/$TASK"
+git worktree add "$WT" -b "crew/$TASK" "$BASE"
 ```
 
 - Use the `EnterWorktree` tool if it is available. It does the same job and
   moves the session into the worktree. Otherwise `cd` into the new folder and
   use absolute paths from then on.
-- Write down `BASE`, `BASE_SHA` and `TASK` at the top of your plan or todo
+- Write down `BASE`, `BASE_SHA`, `TASK` and `WT` at the top of your plan or todo
   list. You need them at the end, and context can be summarised away.
 - If `crew/$TASK` or the folder already exists, another agent may own it.
   Pick a different name. Do not reuse or delete it.
@@ -39,17 +40,57 @@ git worktree add "$MAIN/.claude/worktrees/$TASK" -b "crew/$TASK" "$BASE"
 
 ### Setting up the worktree
 
-- Run `npm install` (or `npm ci`) in the worktree. `node_modules` is not
-  shared.
-- Copy `.env.local` from the main checkout if it exists. It is not tracked.
-- The local PGlite database is `.local/demo-db`, relative to the folder you
-  run in, so every worktree gets its own database. Run
-  `npm run db:migrate` (and seed, if needed) **inside the worktree**. Never
-  point `LOCAL_DATABASE_PATH` at the main checkout's database. Another
-  process may hold it, and two processes on one PGlite folder corrupt it
-  (see docs/LOCAL_DATABASE.md).
-- If you start `npm run dev`, use a free port (`npm run dev -- --port 3001`
-  and up). Port 3000 is usually the user's.
+**node_modules: link, don't install.** Every worktree shares the main
+checkout's `node_modules` through a Windows directory junction (no admin
+rights needed):
+
+```powershell
+cmd /c mklink /J "$WT\node_modules" "$MAIN\node_modules"
+```
+
+- `tsc`, `eslint`, `vitest` and `tsx` scripts work through the link as they
+  are.
+- `next dev` and `next build` work because `next.config.ts` detects the link
+  and sets Turbopack's root to the main checkout, which contains both the
+  worktree and the packages. If you see "Could not find the Next.js
+  package", the worktree's branch is older than that config. Rebase it onto
+  the base first.
+- `.gitignore` ignores `node_modules` (link or folder) and
+  `.claude/worktrees/`, so neither gets committed.
+
+**Adding, removing or upgrading a dependency.** Never run `npm install`
+through the link, because it would change the packages every other agent and
+the user are running. Instead:
+
+1. Unlink first with `cmd /c rmdir "$WT\node_modules"`. That deletes only the
+   link. Never use `rm -rf` or `Remove-Item -Recurse` on a link, because they
+   can follow it and delete the main checkout's packages.
+2. Run `npm install <pkg>` in the worktree. It now has its own
+   `node_modules`, and the Turbopack root goes back to normal automatically.
+3. After landing (step 4), tell the user to run `npm install` in the main
+   checkout so the shared copy catches up.
+
+**Environment.** Copy `.env.local` from the main checkout. It is not tracked.
+
+**Database.** Local development uses the PostgreSQL container from
+`docker-compose.yml` (`tourism-postgres`, port 5440, database `fastlife`),
+which all checkouts share.
+
+- **Your task adds or changes a migration, or rewrites seed data:** give the
+  worktree its own database in the same container so unlanded schema never
+  touches the shared one:
+  ```powershell
+  docker exec tourism-postgres createdb -U fastlife fastlife_<task_with_underscores>
+  # in the worktree's .env.local: ...@127.0.0.1:5440/fastlife_<task_with_underscores>
+  npm run db:migrate; npm run db:seed:demo
+  ```
+- **No schema or seed changes:** you may use the shared `fastlife`
+  database. Don't run `db:migrate` against it from the worktree, and don't
+  delete or mass-edit rows other people rely on.
+- Never run `docker compose down -v`. That wipes everyone's data.
+
+**Dev server.** If you start `npm run dev`, use a free port
+(`npm run dev -- --port 3001` and up). Port 3000 is usually the user's.
 
 ## 2. Work
 
@@ -106,6 +147,8 @@ pick a side with `--ours` or `--theirs` to make the conflict go away.
   landed on the base.
 - **`package-lock.json`**: don't hand-merge it. Take the base's version,
   run `npm install` to add your dependencies again, and commit the result.
+  Only do this in a worktree with its own `node_modules`, never through the
+  link (see "Adding, removing or upgrading a dependency").
 - **`src/bootstrap/container.ts`, `src/database/schema.ts`, route
   folders**: usually both additions. Keep both.
 - **Docs (`docs/*.md`)**: merge the text so both agents' sections read as
@@ -147,13 +190,17 @@ git -C "$MAIN" merge --ff-only "crew/$TASK"
 
 Once the fast-forward succeeded:
 
-```sh
-git worktree remove "$MAIN/.claude/worktrees/$TASK"
+```powershell
+cmd /c rmdir "$WT\node_modules"             # unlink FIRST: removes only the link
+git worktree remove "$WT"
 git branch -d "crew/$TASK"                  # -d, not -D: fails if not fully landed
+docker exec tourism-postgres dropdb -U fastlife fastlife_<task>   # only if you made one
 ```
 
-Stop any dev server you started in the worktree first, or Windows will refuse
-to remove the folder. Leave other agents' worktrees alone (`git worktree
+Always remove the `node_modules` link with `rmdir` before removing the
+worktree, so nothing can delete through it into the main checkout's
+packages. Stop any dev server you started in the worktree first, or Windows
+will refuse to remove the folder. Leave other agents' worktrees alone (`git worktree
 list` shows them).
 
 ## 6. Report
