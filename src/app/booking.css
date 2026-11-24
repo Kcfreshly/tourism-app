@@ -241,9 +241,18 @@
   flex: none;
   color: var(--c-danfo);
 }
-.toast > span {
+.toast > span:not(.toast-spinner) {
   flex: 1;
   min-width: 0;
+}
+.toast-spinner {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  border-top-color: var(--c-danfo);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
 }
 .toast a {
   flex: none;

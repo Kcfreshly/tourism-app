@@ -8,6 +8,7 @@ import type { Quote } from "@/modules/bookings/domain/cart";
 import { ConfirmationChip, Totals, useCartView } from "./cart";
 import { authClient } from "./auth-client";
 import Icon from "./icons";
+import { showToast } from "./toast";
 
 type ApiError = { code: string; message: string; details?: unknown };
 
@@ -127,6 +128,7 @@ export default function CheckoutReview({
         { "Idempotency-Key": payKey.current },
       );
       if (data?.status === "PAYMENT_REDIRECT") {
+        showToast({ message: "Taking you to Paystack to pay…", pending: true });
         window.location.assign(data.authorizationUrl);
         return;
       }
