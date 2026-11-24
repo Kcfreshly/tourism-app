@@ -12,6 +12,7 @@ import {
   serviceStatusLabel,
   serviceTitles,
 } from "@/modules/bookings/domain/trip-checkout";
+import { assigneeLines } from "@/modules/bookings/domain/service-request";
 import Icon from "./icons";
 
 const plural = (n: number, one: string, many: string) =>
@@ -206,9 +207,15 @@ export function OrderDetail({ order }: { order: OrderView }) {
                 refunded in full.
               </p>
             )}
-            {sv.assignee && (
+            {sv.status === "UNMATCHED" && (
+              <p className="checkout-line-after">
+                <strong>Sorry:</strong> we couldn’t find someone in time. This
+                part is refunded in full; our team will contact you.
+              </p>
+            )}
+            {sv.assignee && sv.status !== "UNMATCHED" && (
               <dl className="booking-rows service-assignee">
-                {Object.entries(sv.assignee).map(([k, v]) => (
+                {assigneeLines(sv.service, sv.assignee).map(([k, v]) => (
                   <div key={k}>
                     <dt>{k}</dt>
                     <dd>{v}</dd>

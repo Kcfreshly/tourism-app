@@ -1701,3 +1701,86 @@ body:has(.booking-panel) .toast-region {
   font-size: var(--text-lg);
   overflow-wrap: anywhere;
 }
+
+/* ===== Staff: drivers and guides ===== */
+.admin-services {
+  display: grid;
+  gap: var(--space-5);
+}
+.admin-services-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+.admin-services-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-service {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+  padding: var(--space-4);
+}
+.admin-service[data-status="UNMATCHED"] {
+  border-color: color-mix(in srgb, var(--c-danger) 35%, transparent);
+}
+.admin-service-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-2);
+}
+.admin-service-head h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.admin-service-head p {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+.admin-service-facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.admin-service-facts div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.admin-service-facts dt {
+  color: var(--c-ink-2);
+}
+.admin-service-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.admin-service-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: var(--space-3);
+}
+.admin-service-form .admin-save-actions {
+  grid-column: 1 / -1;
+}
+.admin-service-unmatch {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.admin-service-unmatch[open] {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--c-line);
+}
+.admin-service-unmatch summary {
+  cursor: pointer;
+  color: var(--c-ink-2);
+}

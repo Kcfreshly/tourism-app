@@ -36,6 +36,17 @@ import { PaymentStarter } from "../src/modules/bookings/application/services/pay
 import { StartTripCheckout } from "../src/modules/bookings/application/use-cases/start-trip-checkout";
 import { ConfirmPayment } from "../src/modules/bookings/application/use-cases/confirm-payment";
 import { DrizzleCheckoutRepository } from "../src/modules/bookings/infrastructure/persistence/drizzle-checkout-repository";
+import { DrizzleServiceRequestRepository } from "../src/modules/bookings/infrastructure/persistence/drizzle-service-request-repository";
+import {
+  ExpireOverdueServices,
+  ListServiceQueue,
+  UpdateServiceRequest,
+} from "../src/modules/bookings/application/use-cases/service-requests";
+import type { Notifier } from "../src/modules/bookings/application/ports/notifier";
+import {
+  assigneeLines,
+  nextServiceStatus,
+} from "../src/modules/bookings/domain/service-request";
 
 const pg = new PGlite();
 const db = drizzle(pg, { schema, casing: "snake_case" }) as unknown as Database;
@@ -153,6 +164,7 @@ beforeEach(async () => {
   confirm = new ConfirmPayment(checkouts, () => gateway, {
     orderPaid: async () => {},
     needsReview: async () => {},
+    serviceUpdated: async () => {},
   });
 });
 
@@ -291,5 +303,131 @@ describe("paying for a trip", () => {
     trip = plannedTrip(addDays(lagosToday(), 1));
     const refused = await refusal(pay());
     expect(refused?.code).toBe("TRIP_NOT_READY");
+  });
+});
+
+describe("matching drivers and guides", () => {
+  const services = new DrizzleServiceRequestRepository(() => db);
+  const told: string[] = [];
+  const notifier: Notifier = {
+    orderPaid: async () => {},
+    needsReview: async () => {},
+    serviceUpdated: async (e) => {
+      told.push(`${e.service} ${e.status}`);
+    },
+  };
+  const update = new UpdateServiceRequest(services, notifier);
+  const driver = {
+    name: "Tunde Bakare",
+    phone: "+234 802 000 1111",
+    vehicle: "Toyota Sienna",
+    plate: "LND 123 AB",
+  };
+
+  async function paidTrip() {
+    const started = await pay();
+    const reference =
+      started.status === "PAYMENT_REDIRECT" ? started.reference : "";
+    gateway.paid.add(reference);
+    await confirm.execute(reference);
+    return services.listQueue();
+  }
+
+  it("allows only sensible status changes", () => {
+    expect(nextServiceStatus("REQUESTED", "MATCH")).toBe("MATCHED");
+    expect(nextServiceStatus("MATCHED", "MATCH")).toBe("MATCHED");
+    expect(nextServiceStatus("REQUESTED", "COMPLETE")).toBeNull();
+    expect(nextServiceStatus("UNMATCHED", "MATCH")).toBeNull();
+    expect(assigneeLines("CAR", driver)).toEqual([
+      ["Driver", "Tunde Bakare"],
+      ["Phone", "+234 802 000 1111"],
+      ["Vehicle", "Toyota Sienna"],
+      ["Plate", "LND 123 AB"],
+    ]);
+  });
+
+  it("matches a driver, shows them on the booking and tells the traveller", async () => {
+    told.length = 0;
+    const queue = await paidTrip();
+    const car = queue.find((q) => q.service === "CAR")!;
+    expect(car.contact.name).toBe("Ada Lovelace");
+
+    const noPlate = await refusal(
+      update.execute("staff-1", {
+        action: "MATCH",
+        id: car.id,
+        expectedVersion: car.version,
+        assignee: { ...driver, plate: "" },
+      }),
+    );
+    expect(noPlate?.code).toBe("INVALID_ASSIGNEE");
+
+    const matched = await update.execute("staff-1", {
+      action: "MATCH",
+      id: car.id,
+      expectedVersion: car.version,
+      assignee: driver,
+    });
+    expect(matched.status).toBe("MATCHED");
+    expect(told).toEqual(["CAR MATCHED"]);
+    // Two staff editing at once: the second is refused.
+    const stale = await refusal(
+      update.execute("staff-2", {
+        action: "COMPLETE",
+        id: car.id,
+        expectedVersion: car.version,
+      }),
+    );
+    expect(stale?.code).toBe("VERSION_CONFLICT");
+
+    const [order] = await checkouts.listOrders("u1");
+    const shown = order.services.find((s) => s.service === "CAR")!;
+    expect(shown.status).toBe("MATCHED");
+    expect(shown.assignee).toMatchObject({ name: "Tunde Bakare" });
+    const { rows } = await pg.query(
+      "SELECT from_status, to_status, actor_type FROM service_request_history WHERE service_request_id = $1 ORDER BY created_at",
+      [car.id],
+    );
+    expect(rows).toEqual([
+      { from_status: null, to_status: "REQUESTED", actor_type: "SYSTEM" },
+      { from_status: "REQUESTED", to_status: "MATCHED", actor_type: "STAFF" },
+    ]);
+  });
+
+  it("marks a request nobody matched in time as refund due", async () => {
+    told.length = 0;
+    const queue = await paidTrip();
+    // Ten days later the 48-hour deadline has passed.
+    const later = new Date(Date.now() + 10 * 86400000);
+    const expire = new ExpireOverdueServices(services, notifier, () => later);
+    const list = new ListServiceQueue(services, expire);
+    const after = await list.execute();
+    expect(after.map((q) => q.status)).toEqual(["UNMATCHED", "UNMATCHED"]);
+    expect(told.sort()).toEqual(["CAR UNMATCHED", "FULL_DAY_GUIDE UNMATCHED"]);
+    // A second read changes nothing.
+    await list.execute();
+    expect(told).toHaveLength(2);
+    const refused = await refusal(
+      update.execute("staff-1", {
+        action: "MATCH",
+        id: queue[0].id,
+        expectedVersion: after[0].version,
+        assignee: driver,
+      }),
+    );
+    expect(refused?.code).toBe("INVALID_TRANSITION");
+  });
+
+  it("lets staff give up on a request with a reason", async () => {
+    const [guide] = (await paidTrip()).filter(
+      (q) => q.service === "FULL_DAY_GUIDE",
+    );
+    const done = await update.execute("staff-1", {
+      action: "UNMATCH",
+      id: guide.id,
+      expectedVersion: guide.version,
+      note: "No guide free that day",
+    });
+    expect(done.status).toBe("UNMATCHED");
   });
 });

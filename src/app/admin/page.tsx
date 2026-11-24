@@ -3,6 +3,7 @@ import { pages } from "@/bootstrap/container";
 import AdminCatalogue from "@/components/admin-catalogue";
 import AdminPackages from "@/components/admin-packages";
 import AdminPartners from "@/components/admin-partners";
+import AdminServiceRequests from "@/components/admin-service-requests";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
 import { isSuperAdmin } from "@/modules/identity/domain/actor";
@@ -40,11 +41,26 @@ export default async function Admin() {
         <p className="admin-demo">Demo catalogue</p>
       </header>
       <nav className="admin-jump" aria-label="Staff workspace sections">
+        <a href="#services">Drivers &amp; guides</a>
         <a href="#listings">Activities</a>
         <a href="#partners">Partners</a>
         <a href="#packages">Ready-made trips</a>
         <a href="#transport">Transport &amp; guides</a>
       </nav>
+      <section
+        id="services"
+        className="admin-section"
+        aria-labelledby="admin-services-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-services-heading">Drivers &amp; guides</h2>
+          <p className="muted">
+            Match a driver or guide to each paid trip at least 48 hours before
+            it starts. The traveller sees who it is as soon as you match.
+          </p>
+        </div>
+        <AdminServiceRequests />
+      </section>
       <section id="listings" aria-labelledby="admin-listings-heading">
         <AdminCatalogue canDelete={isSuperAdmin(actor)} />
       </section>

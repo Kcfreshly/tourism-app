@@ -149,6 +149,7 @@ const notifier: Notifier = {
   async needsReview(e) {
     notes.push(`review ${e.reason}`);
   },
+  async serviceUpdated() {},
 };
 
 let gateway: FakeGateway;

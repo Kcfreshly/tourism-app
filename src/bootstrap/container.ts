@@ -24,6 +24,13 @@ import {
   ListOrders,
 } from "@/modules/bookings/application/use-cases/orders";
 import { RecordPaymentEvent } from "@/modules/bookings/application/use-cases/record-payment-event";
+import {
+  ExpireOverdueServices,
+  ListServiceQueue,
+  UpdateServiceRequest,
+} from "@/modules/bookings/application/use-cases/service-requests";
+import { DrizzleServiceRequestRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-service-request-repository";
+import { createServiceRequestControllers } from "@/modules/bookings/presentation/http/controllers/service-request-controllers";
 import { SimulatedPayment } from "@/modules/bookings/application/use-cases/simulated-payment";
 import { StartCheckout } from "@/modules/bookings/application/use-cases/start-checkout";
 import { StartTripCheckout } from "@/modules/bookings/application/use-cases/start-trip-checkout";
@@ -329,10 +336,16 @@ function paymentGateway(): PaymentGateway {
     "Payments aren’t switched on in this preview.",
   );
 }
+const notifier = new LogNotifier();
 const confirmPayment = new ConfirmPayment(
   checkoutRepository,
   paymentGateway,
-  new LogNotifier(),
+  notifier,
+);
+const serviceRequests = new DrizzleServiceRequestRepository(db);
+const expireOverdueServices = new ExpireOverdueServices(
+  serviceRequests,
+  notifier,
 );
 const confirmOwnPayment = new ConfirmOwnPayment(
   checkoutRepository,
@@ -349,8 +362,8 @@ const paymentStarter = new PaymentStarter(
   () => `${publicAppUrl()}/checkout/return`,
 );
 const paymentsOn = () => paymentProvider() !== "disabled";
-const listOrders = new ListOrders(checkoutRepository);
-const getOrder = new GetOrder(checkoutRepository);
+const listOrders = new ListOrders(checkoutRepository, expireOverdueServices);
+const getOrder = new GetOrder(checkoutRepository, expireOverdueServices);
 
 // Trips
 const selection = new OfferSelection(offers);
@@ -531,6 +544,11 @@ export const api = {
       simulated: simulatedPayment,
     }),
   },
+  adminServiceRequests: createServiceRequestControllers({
+    guards,
+    list: new ListServiceQueue(serviceRequests, expireOverdueServices),
+    update: new UpdateServiceRequest(serviceRequests, notifier),
+  }),
   orders: createOrderControllers({ guards, list: listOrders, get: getOrder }),
   intake: createIntakeController(guards, new SuggestProfile()),
   trips: {
