@@ -24,6 +24,39 @@ export function allowedOrigins(host?: string | null) {
   return [...new Set(origins)];
 }
 
+export type PaymentProvider = "disabled" | "paystack" | "simulated";
+
+// Which payment provider checkout uses. Paystack runs with test keys only
+// while the app is the demo; the simulated provider never runs in production.
+// A misconfiguration throws, so it is found on the first Pay, not after.
+export function paymentSettings(): {
+  provider: PaymentProvider;
+  secretKey: string;
+} {
+  const provider = process.env.PAYMENT_PROVIDER || "disabled";
+  const secretKey = process.env.PAYSTACK_SECRET_KEY ?? "";
+  if (provider === "disabled") return { provider, secretKey: "" };
+  if (provider === "paystack") {
+    if (!secretKey.startsWith("sk_test_"))
+      throw new Error(
+        "PAYMENT_PROVIDER=paystack needs a Paystack test key (sk_test_…) in PAYSTACK_SECRET_KEY. Live keys are refused in the demo.",
+      );
+    return { provider, secretKey };
+  }
+  if (provider === "simulated") {
+    if (process.env.NODE_ENV === "production")
+      throw new Error(
+        "PAYMENT_PROVIDER=simulated is for local development only.",
+      );
+    return { provider, secretKey: "" };
+  }
+  throw new Error(`Unknown PAYMENT_PROVIDER "${provider}".`);
+}
+
+export function publicAppUrl() {
+  return process.env.PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
+}
+
 // Kemi runs as a separate service (services/kemi). The BFF stays closed
 // unless the flag is exactly "true".
 export function kemiSettings() {

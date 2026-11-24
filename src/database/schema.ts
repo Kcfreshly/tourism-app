@@ -5,3 +5,4 @@ export * from "../modules/trips/infrastructure/persistence/schema";
 export * from "../modules/bucket/infrastructure/persistence/schema";
 export * from "../modules/audit/infrastructure/persistence/schema";
 export * from "../modules/partners/infrastructure/persistence/schema";
+export * from "../modules/bookings/infrastructure/persistence/schema";

@@ -21,6 +21,7 @@ function snapshot() {
             .map((line) => cartLineSchema.safeParse(line))
             .filter((r) => r.success)
             .map((r) => r.data)
+            .filter((l, i, all) => all.findIndex((x) => x.id === l.id) === i)
             .slice(0, cartLimit)
         : empty;
     }
@@ -30,7 +31,11 @@ function snapshot() {
   return value;
 }
 
-function write(next: CartLine[]) {
+export function readCart() {
+  return snapshot();
+}
+
+export function writeCart(next: CartLine[]) {
   try {
     localStorage.setItem(
       storeKeys.cart,
@@ -46,22 +51,36 @@ export type NewCartLine =
   | Omit<CartLine & { kind: "EXPERIENCE" }, "id">
   | Omit<CartLine & { kind: "PACKAGE" }, "id">;
 
-// Dated selections to buy, kept in this browser. Each line is booked on its
-// own; the cart never becomes an itinerary.
+// Dated selections to buy. Reads come from the browser cache so pages render
+// at once; useCartSync keeps a signed-in traveller's cart on the server.
+// Each line is booked on its own; the cart never becomes an itinerary.
 export function useCart() {
   const lines = useSyncExternalStore(subscribeToStore, snapshot, () => empty);
   function add(line: NewCartLine) {
     const id = crypto.randomUUID();
-    write([...snapshot(), { ...line, id } as CartLine]);
+    writeCart([...snapshot(), { ...line, id } as CartLine]);
     return id;
   }
   function update(id: string, line: NewCartLine) {
-    write(
+    writeCart(
       snapshot().map((l) => (l.id === id ? ({ ...line, id } as CartLine) : l)),
     );
   }
   function remove(id: string) {
-    write(snapshot().filter((l) => l.id !== id));
+    writeCart(snapshot().filter((l) => l.id !== id));
   }
-  return { lines, add, update, remove, full: lines.length >= cartLimit };
+  // Lines that became bookings.
+  function removeMany(ids: string[]) {
+    const gone = new Set(ids);
+    if (snapshot().some((l) => gone.has(l.id)))
+      writeCart(snapshot().filter((l) => !gone.has(l.id)));
+  }
+  return {
+    lines,
+    add,
+    update,
+    remove,
+    removeMany,
+    full: lines.length >= cartLimit,
+  };
 }

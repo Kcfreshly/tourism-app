@@ -1619,3 +1619,76 @@ body:has(.booking-panel) .toast-region {
   min-height: 24px;
   margin-bottom: var(--space-2);
 }
+
+/* ===== Checkout problems, payment and bookings ===== */
+.checkout-line[data-problem="true"] {
+  border-color: color-mix(in srgb, var(--c-danger) 35%, transparent);
+}
+.checkout-line .status-chip {
+  justify-self: start;
+}
+.simulated-pay {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 520px;
+  margin: var(--space-8) auto;
+  padding: var(--space-6);
+}
+.simulated-pay h1 {
+  margin: 0;
+}
+.order-list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.order-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.order-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+.order-card-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.order-card-bookings {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.order-card-bookings li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.order-card-bookings li > span {
+  display: grid;
+  min-width: 0;
+}
+.order-card-bookings small {
+  color: var(--c-ink-2);
+}
+.order-summary {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+.order-summary h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}

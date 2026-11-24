@@ -7,6 +7,7 @@ import { CartNav } from "./cart";
 import Icon from "./icons";
 import { authClient } from "./auth-client";
 import { useBucketSync } from "@/hooks/use-bucket-sync";
+import { useCartSync } from "@/hooks/use-cart-sync";
 
 // Two top-level choices: find something to do, or work with a trip. The trip
 // paths sit together in one menu; anyone can take any of them.
@@ -34,6 +35,12 @@ const tripLinks = [
     hint: "Pick up a plan you started",
     match: ["/trips"],
   },
+  {
+    href: "/bookings",
+    label: "My bookings",
+    hint: "Activities and trips you’ve paid for",
+    match: ["/bookings"],
+  },
 ];
 
 export function BrandMark() {
@@ -50,8 +57,9 @@ export function BrandMark() {
 }
 
 export default function SiteChrome() {
-  // The header is on every page, so it keeps a signed-in bucket saved.
+  // The header is on every page, so it keeps a signed-in bucket and cart saved.
   useBucketSync();
+  useCartSync();
   const ref = useRef<HTMLDivElement>(null);
   const group = useRef<HTMLDivElement>(null);
   const pathname = usePathname();

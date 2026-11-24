@@ -10,6 +10,7 @@ import {
   packagePriceBases,
   packageReadiness,
   packageStatuses,
+  departureCapacity,
   seatLabels,
   seatStates,
   type PackageRecord,
@@ -288,6 +289,33 @@ export function TripForm({
                     labels={seatLabels}
                     onChange={(seats) => update({ seats })}
                   />
+                  <label>
+                    Places to sell
+                    <input
+                      type="number"
+                      min={1}
+                      max={200}
+                      inputMode="numeric"
+                      placeholder={String(
+                        departureCapacity({ ...d, capacity: undefined }) || "",
+                      )}
+                      value={d.capacity ?? ""}
+                      onChange={(e) => {
+                        const n = Math.trunc(Number(e.target.value));
+                        update({
+                          capacity:
+                            e.target.value && n >= 1
+                              ? Math.min(n, 200)
+                              : undefined,
+                        });
+                      }}
+                    />
+                    <small className="form-hint">
+                      {d.capacity
+                        ? "Checkout stops selling when these are taken. Full stops sales at once."
+                        : `Not set: ${departureCapacity(d)} sample places are sold.`}
+                    </small>
+                  </label>
                   <button
                     type="button"
                     className="secondary"

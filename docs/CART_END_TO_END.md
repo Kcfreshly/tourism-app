@@ -1,7 +1,15 @@
 # Cart, end to end
 
 November 2026. What a "proper" cart needs, from the first Add to cart to a
-completed booking. Payment details (tables, Paystack flow, refunds) are in
+completed booking.
+
+> **Status, 2026-11-24.** Build steps 1–5 below are built (migration
+> `0010_cart_checkout.sql`, `src/modules/bookings`), using the recommended
+> decisions C1–C5 and D1–D11. Section 2 describes the code as it was before.
+> Still to build: the reconciler job, partner and staff confirm/decline,
+> refunds, and emails (steps 6–7). Without Paystack test keys, run checkout
+> locally with `PAYMENT_PROVIDER=simulated`; see
+> [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md#data-flow-cart-checkout-and-payment). Payment details (tables, Paystack flow, refunds) are in
 [PAYMENT_INTEGRATION_PLAN.md](PAYMENT_INTEGRATION_PLAN.md); this doc covers the
 cart around them and points there instead of repeating them.
 

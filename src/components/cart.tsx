@@ -7,12 +7,8 @@ import {
   confirmationLabel,
   listingDetails,
 } from "@/modules/catalogue/domain/listing-details";
-import {
-  displayName,
-  formatMoney,
-} from "@/modules/catalogue/domain/experience-content";
-import { lagosToday } from "@/modules/catalogue/domain/events";
-import { runsOn, shortDay } from "@/modules/catalogue/domain/schedule";
+import { formatMoney } from "@/modules/catalogue/domain/experience-content";
+import { shortDay } from "@/modules/catalogue/domain/schedule";
 import {
   packageLength,
   packageRoute,
@@ -20,12 +16,13 @@ import {
 } from "@/modules/catalogue/domain/packages";
 import {
   cartTotals,
-  experienceLinePrice,
-  packageLinePrice,
-  sumRows,
   type CartLine,
   type PriceRow,
 } from "@/modules/bookings/domain/cart";
+import {
+  packageConfirmHours,
+  resolveLine,
+} from "@/modules/bookings/domain/resolve-line";
 import { useCart } from "@/hooks/use-cart";
 import { useBucket } from "@/hooks/use-bucket";
 import { loadCatalogue } from "./whats-on";
@@ -58,51 +55,54 @@ function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+// Problems and prices come from resolveLine, the same check the server runs
+// at checkout; this adds what the cart shows around them.
 function view(
   line: CartLine,
   catalogue: Listing[],
   trips: TripPackage[],
-  today: string,
+  now: number,
 ): LineView {
   if (line.kind === "PACKAGE") {
     const p = trips.find((t) => t.slug === line.packageSlug);
+    const r = resolveLine(
+      line,
+      p && { kind: "PACKAGE", productId: p.slug, partnerId: null, trip: p },
+      now,
+    );
+    const guests = plural(line.travellers, "traveller", "travellers");
     if (!p)
       return {
         line,
-        title: "Ready-made trip",
+        title: r.title,
         href: "/packages",
         editHref: "/packages",
         when: shortDay(line.date),
-        guests: plural(line.travellers, "traveller", "travellers"),
+        guests,
         where: "",
         confirmation: { instant: false, label: "", after: "" },
         terms: "",
         rows: [],
         totalMinor: 0,
-        problem: "This trip is no longer offered.",
+        problem: r.problem,
       };
-    const departure = p.departures.find((d) => d.date === line.date);
-    const rows = packageLinePrice(line, p);
     return {
       line,
-      title: p.title,
+      title: r.title,
       href: `/packages/${p.slug}`,
       editHref: `/packages/${p.slug}?edit=${line.id}`,
       when: `Departs ${shortDay(line.date)} · ${packageLength(p)}`,
-      guests: plural(line.travellers, "traveller", "travellers"),
+      guests,
       where: `${packageRoute(p)} · run by ${p.operator}`,
       confirmation: {
         instant: false,
-        label: "Operator confirms within 48 h",
-        after: "The operator confirms your places within 48 hours.",
+        label: `Operator confirms within ${packageConfirmHours} h`,
+        after: `The operator confirms your places within ${packageConfirmHours} hours. If they can’t, this trip is refunded.`,
       },
-      terms: p.bookingTerms[1] ?? p.bookingTerms[0],
-      rows,
-      totalMinor: sumRows(rows),
-      problem:
-        !departure || departure.seats === "FULL" || line.date < today
-          ? "This departure is no longer available."
-          : undefined,
+      terms: r.terms?.cancellation ?? "",
+      rows: r.rows,
+      totalMinor: r.totalMinor,
+      problem: r.problem,
     };
   }
   const e = catalogue.find((x) => x.offer.id === line.offerId);
@@ -131,37 +131,42 @@ function view(
       problem: "This activity is no longer listed.",
     };
   const d = listingDetails(e);
-  const rows = experienceLinePrice(line, e.offer, d);
+  const r = resolveLine(
+    line,
+    {
+      kind: "EXPERIENCE",
+      productId: e.id,
+      partnerId: null,
+      listing: { ...e, seedKey: e.seedKey ?? e.id },
+    },
+    now,
+  );
   const slug = e.seedKey ?? e.id;
   const instant = d.confirmation === "INSTANT";
   return {
     line,
-    title: displayName(e.name),
+    title: r.title,
     image: e.imagePath,
     href: `/experiences/${slug}`,
     editHref: `/experiences/${slug}?edit=${line.id}`,
     when,
     guests,
-    where: line.pickup
-      ? `Pickup from ${line.pickupAddress}`
-      : `Make your own way · ${d.venue}`,
+    where:
+      r.terms && r.terms.where.startsWith("Pickup")
+        ? r.terms.where
+        : `Make your own way · ${d.venue}`,
     confirmation: {
       instant,
       label: confirmationLabel(d),
       after: instant
         ? "Confirmed as soon as you pay."
-        : `${d.operator.replace(/ \(sample.*\)$/, "")} confirms within ${d.partnerHours} hours. If they can’t, this item is refunded.`,
+        : `${r.terms?.operator ?? d.operator} confirms within ${d.partnerHours} hours. If they can’t, this item is refunded.`,
     },
     terms: cancellationLabel(d),
-    rows,
-    totalMinor: sumRows(rows),
+    rows: r.rows,
+    totalMinor: r.totalMinor,
     saveId: e.offer.id,
-    problem:
-      line.date < today || !runsOn(e, line.date)
-        ? `No longer runs on ${shortDay(line.date)}.`
-        : line.childAges.length !== line.children
-          ? "Add each child’s age before checkout."
-          : undefined,
+    problem: r.problem,
   };
 }
 
@@ -178,6 +183,8 @@ export function useCartView() {
   const [catalogue, setCatalogue] = useState<Listing[] | null>(null);
   const [trips, setTrips] = useState<TripPackage[]>([]);
   const [error, setError] = useState("");
+  // The clock line checks use; set once, when the page opens.
+  const [now] = useState(() => Date.now());
   useEffect(() => {
     let active = true;
     Promise.all([loadCatalogue(), loadTrips()])
@@ -196,9 +203,8 @@ export function useCartView() {
       active = false;
     };
   }, []);
-  const today = lagosToday();
   const views = catalogue
-    ? lines.map((l) => view(l, catalogue, trips, today))
+    ? lines.map((l) => view(l, catalogue, trips, now))
     : [];
   const payable = views.filter((v) => !v.problem);
   return {
@@ -241,6 +247,16 @@ export function ConfirmationChip({ v }: { v: LineView }) {
   );
 }
 
+// What the fix link in a problem line says.
+function fixLabel(problem: string) {
+  if (problem.startsWith("Add each child")) return "Add ages";
+  return /runs on|Too late|no longer|departure|Sold out|left for this date/.test(
+    problem,
+  )
+    ? "Choose another date"
+    : "Change details";
+}
+
 function LineCard({ v, onRemove }: { v: LineView; onRemove: () => void }) {
   const { ids, toggle } = useBucket();
   return (
@@ -276,9 +292,7 @@ function LineCard({ v, onRemove }: { v: LineView; onRemove: () => void }) {
             </p>
             <div className="actions">
               <Link className="button secondary" href={v.editHref}>
-                {v.problem.startsWith("Add each child")
-                  ? "Add ages"
-                  : "Choose another date"}
+                {fixLabel(v.problem)}
               </Link>
               {v.saveId && (
                 <button
@@ -448,7 +462,7 @@ export default function CartPage() {
             )}
             <p className="sample-note">
               <Icon name="info" size={16} />
-              Preview: sample prices. Nothing is held or charged.
+              Sample prices. Places are held only when you press Pay.
             </p>
           </aside>
         </div>

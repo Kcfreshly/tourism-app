@@ -1,6 +1,14 @@
 # Payment integration plan (Paystack)
 
-November 2026. Proposal for review; nothing here is built yet.
+November 2026. Phase 1 steps 2–5 of the build order (section 8) are built as
+of 2026-11-24, with the recommended decisions. Not built yet: the reconciler
+(step 6), staff and partner bookings queues and refunds (step 7), emails
+(step 8), and the `refunds` table. Differences from this proposal: the
+migration is `0010_cart_checkout.sql`, which also holds the server cart;
+`checkout_lines` stores `partner_id`; the commission is a sample 15%
+(`defaultCommissionBps`) until partners have agreed rates; the return page
+confirms the payment on the server; and a `simulated` provider stands in for
+Paystack locally. See [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md).
 
 Sources: the MIT FastLife database design (`Downloads/MIT-database`, portfolio
 1 and 3), the checkout flow in `tourism-v1-handoff/docs/03_PRICING_AND_BOOKING.md`,

@@ -15,7 +15,7 @@ flowchart TD
         Partners["partners: applications, submissions, dashboard, visits"]
         Trips["trips: intake, planner, proposals, transport settings"]
         Bucket["bucket: saved activities"]
-        Bookings["bookings: cart line rules and prices only"]
+        Bookings["bookings: cart, holds, checkout, payments, orders"]
         KemiBFF["kemi: BFF proxy"]
         DB["Drizzle: database access and transactions"]
         Config["Demo-mode guard"]
@@ -50,7 +50,11 @@ flowchart TD
     KemiBFF -->|KEMI_ENABLED=true| Chat
     Chat --> Anthropic["Anthropic API"]
     Chat --> Langfuse["Langfuse traces"]
-    Browser -. "cart preview only" .-> Bookings
+    Container --> Bookings
+    Bookings -->|BookableCatalogue port| Catalogue
+    Bookings --> DB
+    Bookings -->|PAYMENT_PROVIDER| Paystack["Paystack (test mode) or simulated"]
+    Paystack -. "webhook" .-> API
     DB --> Config
 
     DB --> Choice{"DATABASE_URL set?"}
@@ -60,4 +64,4 @@ flowchart TD
     Fixtures --> Bookings
     Fixtures --> Seed["CLI seed"]
     Seed --> DB
-    Migrations["CLI migrate: migrations/0001-0009"] --> DB
+    Migrations["CLI migrate: migrations/0001-0010"] --> DB

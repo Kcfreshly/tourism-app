@@ -1,6 +1,7 @@
 // The cart: dated selections to buy, each becoming its own booking. Lines are
 // independent; there is no itinerary, accommodation or vehicle behind them.
-// Prices here are previews from sample rates; nothing is held or charged.
+// The browser and the server price lines with the same functions; the server
+// reprices at checkout and holds places only then.
 import { z } from "zod";
 import { feeHalfUp } from "../../trips/domain/planner";
 import rules from "../../../../tourism-v1-handoff/data/pricing.demo.json";
@@ -36,6 +37,51 @@ export const cartLineSchema = z.discriminatedUnion("kind", [
 ]);
 export type CartLine = z.infer<typeof cartLineSchema>;
 export const cartLimit = 20;
+
+const uniqueIds = (lines: { id: string }[]) =>
+  new Set(lines.map((l) => l.id)).size === lines.length;
+
+export const cartLinesSchema = z
+  .array(cartLineSchema)
+  .max(cartLimit)
+  .refine(uniqueIds, "Duplicate cart line id");
+
+export const cartWriteSchema = z
+  .object({
+    lines: cartLinesSchema,
+    expectedVersion: z.number().int().min(0),
+  })
+  .strict();
+
+export type Cart = { lines: CartLine[]; version: number };
+
+// The same booking twice: same product, date and start.
+function sameBooking(a: CartLine, b: CartLine) {
+  if (a.kind === "PACKAGE")
+    return (
+      b.kind === "PACKAGE" &&
+      a.packageSlug === b.packageSlug &&
+      a.date === b.date
+    );
+  if (b.kind === "PACKAGE") return false;
+  return a.offerId === b.offerId && a.date === b.date && a.time === b.time;
+}
+
+// At sign-in (C2): the guest's lines are newer, so they replace an account
+// line for the same booking; the rest keep their order, up to the limit.
+// Returns how many lines were left out by the limit.
+export function mergeCarts(saved: CartLine[], guest: CartLine[]) {
+  const merged = [
+    ...saved.filter(
+      (s) => !guest.some((g) => g.id === s.id || sameBooking(s, g)),
+    ),
+    ...guest,
+  ];
+  return {
+    lines: merged.slice(0, cartLimit),
+    dropped: Math.max(0, merged.length - cartLimit),
+  };
+}
 
 export type PriceRow = { label: string; totalMinor: number };
 
@@ -99,11 +145,30 @@ export function sumRows(rows: PriceRow[]) {
 }
 
 // Service fee per line, so one line's fee can be refunded on its own later.
+export function lineFee(lineTotalMinor: number) {
+  return feeHalfUp(lineTotalMinor, rules.feeBps);
+}
+
 export function cartTotals(lineTotals: number[]) {
   const subtotalMinor = lineTotals.reduce((n, t) => n + t, 0);
-  const feeMinor = lineTotals.reduce(
-    (n, t) => n + feeHalfUp(t, rules.feeBps),
-    0,
-  );
+  const feeMinor = lineTotals.reduce((n, t) => n + lineFee(t), 0);
   return { subtotalMinor, feeMinor, totalMinor: subtotalMinor + feeMinor };
 }
+
+// The server's price and availability for a cart, shown before Pay.
+export type QuotedLine = {
+  id: string;
+  title: string;
+  rows: PriceRow[];
+  totalMinor: number;
+  feeMinor: number;
+  problem?: string;
+  // "2 places left" when few remain (C5).
+  low?: string;
+};
+
+export type Quote = {
+  lines: QuotedLine[];
+  // Lines without a problem only.
+  totals: ReturnType<typeof cartTotals>;
+};

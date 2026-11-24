@@ -8,6 +8,7 @@ const statusFor: Record<AppErrorKind, number> = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   RATE_LIMITED: 429,
+  UNAVAILABLE: 503,
 };
 
 export function success(data: unknown, status = 200) {
@@ -29,7 +30,14 @@ export function failure(e: unknown) {
     );
   if (e instanceof AppError)
     return Response.json(
-      { error: { code: e.code, message: e.message }, meta: { requestId } },
+      {
+        error: {
+          code: e.code,
+          message: e.message,
+          ...(e.details === undefined ? {} : { details: e.details }),
+        },
+        meta: { requestId },
+      },
       { status: statusFor[e.kind] },
     );
   return Response.json(

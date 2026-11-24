@@ -1,7 +1,7 @@
 # Backend architecture
 
 This guide describes the working tree on branch `kemi-agent` as inspected on
-2026-11-23, including uncommitted Docker and deployment files. It documents what
+2026-11-24, including the uncommitted cart, checkout and payment stage. It documents what
 is built, not the planned designs (payments, reviews storage, Kemi agents); those
 are listed under [Not built yet](#not-built-yet). Start with the component map,
 then follow the request flows.
@@ -37,7 +37,7 @@ flowchart TD
         Partners["partners: applications, submissions, dashboard, visits"]
         Trips["trips: intake, planner, proposals, transport settings"]
         Bucket["bucket: saved activities"]
-        Bookings["bookings: cart line rules and prices only"]
+        Bookings["bookings: cart, holds, checkout, payments, orders"]
         KemiBFF["kemi: BFF proxy"]
         DB["Drizzle: database access and transactions"]
         Config["Demo-mode guard"]
@@ -72,7 +72,11 @@ flowchart TD
     KemiBFF -->|KEMI_ENABLED=true| Chat
     Chat --> Anthropic["Anthropic API"]
     Chat --> Langfuse["Langfuse traces"]
-    Browser -. "cart preview only" .-> Bookings
+    Container --> Bookings
+    Bookings -->|BookableCatalogue port| Catalogue
+    Bookings --> DB
+    Bookings -->|PAYMENT_PROVIDER| Paystack["Paystack (test mode) or simulated"]
+    Paystack -. "webhook" .-> API
     DB --> Config
 
     DB --> Choice{"DATABASE_URL set?"}
@@ -82,7 +86,7 @@ flowchart TD
     Fixtures --> Bookings
     Fixtures --> Seed["CLI seed"]
     Seed --> DB
-    Migrations["CLI migrate: migrations/0001-0009"] --> DB
+    Migrations["CLI migrate: migrations/0001-0010"] --> DB
 ```
 
 Standalone source: [backend-data-flow.mmd](backend-data-flow.mmd).
@@ -108,7 +112,7 @@ narrow ports built in the container (`OfferCatalogue`, `PublishedOffers`,
 | `bucket`    | all four                    | Saved activities per account (the UI calls them "saved activities"; the code and table still say bucket)                                            |
 | `kemi`      | application, infra, presentation | Proxy to the Kemi service, behind a flag                                                                                                    |
 | `audit`     | infrastructure (schema)     | The `audit_events` table, written by other modules' repositories                                                                                    |
-| `bookings`  | domain only                 | Cart line schema and line/fee pricing, used by the browser. No server code                                                                          |
+| `bookings`  | all four                    | Server cart, line checks and pricing shared with the browser, capacity holds, checkout, payment providers, webhooks, orders and bookings          |
 | `reviews`   | domain, application         | Review rules and use cases, tested with in-memory fakes. No tables, repository or routes                                                            |
 
 Shared pieces: [`responses.ts`](../src/shared/presentation/http/responses.ts)
@@ -121,7 +125,7 @@ module's `infrastructure/persistence/schema.ts`), [`sql-rows.ts`](../src/databas
 
 Domain code is shared with the browser for instant feedback. API handlers
 re-validate and recalculate prices themselves; browser state is never the
-authority, except where noted for the cart.
+authority: checkout reprices every cart line on the server.
 
 ## Access rules
 
@@ -178,6 +182,22 @@ Paths are relative to `/api/v1` unless they start with `/api`. "Origin" means
 | POST       | `/trips/{id}/plan/apply` | Owner + origin                     | Apply a proposal atomically                                                            |
 | GET, POST  | `/kemi/{...path}`        | Account (POST: origin), 60; `KEMI_ENABLED` | Forwards to Kemi `/v1/...`; 404 `KEMI_DISABLED` when off                       |
 
+**Cart, checkout and payment**
+
+| Method   | Path                               | Access                                    | Does                                                                                                     |
+| -------- | ---------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| GET, PUT | `/cart`                            | Account (PUT: origin, 60)                 | Saved cart, `{lines, expectedVersion}`, max 20 lines; 409 when another device saved first              |
+| POST     | `/cart/quote`                      | Account + origin, 60                      | Server price, problems and places left per line; stores nothing                                          |
+| POST     | `/checkouts`                       | Account + origin, 10; `Idempotency-Key`   | Reprice, hold places for 15 minutes, open a payment; returns the payment page URL                        |
+| POST     | `/payments/paystack/webhook`       | Paystack signature only                   | Stores the event and confirms `charge.success`; 401 on a bad signature, 500 so Paystack retries a failure |
+| POST     | `/payments/verify`                 | Account + origin, 30; own payment         | The return page asking again while a payment is pending                                                  |
+| POST     | `/payments/simulated`              | Account + origin, 20; own payment         | The local payment page's buttons; only with `PAYMENT_PROVIDER=simulated`                                 |
+| GET      | `/orders`, `/orders/{reference}`   | Account; own orders only                  | Paid orders with their bookings                                                                          |
+
+Pages: `/checkout/return` (confirms the payment, then redirects to the
+order), `/checkout/simulated`, `/bookings` (My bookings, also in the Trips
+menu) and `/bookings/{reference}`.
+
 **Partner portal**
 
 | Method             | Path                    | Access                          | Does                                                                         |
@@ -218,13 +238,16 @@ no tracing or structured logging in the web app.
    the guest list after the account's (`mergeBuckets`, max 30), and saves with
    `expectedVersion`. localStorage stays the cache, with owner and pending keys
    so another account's list is never shown and offline changes are retried.
-3. **Cart.** Lines (dated experience or package, party, pickup) live only in
-   localStorage (`tourism.cart.v1`, max 20). The cart and `/checkout` review
-   pages price them in the browser with `bookings/domain/cart.ts`. No endpoint
-   receives the cart, and sign-out clears it. See [CART_END_TO_END.md](CART_END_TO_END.md).
-4. Sign-out (`DELETE /session` and `forgetTravellerState()`) clears every
-   traveller key in localStorage; saved activities come back from the server at
-   the next sign-in.
+3. **Cart.** Lines (dated experience or package, party, pickup; max 20) are
+   cached in localStorage like saved activities. Signed in,
+   [`use-cart-sync.ts`](../src/hooks/use-cart-sync.ts) keeps them in
+   `account_carts` through `/cart`. At sign-in the guest cart merges in
+   (`mergeCarts`: a guest line replaces the account line for the same product,
+   date and start). The cart page checks each line with `resolveLine`, the
+   same function the server uses at checkout.
+4. Sign-out (`DELETE /session` and `forgetTravellerState()`) first saves
+   pending bucket and cart changes, then clears every traveller key in
+   localStorage; both come back from the server at the next sign-in.
 5. Planning pages require sign-in. Creating a trip validates the profile,
    drops selected offers that are no longer published, and inserts an
    account-owned `trips` row at version 1.
@@ -233,6 +256,74 @@ The legacy `sessions` table and `tourism-session` cookie only exist so older
 guest trip drafts can be claimed; no new guest sessions are created. The merge
 expires the guest session, moves its trips and writes an audit event in one
 transaction.
+
+## Data flow: cart, checkout and payment
+
+```mermaid
+sequenceDiagram
+    actor T as Traveller
+    participant UI as Checkout page
+    participant API as /api/v1
+    participant B as bookings module
+    participant DB as Database
+    participant P as Paystack (or simulated)
+
+    UI->>API: POST /cart/quote (lines)
+    API->>B: CartPricing: resolveLine + places left
+    B-->>UI: Prices, problems, "2 places left"
+    T->>UI: Pay
+    UI->>API: POST /checkouts + Idempotency-Key + shown total
+    API->>B: StartCheckout
+    B->>B: Reprice; refuse PRICE_CHANGED or LINE_UNAVAILABLE
+    B->>DB: BEGIN; lapse own old holds; upsert slots; lock in id order; check; insert HELD checkout; COMMIT
+    B->>P: initialize(reference, amount, email, callback)
+    B->>DB: payments INITIALISED, checkout PAYMENT_PENDING
+    B-->>UI: Payment page URL
+    T->>P: Pays
+    P-->>API: webhook charge.success (signed)
+    P-->>UI: Redirect to /checkout/return?reference=
+    Note over API,B: Webhook and return page both call ConfirmPayment
+    B->>P: verify(reference)
+    B->>DB: BEGIN; lock payment and checkout; order, one booking per line, history, audit; remove paid lines from cart; COMMIT
+    UI->>T: /bookings/FL-XXXXXX
+```
+
+- **One function for line checks.** `resolveLine` (`bookings/domain/resolve-line.ts`)
+  checks the date, start time and cutoff, party size, child ages, minimum age,
+  pickup address and package departure, and prices the line. The cart page,
+  the quote and checkout all call it, so the browser and server agree.
+- **Places.** `inventory_slots` has one row per sellable start: per session
+  for fixed listings, per day (`DAY`) for drop-in listings and trips (D3).
+  Capacity comes from the listing (`capacityPerSlot`, or the session's own
+  capacity) or from the departure's new `capacity` field (D2). A departure
+  without one sells a sample 12 places when `OPEN` and 4 when `LIMITED`.
+  Places taken = bookings that still hold places + lines of
+  `HELD`/`PAYMENT_PENDING` checkouts whose `expires_at` is still ahead, so a
+  hold lapses on its own.
+- **Only sellable products.** The container's `BookableCatalogue` returns
+  published listings and trips run by Fastlife or by a `VERIFIED` partner.
+- **Idempotency.** A repeated `Idempotency-Key` continues the same checkout:
+  it returns the same payment page, or opens one if the provider was down
+  last time (the hold is kept; the error was 503 `PAYMENT_PROVIDER_UNAVAILABLE`).
+- **ConfirmPayment** is safe to repeat. It verifies with the provider and
+  sends a wrong amount or currency to `REQUIRES_REVIEW`. An abandoned payment
+  page stays pending while the hold lasts. A failed payment fails the
+  checkout, which frees its places. A payment that arrives after its hold
+  lapsed is booked only if its places are still free; otherwise the checkout
+  becomes `REQUIRES_REVIEW` (`CAPACITY_LOST`) and nothing is oversold.
+- **Bookings** start `CONFIRMED` for instant listings, and
+  `AWAITING_PARTNER` with a `partner_deadline` for partner-confirmed listings
+  and every trip (48 h). Partner bookings copy a sample 15% commission
+  (`defaultCommissionBps`).
+- **Webhook.** The raw body's HMAC-SHA512 must match `x-paystack-signature`.
+  Each body is stored in `payment_events` by its SHA-256, so a repeat delivery
+  is ignored and an event whose processing failed is handled again.
+- **Providers.** `PAYMENT_PROVIDER=paystack` needs `PAYSTACK_SECRET_KEY`
+  starting `sk_test_`. `simulated` serves `/checkout/simulated` in the app
+  instead of Paystack, keeps attempts in memory (a restart forgets unfinished
+  ones), and is refused in production. `disabled` (the default) keeps Pay off.
+- **Notifications** only log (`LogNotifier`, D8); the audit trail records
+  `ORDER_PAID` and `CHECKOUT_REQUIRES_REVIEW`.
 
 ## Data flow: edit and autosave
 
@@ -447,6 +538,7 @@ flowchart LR
 | 0007      | `packages`                                                                                             |
 | 0008      | Append-only `audit_events` triggers, starting snapshot of every listing, `media`                      |
 | 0009      | `partners`, `partner_members`, `partner_id` on catalogue and packages, `listing_submissions`, `listing_visits` |
+| 0010      | `account_carts`, `inventory_slots`, `checkouts`, `checkout_lines`, `orders`, `bookings`, `booking_status_history`, `payments`, `payment_events` |
 
 Listings, packages, trips and submissions keep the full record in JSONB, with
 status, version and owner/partner as columns. Experience database id, seed
@@ -467,7 +559,8 @@ nothing stores a quote.
 | `APP_MODE`, `LIVE_CHECKOUT_ENABLED` | `assertDemo()` refuses anything but demo mode and refuses live checkout.                                           |
 | `ALLOW_LOCAL_DEMO_BUILD`            | Must be `true` to run under `NODE_ENV=production` (set in Compose).                                               |
 | `KEMI_ENABLED`, `KEMI_URL`          | Opens the Kemi proxy only when exactly `true`; default URL `http://127.0.0.1:4100`.                                |
-| `PAYMENT_PROVIDER`, `PLANNER_PROVIDER` | Listed in `.env.example` but read by nothing.                                                                   |
+| `PAYMENT_PROVIDER`, `PAYSTACK_SECRET_KEY` | `disabled` (default), `simulated` (local only) or `paystack` (test keys only); see the checkout flow above. |
+| `PLANNER_PROVIDER`                  | Listed in `.env.example` but read by nothing; the planner is deterministic.                                     |
 | `npm run db:migrate` / `db:seed:demo` / `db:refresh-dates` | Ordered SQL migrations under an advisory lock; fictional seed (AJV-validated, keeps edits); move demo dates forward. |
 
 **Docker** (uncommitted, not yet built or deployed; see [DEPLOYMENT.md](DEPLOYMENT.md)):
@@ -487,10 +580,15 @@ have not been tested.
 
 These are boundaries, not components hidden elsewhere:
 
-- **Cart on the server, checkout, payments, bookings.** The cart is browser-only
-  and both Pay buttons are disabled. No orders, holds, capacity, Paystack,
-  webhooks, refunds or partner payouts. Plans: [CART_END_TO_END.md](CART_END_TO_END.md),
+- **After payment:** the reconciler (expiring pending payments, auto-declining
+  missed partner deadlines, completing bookings), partner and staff
+  confirm/decline queues, refunds and the `refunds` table, partner payouts,
+  and a staff view of `REQUIRES_REVIEW` checkouts. Until then, a partner
+  booking stays `AWAITING_PARTNER` past its deadline. Plans:
+  [CART_END_TO_END.md](CART_END_TO_END.md),
   [PAYMENT_INTEGRATION_PLAN.md](PAYMENT_INTEGRATION_PLAN.md).
+- **Live payments.** Paystack runs in test mode only and hasn't been tried
+  with real test keys yet. Docker Compose keeps `PAYMENT_PROVIDER: disabled`.
 - **Trip checkout** (`/trips/{id}/checkout`) shows calculated costs and
   readiness only; `inventoryHeld` is always false.
 - **Reviews**: domain and use cases only; no tables, routes or UI wiring

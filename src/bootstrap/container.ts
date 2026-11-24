@@ -1,6 +1,48 @@
 // Composition root: the only place that creates infrastructure and hands it to
 // use cases and controllers. Route files and server pages import from here.
-import { allowedOrigins, kemiSettings } from "@/config/environment";
+import {
+  allowedOrigins,
+  kemiSettings,
+  paymentSettings,
+  publicAppUrl,
+} from "@/config/environment";
+import { AppError } from "@/shared/application/app-error";
+import type { BookableCatalogue } from "@/modules/bookings/application/ports/bookable-catalogue";
+import type { PaymentGateway } from "@/modules/bookings/application/ports/payment-gateway";
+import { CartPricing } from "@/modules/bookings/application/services/cart-pricing";
+import {
+  GetCart,
+  QuoteCart,
+  SaveCart,
+} from "@/modules/bookings/application/use-cases/cart";
+import {
+  ConfirmOwnPayment,
+  ConfirmPayment,
+} from "@/modules/bookings/application/use-cases/confirm-payment";
+import {
+  GetOrder,
+  ListOrders,
+} from "@/modules/bookings/application/use-cases/orders";
+import { RecordPaymentEvent } from "@/modules/bookings/application/use-cases/record-payment-event";
+import { SimulatedPayment } from "@/modules/bookings/application/use-cases/simulated-payment";
+import { StartCheckout } from "@/modules/bookings/application/use-cases/start-checkout";
+import { LogNotifier } from "@/modules/bookings/infrastructure/notifications/log-notifier";
+import {
+  PaystackGateway,
+  paystackSignatureValid,
+} from "@/modules/bookings/infrastructure/payments/paystack-gateway";
+import { SimulatedGateway } from "@/modules/bookings/infrastructure/payments/simulated-gateway";
+import { DrizzleCartRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-cart-repository";
+import { DrizzleCheckoutRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-checkout-repository";
+import { createCartControllers } from "@/modules/bookings/presentation/http/controllers/cart-controllers";
+import {
+  createOrderControllers,
+  createPaystackWebhookController,
+  createSimulatedPaymentController,
+  createStartCheckoutController,
+  createVerifyPaymentController,
+} from "@/modules/bookings/presentation/http/controllers/checkout-controllers";
+import { toPublishedExperience } from "@/modules/catalogue/domain/experience";
 import { db } from "@/database/client";
 import { GetBucket } from "@/modules/bucket/application/use-cases/get-bucket";
 import { SaveBucket } from "@/modules/bucket/application/use-cases/save-bucket";
@@ -233,6 +275,73 @@ const partnerApi = createPartnerControllers({
   ),
 });
 
+// Bookings, and the narrow view of the catalogue and partners they need:
+// published products run by Fastlife or a verified partner.
+const bookableCatalogue: BookableCatalogue = {
+  async load() {
+    const [listings, trips, partners] = await Promise.all([
+      catalogueRepository.listPublished(),
+      packageRepository.listPublished(),
+      partnerRepository.list(),
+    ]);
+    const verified = new Set(
+      partners.filter((p) => p.status === "VERIFIED").map((p) => p.id),
+    );
+    const sellable = (partnerId?: string | null) =>
+      !partnerId || verified.has(partnerId);
+    return [
+      ...listings
+        .filter((r) => sellable(r.partnerId))
+        .map((r) => ({
+          kind: "EXPERIENCE" as const,
+          productId: r.id,
+          partnerId: r.partnerId ?? null,
+          listing: toPublishedExperience(r),
+        })),
+      ...trips
+        .filter((r) => sellable(r.partnerId))
+        .map((r) => ({
+          kind: "PACKAGE" as const,
+          productId: r.slug,
+          partnerId: r.partnerId ?? null,
+          trip: r.record,
+        })),
+    ];
+  },
+};
+const checkoutRepository = new DrizzleCheckoutRepository(db);
+const cartRepository = new DrizzleCartRepository(db);
+const cartPricing = new CartPricing(bookableCatalogue, checkoutRepository);
+const simulatedGateway = new SimulatedGateway();
+const paymentProvider = () => paymentSettings().provider;
+function paymentGateway(): PaymentGateway {
+  const settings = paymentSettings();
+  if (settings.provider === "paystack")
+    return new PaystackGateway(settings.secretKey);
+  if (settings.provider === "simulated") return simulatedGateway;
+  throw new AppError(
+    "FORBIDDEN",
+    "PAYMENTS_DISABLED",
+    "Payments aren’t switched on in this preview.",
+  );
+}
+const confirmPayment = new ConfirmPayment(
+  checkoutRepository,
+  paymentGateway,
+  new LogNotifier(),
+);
+const confirmOwnPayment = new ConfirmOwnPayment(
+  checkoutRepository,
+  confirmPayment,
+);
+const simulatedPayment = new SimulatedPayment(
+  checkoutRepository,
+  simulatedGateway,
+  () => paymentProvider() === "simulated",
+);
+const listOrders = new ListOrders(checkoutRepository);
+const getOrder = new GetOrder(checkoutRepository);
+
 // Trips
 const selection = new OfferSelection(offers);
 const proposals = new DrizzleProposalRepository(db);
@@ -351,6 +460,45 @@ export const api = {
       new SaveBucket(new DrizzleBucketRepository(db), publishedOffers),
     ),
   },
+  cart: createCartControllers({
+    guards,
+    get: new GetCart(cartRepository),
+    save: new SaveCart(cartRepository),
+    quote: new QuoteCart(cartPricing),
+  }),
+  checkouts: {
+    start: createStartCheckoutController({
+      guards,
+      start: new StartCheckout(
+        cartPricing,
+        checkoutRepository,
+        paymentGateway,
+        () => `${publicAppUrl()}/checkout/return`,
+      ),
+      enabled: () => paymentProvider() !== "disabled",
+    }),
+  },
+  payments: {
+    paystackWebhook: createPaystackWebhookController({
+      record: new RecordPaymentEvent(checkoutRepository, confirmPayment),
+      signatureValid: (raw, signature) => {
+        const settings = paymentSettings();
+        return (
+          settings.provider === "paystack" &&
+          paystackSignatureValid(settings.secretKey, raw, signature)
+        );
+      },
+    }),
+    verify: createVerifyPaymentController({
+      guards,
+      confirm: confirmOwnPayment,
+    }),
+    simulated: createSimulatedPaymentController({
+      guards,
+      simulated: simulatedPayment,
+    }),
+  },
+  orders: createOrderControllers({ guards, list: listOrders, get: getOrder }),
   intake: createIntakeController(guards, new SuggestProfile()),
   trips: {
     list: createListTripsController(guards, new ListTrips(tripRepository)),
@@ -405,4 +553,21 @@ export const pages = {
     (await listPublishedPackages.execute()).find((p) => p.slug === slug),
   transportSettings: async () =>
     (await getTransportSettings.execute()).settings,
+  // A misconfigured provider shows as switched off here and fails loudly
+  // on Pay instead.
+  paymentsEnabled: () => {
+    try {
+      return paymentProvider() !== "disabled";
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  },
+  confirmOwnPayment: (userId: string, reference: string) =>
+    confirmOwnPayment.execute(userId, reference),
+  simulatedPayment: (userId: string, reference: string) =>
+    simulatedPayment.view(userId, reference),
+  orders: (userId: string) => listOrders.execute(userId),
+  order: (userId: string, reference: string) =>
+    getOrder.execute(userId, reference),
 };

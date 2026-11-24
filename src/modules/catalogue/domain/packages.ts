@@ -52,7 +52,17 @@ export const packageSchema = z
       .min(1)
       .max(31),
     departures: z
-      .array(z.object({ date: day, seats: z.enum(seatStates) }).strict())
+      .array(
+        z
+          .object({
+            date: day,
+            seats: z.enum(seatStates),
+            // Places sold per departure (D2). Without it, a sample number
+            // is used; see departureCapacity.
+            capacity: z.number().int().min(1).max(200).optional(),
+          })
+          .strict(),
+      )
       .max(30),
     priceMinor: minor,
     priceBasis: z.enum(packagePriceBases),
@@ -191,6 +201,13 @@ export const inclusionStatusLabels: Record<InclusionStatus, string> = {
   ON_REQUEST: "Arranged by operator on request",
   NOT_INCLUDED: "Not included",
 };
+
+// Seats a departure sells. FULL stops sales whatever the number says. Trips
+// saved before seat numbers existed get a sample capacity from their label.
+export function departureCapacity(d: { seats: string; capacity?: number }) {
+  if (d.seats === "FULL") return 0;
+  return d.capacity ?? (d.seats === "LIMITED" ? 4 : 12);
+}
 
 export const seatLabels: Record<string, string> = {
   OPEN: "Seats open",

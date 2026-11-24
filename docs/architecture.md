@@ -108,6 +108,54 @@ Some controllers take no `guards` because they are public. For example,
 partner photo upload is the staff upload controller with a different
 `authorize` function.
 
+### The patterns, by name
+
+`container.ts` is a **composition root** using **manual dependency
+injection** (no DI framework). The pieces have standard names:
+
+| In the code                                                       | Pattern                                    |
+| ----------------------------------------------------------------- | ------------------------------------------ |
+| The whole file; the only place `new Drizzle...` appears           | Composition root                           |
+| `new CreateTrip(tripRepository)`                                  | Constructor injection                      |
+| `createXController(guards, useCase)` returning a handler          | Factory function (injection via closure)   |
+| Use cases with one `execute()`                                    | Use case / interactor (Clean Architecture) |
+| `OfferCatalogue`, `ListingCatalogue` interfaces in `application/` | Ports (hexagonal, ports and adapters)      |
+| `Drizzle*Repository`, and the inline objects below                | Adapters                                   |
+| `controller()` wrapping each handler                              | Decorator (cross-cutting error mapping)    |
+| `catalogueRepository`, `guards` built once and reused             | Shared instances (singletons by scope)     |
+
+**Narrow views between modules.** Some modules need another module's data.
+The consuming module declares the smallest port it needs, and the container
+fills it with a small inline adapter:
+
+```ts
+// trips only needs "list what's published", not the catalogue repository
+const offers: OfferCatalogue = { listPublished: () => listPublished.execute() };
+
+// partners need their own listings, shaped as LiveListing
+const listingCatalogue: ListingCatalogue = {
+  owned(partnerId) { ... },        // reads catalogue + package repositories
+  find(productType, productId) { ... },
+  approveExperience: (command) => publishPartnerExperience.execute(command),
+  approvePackage: (command) => publishPartnerPackage.execute(command),
+};
+```
+
+`liveExperience()` and `livePackage()` are mappers: they translate catalogue
+and package records into the partner module's own `LiveListing` type, so
+`partners` never imports `catalogue` types (a light anti-corruption layer).
+This is interface segregation in practice: each consumer sees only the methods
+it uses, and the module boundary is enforced by the container, not by
+convention.
+
+Two things to know about the current adapters:
+
+- `listingCatalogue.find()` and `owned()` load every row with `listAll()` and
+  filter in memory. Fine at today's catalogue size; add `findById` /
+  `listByPartner` to the repositories before it grows.
+- `(r.record as Experience)` is a type cast, not a check. It relies on
+  `catalogueRepository` only ever holding experiences.
+
 ### `auth: authController`, the exception
 
 `api.auth` is not built from a factory, a use case or `guards`. It is a plain
