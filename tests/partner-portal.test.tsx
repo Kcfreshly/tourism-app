@@ -13,6 +13,7 @@ import PartnerListings from "../src/components/partner-listings";
 import PartnerDashboard from "../src/components/partner-dashboard";
 import AdminPartners from "../src/components/admin-partners";
 import AdminPartnerInvites from "../src/components/admin-partner-invites";
+import PartnerBookings from "../src/components/partner-bookings";
 
 const market = fixture.experiences.find((e) => e.id === "local-market")!;
 const draftId = "1b9e6a8e-3c1d-4c51-9f00-7d0c9a2b5e21";
@@ -39,6 +40,27 @@ const submission = {
   reason: "Add the jetty number",
   version: 2,
   updatedAt: "2026-11-21T10:00:00Z",
+};
+
+const waitingBooking = {
+  id: "5e0c1b2a-3d4e-4f5a-8b6c-7d8e9f0a1b2c",
+  version: 1,
+  orderReference: "FL-7K3Q9P",
+  partnerId: "p1",
+  businessName: "Lagoon Paddlers",
+  productType: "EXPERIENCE",
+  title: "Lagoon kayak morning",
+  date: "2026-12-05",
+  startTime: "07:00",
+  line: { kind: "EXPERIENCE", adults: 2, children: 0 },
+  status: "AWAITING_PARTNER",
+  partnerDeadline: "2026-11-27T09:00:00Z",
+  totalMinor: 5250000,
+  partnerShareMinor: 4250000,
+  commissionBps: 1500,
+  guest: { name: "Ada Obi", phone: "+234 801 234 5678", email: "a@x.test" },
+  reason: null,
+  createdAt: "2026-11-26T09:00:00Z",
 };
 
 const calls: { url: string; method: string; body?: Record<string, unknown> }[] =
@@ -127,6 +149,15 @@ beforeEach(() => {
             createdAt: "2026-11-20T10:00:00Z",
           },
         ]);
+      if (url === "/api/v1/partner/bookings" && method === "GET")
+        return respond([waitingBooking]);
+      if (url === "/api/v1/partner/bookings" && method === "PATCH")
+        return respond({
+          ...waitingBooking,
+          status: body.action === "CONFIRM" ? "CONFIRMED" : "DECLINED",
+          reason: body.reason ?? null,
+          version: 2,
+        });
       if (url === "/api/v1/admin/partner-invites" && method === "GET")
         return respond([]);
       if (url === "/api/v1/admin/partner-invites" && method === "POST")
@@ -262,5 +293,45 @@ describe("partner invitations in admin", () => {
     expect(
       screen.getByRole("button", { name: "Cancel invitation" }),
     ).toBeTruthy();
+  });
+});
+
+describe("partner bookings", () => {
+  it("confirms a paid booking", async () => {
+    const counts: number[] = [];
+    render(<PartnerBookings onCount={(n) => counts.push(n)} />);
+    const card = (
+      await screen.findByRole("heading", { name: "Lagoon kayak morning" })
+    ).closest("li")!;
+    expect(within(card).getByText("Needs your answer")).toBeTruthy();
+    expect(within(card).getByText(/after 15% commission/)).toBeTruthy();
+    expect(within(card).getByText(/Answer by/)).toBeTruthy();
+    fireEvent.click(
+      within(card).getByRole("button", { name: "Confirm booking" }),
+    );
+    await screen.findByText("Confirmed");
+    expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+      action: "CONFIRM",
+      expectedVersion: 1,
+    });
+    expect(counts).toEqual([1, 0]);
+  });
+
+  it("needs a reason before declining", async () => {
+    render(<PartnerBookings />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Can’t take it" }),
+    );
+    const decline = screen.getByRole("button", { name: "Decline and refund" });
+    expect((decline as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Why can’t you take it/), {
+      target: { value: "Boat out of service" },
+    });
+    fireEvent.click(decline);
+    await screen.findByText(/Declined · traveller refunded/);
+    expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+      action: "DECLINE",
+      reason: "Boat out of service",
+    });
   });
 });

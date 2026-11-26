@@ -65,6 +65,37 @@ submission, approval and decline writes an audit event, and approved
 listings get catalogue snapshots like any staff edit, so they can be deleted
 and restored the same way.
 
+## Bookings
+
+Paying books a place; the partner's answer makes it final. Every paid booking
+for a listing whose confirmation is "partner confirms" arrives as **Needs your
+answer**, with a deadline (the listing's confirmation hours after payment).
+
+| Who                     | Where                                                              | What they do                                                               |
+| ----------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Partner                 | `/partner` → **Bookings** (count on the tab, banner on other tabs) | **Confirm booking**, or **Can't take it** with a reason the traveller sees |
+| Staff                   | `/admin#partner-bookings`                                          | The same for any partner (for example after a phone call), and refunds due |
+| Nobody, by the deadline | automatic                                                          | Declined: "Not confirmed by the partner in time; refund due"               |
+
+Each card shows date and time, guests, the lead guest's name and phone, and
+what the partner receives: the price before Fastlife's service fee, less the
+commission copied onto the booking at payment (15% sample).
+
+On a decision:
+
+- The booking becomes CONFIRMED or DECLINED, with a row in
+  `booking_status_history` (who, why) and an audit event.
+- A decline frees the places, so they're on sale again straight away.
+- The traveller's order page updates ("Confirmed", or "Not available … full
+  refund"), and they get an email: "Confirmed: …" or "Not available: …, full
+  refund" with the reason.
+- A booking can be answered once. A stale page gets "changed meanwhile".
+
+Deadlines are checked whenever a partner, staff or the traveller opens their
+bookings (there's no scheduled job yet), so a late answer is never accepted.
+Refunds themselves aren't sent from the app yet: staff see "Declined, refund
+due" and refund by hand.
+
 ## Dashboard
 
 Overview shows the last 30 days against the 30 before:
@@ -96,6 +127,8 @@ in the browser cart, so only their views are counted.
 | `GET/PATCH /api/v1/admin/submissions`           | Admin               | Queue; approve or decline.                              |
 | `GET/POST/DELETE /api/v1/admin/partner-invites` | Admin               | List, create (returns the link once), cancel invites.   |
 | `POST /api/v1/partner/invites`                  | Signed in           | Accept an invitation by its token.                      |
+| `GET/PATCH /api/v1/partner/bookings`            | Verified partner    | Own bookings; confirm or decline (reason required).     |
+| `GET/PATCH /api/v1/admin/partner-bookings`      | Admin               | Bookings waiting for partners and refunds due; decide.  |
 | `POST /api/v1/views`                            | Anyone, same origin | Count a view. Throttled per visitor.                    |
 
 How partners find the portal, sign in and get invited is in
@@ -112,8 +145,9 @@ apply. In another browser, sign in as your admin, verify the partner under
 
 - Invitations for a partner's own staff (STAFF members). Staff invitations
   of new businesses are built; see [PARTNER_ONBOARDING.md](PARTNER_ONBOARDING.md).
-- Bookings, confirmation queue, manifests and payouts. These follow checkout
-  (plan sections 4 and 9).
+- Sending refunds, daily manifests and payouts (plan sections 4 and 9).
+- Sales figures on the dashboard (the bookings table now has them).
 - Pausing a partner's own live listing without staff.
 - Automatically unpublishing a suspended partner's listings.
-- Notifications. Partners and staff check their queues.
+- Notifying partners of new bookings. Travellers are emailed; partners see
+  the count when they open the portal.

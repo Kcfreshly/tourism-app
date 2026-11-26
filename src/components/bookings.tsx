@@ -166,6 +166,13 @@ export function OrderDetail({ order }: { order: OrderView }) {
                 refunded in full.
               </p>
             )}
+            {b.status === "DECLINED" && (
+              <p className="checkout-line-after">
+                <strong>Not available:</strong> {b.terms.operator} couldn’t take
+                this booking. You’ll get a full refund of{" "}
+                {formatMoney(b.totalMinor)} to the way you paid.
+              </p>
+            )}
             <dl className="booking-rows">
               {b.rows.map((row) => (
                 <div key={row.label}>

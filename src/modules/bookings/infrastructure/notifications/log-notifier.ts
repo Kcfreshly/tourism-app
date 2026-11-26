@@ -33,4 +33,15 @@ export class LogNotifier implements Notifier {
       }),
     );
   }
+
+  async bookingDecided(event: Parameters<Notifier["bookingDecided"]>[0]) {
+    console.info(
+      JSON.stringify({
+        event: "BOOKING_DECIDED",
+        bookingId: event.id,
+        orderReference: event.orderReference,
+        status: event.status,
+      }),
+    );
+  }
 }

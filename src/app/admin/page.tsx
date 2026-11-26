@@ -4,6 +4,7 @@ import AdminCatalogue from "@/components/admin-catalogue";
 import AdminPackages from "@/components/admin-packages";
 import AdminPartners from "@/components/admin-partners";
 import AdminServiceRequests from "@/components/admin-service-requests";
+import PartnerBookings from "@/components/partner-bookings";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
 import { isSuperAdmin } from "@/modules/identity/domain/actor";
@@ -42,6 +43,7 @@ export default async function Admin() {
       </header>
       <nav className="admin-jump" aria-label="Staff workspace sections">
         <a href="#services">Drivers &amp; guides</a>
+        <a href="#partner-bookings">Partner bookings</a>
         <a href="#listings">Activities</a>
         <a href="#partners">Partners</a>
         <a href="#packages">Ready-made trips</a>
@@ -60,6 +62,20 @@ export default async function Admin() {
           </p>
         </div>
         <AdminServiceRequests />
+      </section>
+      <section
+        id="partner-bookings"
+        className="admin-section"
+        aria-labelledby="admin-partner-bookings-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-partner-bookings-heading">Partner bookings</h2>
+          <p className="muted">
+            Paid bookings partners must confirm. Unanswered ones are declined at
+            their deadline and the traveller is due a full refund.
+          </p>
+        </div>
+        <PartnerBookings staff />
       </section>
       <section id="listings" aria-labelledby="admin-listings-heading">
         <AdminCatalogue canDelete={isSuperAdmin(actor)} />

@@ -150,6 +150,7 @@ const notifier: Notifier = {
     notes.push(`review ${e.reason}`);
   },
   async serviceUpdated() {},
+  async bookingDecided() {},
 };
 
 let gateway: FakeGateway;

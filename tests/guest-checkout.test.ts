@@ -39,7 +39,10 @@ import type {
   Mailer,
 } from "../src/modules/bookings/application/ports/mailer";
 import { OrderLinks } from "../src/modules/bookings/application/services/order-links";
-import { SendOrderReceipt } from "../src/modules/bookings/application/use-cases/order-receipt";
+import {
+  SendBookingUpdate,
+  SendOrderReceipt,
+} from "../src/modules/bookings/application/use-cases/order-receipt";
 import { GetOrder } from "../src/modules/bookings/application/use-cases/orders";
 import { orderPaidEmail } from "../src/modules/bookings/domain/order-email";
 import { ReceiptNotifier } from "../src/modules/bookings/infrastructure/notifications/receipt-notifier";
@@ -155,6 +158,7 @@ beforeEach(async () => {
     },
     async needsReview() {},
     async serviceUpdated() {},
+    async bookingDecided() {},
   });
 });
 
@@ -324,8 +328,10 @@ describe("confirmation email", () => {
           async orderPaid() {},
           async needsReview() {},
           async serviceUpdated() {},
+          async bookingDecided() {},
         },
         new SendOrderReceipt(checkouts, () => mailer, links),
+        new SendBookingUpdate(() => mailer, links),
       ),
     );
   const noExpiry = {

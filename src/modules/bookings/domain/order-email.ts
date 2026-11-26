@@ -4,6 +4,7 @@
 import { formatMoney } from "@/modules/catalogue/domain/experience-content";
 import { clockLabel, shortDay } from "@/modules/catalogue/domain/schedule";
 import type { BookingView, OrderView } from "./checkout";
+import type { PartnerBookingView } from "./partner-booking";
 import { serviceStatusLabel, serviceTitles } from "./trip-checkout";
 
 // Structurally the mailer port's EmailMessage; the domain doesn't import ports.
@@ -12,7 +13,7 @@ type Email = { to: string; subject: string; text: string; html: string };
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
-function guests(b: BookingView) {
+function guests(b: Pick<BookingView, "line">) {
   const line = b.line;
   if (line.kind === "PACKAGE")
     return plural(line.travellers, "traveller", "travellers");
@@ -137,4 +138,57 @@ ${door ? `<p style="margin:0 0 8px;font-size:14px">${escape(door)}</p>` : ""}
 </div></body></html>`;
 
   return { to: order.contact.email, subject, text, html };
+}
+
+// Sent when the partner confirms or declines (or doesn't answer in time).
+export function bookingDecidedEmail(
+  b: PartnerBookingView,
+  link: string,
+): Email {
+  const confirmed = b.status === "CONFIRMED";
+  const when = `${b.productType === "PACKAGE" ? "Departs " : ""}${shortDay(b.date)}${b.startTime ? ` · ${clockLabel(b.startTime)}` : ""} · ${guests(b)}`;
+  const subject = confirmed
+    ? `Confirmed: ${b.title} (${b.orderReference})`
+    : `Not available: ${b.title} (${b.orderReference}), full refund`;
+  const lines = confirmed
+    ? [
+        `Good news: ${b.businessName ?? "the partner"} has confirmed your booking. It’s final.`,
+        b.productType === "EXPERIENCE"
+          ? "Show this email or the reference at the door."
+          : "",
+      ]
+    : [
+        `Sorry, ${b.businessName ?? "the partner"} couldn’t take this booking.`,
+        b.reason ? `Reason: ${b.reason}` : "",
+        `You’ll get a full refund of ${formatMoney(b.totalMinor)} to the way you paid. We’ll let you know when it’s sent.`,
+      ];
+  const body = lines.filter(Boolean);
+  const text = [
+    `Hi ${b.guest.name},`,
+    "",
+    ...body,
+    "",
+    b.title,
+    `  ${when}`,
+    `  Reference: ${b.orderReference}`,
+    "",
+    `See your booking: ${link}`,
+    "",
+    "Fastlife",
+  ].join("\n");
+  const html = `<!doctype html>
+<html><body style="margin:0;padding:24px;background:#f6f5f2;font-family:Arial,Helvetica,sans-serif;color:#1d1b2e">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px">
+<p style="margin:0 0 4px;font-size:13px;color:#6b6880">Order ${escape(b.orderReference)}</p>
+<h1 style="margin:0 0 12px;font-size:22px">${escape(confirmed ? "Your booking is confirmed" : "Your booking couldn’t be confirmed")}</h1>
+<p style="margin:0 0 12px">Hi ${escape(b.guest.name)},</p>
+${body.map((l) => `<p style="margin:0 0 10px">${escape(l)}</p>`).join("\n")}
+<div style="border:1px solid #e4e2ec;border-radius:10px;padding:12px 14px;margin:12px 0">
+<p style="margin:0 0 6px;font-weight:bold">${escape(b.title)}</p>
+<p style="margin:0;font-size:14px">${escape(when)}</p>
+</div>
+<p style="margin:0 0 16px"><a href="${escape(link)}" style="display:inline-block;background:#3b2f8f;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">See your booking</a></p>
+<p style="margin:16px 0 0;font-size:13px;color:#6b6880">Fastlife</p>
+</div></body></html>`;
+  return { to: b.guest.email, subject, text, html };
 }

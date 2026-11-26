@@ -85,14 +85,16 @@ per partner (a sheet or a Trello card) with:
 
 | Gap                                             | Why it matters                                                   |
 | ----------------------------------------------- | ---------------------------------------------------------------- |
-| Partners can't confirm or decline bookings      | Paid bookings stay "waiting for partner to confirm"              |
+| Refunds are marked, not sent                    | A declined booking says "refund due"; staff refund by hand       |
 | No payout details or settlements                | Money can be taken but not settled with partners in the app      |
 | No verification checklist or documents in admin | Checks live outside the app, with no record next to the decision |
 | Invitations aren't emailed                      | Staff copy the link and send it themselves                       |
 | No invitations for a partner's own staff        | One account per business for now                                 |
 
-Suggested order: booking confirm/decline, then the verification checklist with
-document uploads, then payout details and settlements.
+Partners confirm or decline bookings in their portal (see "Bookings" in
+[PARTNER_PORTAL.md](PARTNER_PORTAL.md)). Suggested order next: refunds through
+Paystack, then the verification checklist with document uploads, then payout
+details and settlements.
 
 ## Trying it locally
 

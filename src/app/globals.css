@@ -3969,3 +3969,101 @@ main:has(.pocket) {
 .admin-invite-list p {
   margin: var(--space-1) 0 0;
 }
+
+/* ===== Partner bookings: confirm or decline ===== */
+.partner-bookings {
+  display: grid;
+  gap: var(--space-6);
+}
+.partner-bookings section {
+  display: grid;
+  gap: var(--space-3);
+}
+.partner-bookings h2,
+.partner-bookings section > p {
+  margin: 0;
+}
+.partner-booking-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.partner-booking {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.partner-booking[data-waiting] {
+  border-color: var(--c-danfo);
+}
+.partner-booking-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+.partner-booking-head > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.partner-booking-head h3,
+.partner-booking-head p,
+.partner-booking > p {
+  margin: 0;
+}
+.partner-booking-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.partner-booking-facts dt {
+  color: var(--c-ink-2);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.partner-booking-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.partner-booking-deadline {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.partner-booking-deadline .icon {
+  flex: none;
+  margin-top: 2px;
+}
+.partner-booking-actions {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.partner-tab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--c-danfo);
+  color: var(--c-ink);
+  font-size: var(--text-xs);
+}
+.partner-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}

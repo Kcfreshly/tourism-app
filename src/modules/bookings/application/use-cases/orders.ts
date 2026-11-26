@@ -2,7 +2,9 @@ import { AppError } from "@/shared/application/app-error";
 import type { Viewer } from "../../domain/checkout";
 import type { CheckoutRepository } from "../ports/checkout-repository";
 import type { OrderLinks } from "../services/order-links";
-import type { ExpireOverdueServices } from "./service-requests";
+// Marks overdue services and unconfirmed bookings before a read, so pages
+// never show "waiting" past a deadline.
+type Expirer = { execute(): Promise<unknown> };
 
 // The traveller's paid orders, newest first, each with its bookings and
 // services. Guest orders made in this browser are included. Overdue services
@@ -11,7 +13,7 @@ import type { ExpireOverdueServices } from "./service-requests";
 export class ListOrders {
   constructor(
     private readonly checkouts: CheckoutRepository,
-    private readonly expire: ExpireOverdueServices,
+    private readonly expire: Expirer,
   ) {}
 
   async execute(viewer: Viewer) {
@@ -23,7 +25,7 @@ export class ListOrders {
 export class GetOrder {
   constructor(
     private readonly checkouts: CheckoutRepository,
-    private readonly expire: ExpireOverdueServices,
+    private readonly expire: Expirer,
     private readonly links: OrderLinks,
   ) {}
 

@@ -53,7 +53,17 @@ import {
 } from "@/modules/bookings/infrastructure/email/mailers";
 import type { Mailer } from "@/modules/bookings/application/ports/mailer";
 import { OrderLinks } from "@/modules/bookings/application/services/order-links";
-import { SendOrderReceipt } from "@/modules/bookings/application/use-cases/order-receipt";
+import {
+  SendBookingUpdate,
+  SendOrderReceipt,
+} from "@/modules/bookings/application/use-cases/order-receipt";
+import {
+  DecideBooking,
+  ExpireUnconfirmedBookings,
+  ListPartnerBookings,
+} from "@/modules/bookings/application/use-cases/partner-bookings";
+import { DrizzlePartnerBookingRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-partner-booking-repository";
+import { createPartnerBookingControllers } from "@/modules/bookings/presentation/http/controllers/partner-booking-controllers";
 import { authSecret } from "@/modules/identity/infrastructure/auth/better-auth";
 import {
   PaystackGateway,
@@ -376,6 +386,7 @@ const orderLinks = new OrderLinks(authSecret, publicAppUrl);
 const notifier = new ReceiptNotifier(
   new LogNotifier(),
   new SendOrderReceipt(checkoutRepository, mailer, orderLinks),
+  new SendBookingUpdate(mailer, orderLinks),
 );
 const confirmPayment = new ConfirmPayment(
   checkoutRepository,
@@ -402,12 +413,21 @@ const paymentStarter = new PaymentStarter(
   () => `${publicAppUrl()}/checkout/return`,
 );
 const paymentsOn = () => paymentProvider() !== "disabled";
-const listOrders = new ListOrders(checkoutRepository, expireOverdueServices);
-const getOrder = new GetOrder(
-  checkoutRepository,
-  expireOverdueServices,
-  orderLinks,
+// Partners confirm or decline paid bookings; unanswered ones lapse at their
+// deadline.
+const partnerBookings = new DrizzlePartnerBookingRepository(db);
+const expireUnconfirmedBookings = new ExpireUnconfirmedBookings(
+  partnerBookings,
+  notifier,
 );
+const expireOverdue = {
+  execute: async () => {
+    await expireOverdueServices.execute();
+    await expireUnconfirmedBookings.execute();
+  },
+};
+const listOrders = new ListOrders(checkoutRepository, expireOverdue);
+const getOrder = new GetOrder(checkoutRepository, expireOverdue, orderLinks);
 
 // Trips
 const selection = new OfferSelection(offers);
@@ -609,6 +629,16 @@ export const api = {
     update: new UpdateServiceRequest(serviceRequests, notifier),
   }),
   orders: createOrderControllers({ guards, list: listOrders, get: getOrder }),
+  partnerBookings: createPartnerBookingControllers({
+    guards,
+    verifiedPartner: (userId: string) => partnerAccess.verified(userId),
+    list: new ListPartnerBookings(partnerBookings, expireUnconfirmedBookings),
+    decide: new DecideBooking(
+      partnerBookings,
+      notifier,
+      expireUnconfirmedBookings,
+    ),
+  }),
   intake: createIntakeController(guards, new SuggestProfile()),
   trips: {
     list: createListTripsController(
