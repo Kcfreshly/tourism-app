@@ -34,6 +34,15 @@ import {
   ConfirmPayment,
 } from "../src/modules/bookings/application/use-cases/confirm-payment";
 import { DrizzleCheckoutRepository } from "../src/modules/bookings/infrastructure/persistence/drizzle-checkout-repository";
+import type {
+  EmailMessage,
+  Mailer,
+} from "../src/modules/bookings/application/ports/mailer";
+import { OrderLinks } from "../src/modules/bookings/application/services/order-links";
+import { SendOrderReceipt } from "../src/modules/bookings/application/use-cases/order-receipt";
+import { GetOrder } from "../src/modules/bookings/application/use-cases/orders";
+import { orderPaidEmail } from "../src/modules/bookings/domain/order-email";
+import { ReceiptNotifier } from "../src/modules/bookings/infrastructure/notifications/receipt-notifier";
 import {
   guestKeyFromCookies,
   guestKeyHash,
@@ -290,5 +299,143 @@ describe("guest key", () => {
     expect(
       canView({ userId: null, guestKeyHash: null }, guestIn(browserA)),
     ).toBe(false);
+  });
+});
+
+describe("confirmation email", () => {
+  const links = new OrderLinks(
+    () => "test-secret",
+    () => "http://app.test",
+  );
+  const sent: EmailMessage[] = [];
+  let failing = false;
+  const mailer: Mailer = {
+    async send(message) {
+      if (failing) throw new Error("provider down");
+      sent.push(message);
+    },
+  };
+  const receiptConfirm = () =>
+    new ConfirmPayment(
+      checkouts,
+      () => gateway,
+      new ReceiptNotifier(
+        {
+          async orderPaid() {},
+          async needsReview() {},
+          async serviceUpdated() {},
+        },
+        new SendOrderReceipt(checkouts, () => mailer, links),
+      ),
+    );
+  const noExpiry = {
+    execute: async () => 0,
+  } as unknown as ConstructorParameters<typeof GetOrder>[1];
+
+  beforeEach(() => {
+    sent.length = 0;
+    failing = false;
+  });
+
+  async function paidGuestOrder() {
+    const started = await guestPay([line("offer-gig")]);
+    const reference =
+      started.status === "PAYMENT_REDIRECT" ? started.reference : "";
+    gateway.paid.add(reference);
+    return { reference, confirm: receiptConfirm() };
+  }
+
+  it("emails the guest their tickets once, with a link that opens anywhere", async () => {
+    const { reference, confirm: withEmail } = await paidGuestOrder();
+    const paid = await withEmail.execute(reference);
+    // The webhook and the return page both confirm; still one email.
+    await withEmail.execute(reference);
+    const orderRef = paid.status === "PAID" ? paid.orderReference : "";
+    expect(sent).toHaveLength(1);
+    const [email] = sent;
+    expect(email.to).toBe("ada@example.com");
+    expect(email.subject).toContain(orderRef);
+    expect(email.text).toContain("Hi Ada Guest");
+    expect(email.text).toContain(
+      "Show this email or the reference at the door.",
+    );
+    expect(email.html).toContain(orderRef);
+
+    const link = links.url(orderRef);
+    expect(email.text).toContain(link);
+    const key = new URL(link).searchParams.get("k")!;
+    const orders = new GetOrder(checkouts, noExpiry, links);
+    expect((await orders.withLink(orderRef, key)).contact.email).toBe(
+      "ada@example.com",
+    );
+    for (const wrong of [undefined, "", key.slice(1), links.key("FL-OTHER")])
+      expect((await refusal(orders.withLink(orderRef, wrong)))?.code).toBe(
+        "NOT_FOUND",
+      );
+  });
+
+  it("says booked, waiting for the partner, until they confirm", () => {
+    const base = {
+      reference: "FL-TEST22",
+      tripId: null,
+      createdAt: new Date().toISOString(),
+      totalMinor: 500000,
+      contact: { name: "Ada", email: "ada@example.com", phone: "+234" },
+      services: [],
+    };
+    const booking = {
+      id: "b1",
+      cartLineId: "l1",
+      title: "Rooftop concert",
+      productType: "EXPERIENCE" as const,
+      date,
+      startTime: "19:00",
+      partnerDeadline: new Date(Date.now() + 86400000).toISOString(),
+      totalMinor: 500000,
+      feeMinor: 0,
+      rows: [],
+      terms: {
+        operator: "Lagos Live",
+        where: "Make your own way · Rooftop",
+        confirmation: "PARTNER" as const,
+        partnerHours: 24,
+        freeCancellationHours: null,
+        cancellation: "No refunds",
+      },
+      line: line("offer-gig"),
+    };
+    const waiting = orderPaidEmail(
+      { ...base, bookings: [{ ...booking, status: "AWAITING_PARTNER" }] },
+      "http://app.test/x",
+    );
+    expect(waiting.subject).toBe("Booked: FL-TEST22, waiting for confirmation");
+    expect(waiting.text).toContain(
+      "Booked, waiting for Lagos Live to confirm by",
+    );
+    expect(waiting.text).toContain("isn’t final until then");
+    const done = orderPaidEmail(
+      { ...base, bookings: [{ ...booking, status: "CONFIRMED" }] },
+      "http://app.test/x",
+    );
+    expect(done.subject).toBe("You’re booked: FL-TEST22");
+    expect(done.text).not.toContain("waiting");
+    // Names typed at checkout can't inject markup.
+    expect(
+      orderPaidEmail(
+        {
+          ...base,
+          contact: { ...base.contact, name: "<b>x</b>" },
+          bookings: [{ ...booking, status: "CONFIRMED" }],
+        },
+        "http://app.test/x",
+      ).html,
+    ).not.toContain("<b>x</b>");
+  });
+
+  it("still books when the email can't be sent", async () => {
+    failing = true;
+    const { reference, confirm: withEmail } = await paidGuestOrder();
+    expect((await withEmail.execute(reference)).status).toBe("PAID");
+    expect(sent).toHaveLength(0);
   });
 });

@@ -798,4 +798,9 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
     );
     return order ?? null;
   }
+
+  async findOrderByReference(reference: string) {
+    const [order] = await this.orderViews(eq(orders.reference, reference), 1);
+    return order ?? null;
+  }
 }

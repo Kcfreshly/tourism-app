@@ -143,4 +143,6 @@ export interface CheckoutRepository {
   // The viewer's account orders plus guest orders made in this browser.
   listOrders(viewer: Viewer): Promise<OrderView[]>;
   findOrder(viewer: Viewer, reference: string): Promise<OrderView | null>;
+  // Unscoped: only for the receipt email and a verified emailed link.
+  findOrderByReference(reference: string): Promise<OrderView | null>;
 }

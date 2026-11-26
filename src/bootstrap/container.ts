@@ -9,6 +9,7 @@ import {
 import {
   allowedOrigins,
   kemiSettings,
+  emailSettings,
   paymentSettings,
   publicAppUrl,
 } from "@/config/environment";
@@ -43,6 +44,16 @@ import { StartTripCheckout } from "@/modules/bookings/application/use-cases/star
 import { PaymentStarter } from "@/modules/bookings/application/services/payment-starter";
 import type { TripSource } from "@/modules/bookings/application/ports/trip-source";
 import { LogNotifier } from "@/modules/bookings/infrastructure/notifications/log-notifier";
+import { ReceiptNotifier } from "@/modules/bookings/infrastructure/notifications/receipt-notifier";
+import {
+  DisabledMailer,
+  OutboxMailer,
+  ResendMailer,
+} from "@/modules/bookings/infrastructure/email/mailers";
+import type { Mailer } from "@/modules/bookings/application/ports/mailer";
+import { OrderLinks } from "@/modules/bookings/application/services/order-links";
+import { SendOrderReceipt } from "@/modules/bookings/application/use-cases/order-receipt";
+import { authSecret } from "@/modules/identity/infrastructure/auth/better-auth";
 import {
   PaystackGateway,
   paystackSignatureValid,
@@ -342,7 +353,20 @@ function paymentGateway(): PaymentGateway {
     "Payments aren’t switched on in this preview.",
   );
 }
-const notifier = new LogNotifier();
+// Confirmation emails. A misconfigured provider fails that send (logged),
+// never the payment.
+function mailer(): Mailer {
+  const settings = emailSettings();
+  if (settings.provider === "resend")
+    return new ResendMailer(settings.apiKey, settings.from);
+  if (settings.provider === "outbox") return new OutboxMailer();
+  return new DisabledMailer();
+}
+const orderLinks = new OrderLinks(authSecret, publicAppUrl);
+const notifier = new ReceiptNotifier(
+  new LogNotifier(),
+  new SendOrderReceipt(checkoutRepository, mailer, orderLinks),
+);
 const confirmPayment = new ConfirmPayment(
   checkoutRepository,
   paymentGateway,
@@ -369,7 +393,11 @@ const paymentStarter = new PaymentStarter(
 );
 const paymentsOn = () => paymentProvider() !== "disabled";
 const listOrders = new ListOrders(checkoutRepository, expireOverdueServices);
-const getOrder = new GetOrder(checkoutRepository, expireOverdueServices);
+const getOrder = new GetOrder(
+  checkoutRepository,
+  expireOverdueServices,
+  orderLinks,
+);
 
 // Trips
 const selection = new OfferSelection(offers);
@@ -630,4 +658,14 @@ export const pages = {
   orders: (viewer: Viewer) => listOrders.execute(viewer),
   order: (viewer: Viewer, reference: string) =>
     getOrder.execute(viewer, reference),
+  // The signed link from the confirmation email.
+  orderFromLink: (reference: string, key: string | undefined) =>
+    getOrder.withLink(reference, key),
+  emailOn: () => {
+    try {
+      return emailSettings().provider !== "disabled";
+    } catch {
+      return false;
+    }
+  },
 };

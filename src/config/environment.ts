@@ -53,6 +53,35 @@ export function paymentSettings(): {
   throw new Error(`Unknown PAYMENT_PROVIDER "${provider}".`);
 }
 
+export type EmailProvider = "disabled" | "outbox" | "resend";
+
+// Where confirmation emails go. Locally they're written to .local/outbox to
+// open in a browser; Resend sends real email. Unset means outbox in
+// development and off in production, so nothing is sent by accident.
+export function emailSettings(): {
+  provider: EmailProvider;
+  apiKey: string;
+  from: string;
+} {
+  const provider =
+    process.env.EMAIL_PROVIDER ||
+    (process.env.NODE_ENV === "production" ? "disabled" : "outbox");
+  const apiKey = process.env.RESEND_API_KEY ?? "";
+  const from = process.env.EMAIL_FROM || "Fastlife <bookings@example.com>";
+  if (provider === "disabled" || provider === "outbox")
+    return { provider, apiKey: "", from };
+  if (provider === "resend") {
+    if (!apiKey.startsWith("re_"))
+      throw new Error("EMAIL_PROVIDER=resend needs RESEND_API_KEY (re_…).");
+    if (!process.env.EMAIL_FROM)
+      throw new Error(
+        "EMAIL_PROVIDER=resend needs EMAIL_FROM, an address on a domain verified in Resend.",
+      );
+    return { provider, apiKey, from };
+  }
+  throw new Error(`Unknown EMAIL_PROVIDER "${provider}".`);
+}
+
 export function publicAppUrl() {
   return process.env.PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
 }

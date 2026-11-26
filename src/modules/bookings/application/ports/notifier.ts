@@ -1,7 +1,7 @@
 import type { ServiceKind, ServiceStatus } from "../../domain/trip-checkout";
 
-// Tells travellers and staff what happened. Phase 1 only logs (D8); email
-// or WhatsApp plug in here later. A guest order has no userId, so the
+// Tells travellers and staff what happened. The paid-order receipt is emailed
+// (ReceiptNotifier); the rest only log for now. A guest order has no userId, so the
 // receipt goes to the checkout email.
 export interface Notifier {
   orderPaid(event: {

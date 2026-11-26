@@ -20,16 +20,21 @@ export default async function Booking({
   searchParams,
 }: {
   params: Promise<{ reference: string }>;
-  searchParams: Promise<{ paid?: string }>;
+  searchParams: Promise<{ paid?: string; k?: string }>;
 }) {
   const { reference } = await params;
+  const { paid: paidParam, k: linkKey } = await searchParams;
   const here = `/bookings/${encodeURIComponent(reference)}`;
-  // A guest buyer's browser holds the key to their order.
+  // A guest buyer's browser holds the key to their order; the link in the
+  // confirmation email opens it anywhere.
   const viewer = await pages.viewer();
-  if (!viewer.userId && !viewer.guestKeyHash) await pages.requireSignedIn(here);
+  if (!linkKey && !viewer.userId && !viewer.guestKeyHash)
+    await pages.requireSignedIn(here);
   let order;
   try {
-    order = await pages.order(viewer, reference);
+    order = linkKey
+      ? await pages.orderFromLink(reference, linkKey)
+      : await pages.order(viewer, reference);
   } catch (e) {
     if (e instanceof AppError && e.kind === "NOT_FOUND") {
       if (!viewer.userId) await pages.requireSignedIn(here);
@@ -38,7 +43,8 @@ export default async function Booking({
     throw e;
   }
   const guest = !viewer.userId;
-  const paid = (await searchParams).paid === "1";
+  const paid = paidParam === "1";
+  const emailed = pages.emailOn();
   const waiting =
     order.bookings.filter((b) => b.status === "AWAITING_PARTNER").length +
     order.services.filter((sv) => sv.status === "REQUESTED").length;
@@ -80,7 +86,11 @@ export default async function Booking({
               We’ve sent it to the partner. Each part below shows when they’ll
               confirm by. If they can’t, that part is refunded in full. Keep
               the reference <strong>{order.reference}</strong>; it’s also in My
-              bookings.
+              bookings
+              {emailed
+                ? ` and in the email we’ve sent to ${order.contact.email}`
+                : ""}
+              .
             </p>
           </div>
         </div>
@@ -90,7 +100,7 @@ export default async function Booking({
           <Icon name="check" size={16} /> Thank you. Keep the reference{" "}
           <strong>{order.reference}</strong>
           {guest
-            ? `. Your tickets are saved in this browser under My bookings. Show this page or the reference at the door; tickets go to ${order.contact.email} once email is switched on.`
+            ? `. Your tickets are saved in this browser under My bookings${emailed ? ` and on their way to ${order.contact.email}` : ""}. Show this page, the email or the reference at the door.`
             : "; it’s also in My bookings."}
         </p>
       )}

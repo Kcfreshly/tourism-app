@@ -61,19 +61,56 @@ could be bought on their own.
 - Webhook, settlement, capacity and idempotency are unchanged; an
   Idempotency-Key can't be reused by a different account or browser.
 
+## Confirmation email
+
+Once a payment is confirmed, the buyer gets an email: guests at the address
+they typed, account holders at their account email.
+
+- **When:** `ConfirmPayment` reports a new order once (webhook and return
+  page can both confirm; only the first creates the order), and
+  `ReceiptNotifier` sends then. One email per order.
+- **What it says:** the reference, each ticket or booking with date, time,
+  guests, place and price, and the total. A partner-confirmed booking reads
+  "Booked, waiting for <partner> to confirm by <time>. If they can’t, it’s
+  refunded in full", and the subject says "waiting for confirmation". An
+  instant one says confirmed. Event tickets add "Show this email or the
+  reference at the door."
+- **The link:** `/bookings/FL-…?k=<key>`, where the key is an HMAC of the
+  reference with the auth secret (`OrderLinks`). It opens that one order on
+  any device, without an account or the guest cookie, like a paper ticket.
+  A wrong or missing key gets "not found".
+- **If sending fails:** the payment and order stand; the failure is logged as
+  `ORDER_RECEIPT_FAILED` with the reference. The order page still has
+  everything. There is no automatic resend yet.
+
+### Switching it on
+
+| `EMAIL_PROVIDER` | What happens                                                                 |
+| ---------------- | ---------------------------------------------------------------------------- |
+| unset            | `outbox` in development, `disabled` in production                            |
+| `outbox`         | Written to `.local/outbox/*.html` (and `.txt`) to open in a browser; nothing is sent |
+| `resend`         | Sent through Resend’s API. Needs `RESEND_API_KEY` and `EMAIL_FROM`           |
+| `disabled`       | Not sent; logged as `EMAIL_OFF`                                              |
+
+For Resend: create an account, verify the sending domain (DNS records), make
+an API key, then set for example `EMAIL_PROVIDER=resend`,
+`RESEND_API_KEY=re_…`, `EMAIL_FROM="Fastlife <bookings@yourdomain>"`. The
+order page tells guests the email is on its way only when a provider is on.
+
 ## Limits
 
-- No email provider yet (D8): the guest's only copy is in this browser. If the
-  cookie is cleared, staff find the order by reference and email in the
-  database. When email arrives, send the receipt with a link to the order.
 - Guest orders don't move into an account when the buyer signs up later; they
-  stay visible in the browser that bought them.
+  stay visible in the browser that bought them and through the emailed link.
+- Only the payment email exists. Partner confirm/decline, refunds and
+  reminders don't email yet.
 
 ## Tests
 
 - `tests/guest-checkout.test.ts`: guest purchase end to end, refusal for
   events without the setting and for mixed carts, idempotency per browser,
-  order visibility, cookie parsing and hashing.
+  order visibility, cookie parsing and hashing; one email per order, the
+  emailed link (and wrong keys refused), "waiting for confirmation" wording,
+  escaping, and booking still succeeding when the email fails.
 - Browser check (2026-11-24, simulated payments, desktop 1440 px and phone
   390 px): event badge, guest form and missing-email message, simulated
   payment, order page, My bookings, another browser refused, sign-in screen
