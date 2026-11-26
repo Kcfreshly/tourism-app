@@ -86,7 +86,9 @@ export class PaymentStarter {
         );
       throw e;
     }
-    await this.checkouts.attachPayment(checkoutId, {
+    // A retry racing this one may have attached its payment first; then
+    // the traveller gets that page and ours is never shown or paid.
+    const attached = await this.checkouts.attachPayment(checkoutId, {
       reference,
       provider: gateway.provider,
       accessCode: opened.accessCode,
@@ -94,10 +96,6 @@ export class PaymentStarter {
       amountMinor,
       currency: "NGN",
     });
-    return {
-      status: "PAYMENT_REDIRECT",
-      authorizationUrl: opened.authorizationUrl,
-      reference,
-    };
+    return { status: "PAYMENT_REDIRECT", ...attached };
   }
 }

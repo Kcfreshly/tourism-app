@@ -74,7 +74,8 @@ Railway, ECS, Cloud Run) with a managed PostgreSQL: set `DATABASE_URL` and the
 
 - Building and running the images (`docker-compose.prod.yml`).
 - The app under load on PostgreSQL. Migrations and the seed do run cleanly on
-  PostgreSQL 17 (local Docker database, 2026-11-22). The README notes multi-process
-  booking races were never tested on PostgreSQL; do that before payments.
+  PostgreSQL 17 (local Docker database, 2026-11-22). Concurrent checkouts
+  are tested on PostgreSQL with many connections (`npm run test:postgres`,
+  2026-11-26); load testing the whole app is still to do.
 - Backups: schedule `pg_dump` of the `db` volume (or use the managed provider's
   backups) before real users arrive.

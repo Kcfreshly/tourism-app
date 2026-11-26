@@ -305,6 +305,18 @@ sequenceDiagram
 - **Idempotency.** A repeated `Idempotency-Key` continues the same checkout:
   it returns the same payment page, or opens one if the provider was down
   last time (the hold is kept; the error was 503 `PAYMENT_PROVIDER_UNAVAILABLE`).
+  The same key arriving twice at the same instant is caught at the
+  `UNIQUE` constraint and answered with the first request's checkout, and
+  attaching a payment is first-wins under the checkout row lock, so one
+  checkout never has two payment pages.
+- **Concurrency.** Holding and settling both lock the slot rows
+  (`SELECT … FOR UPDATE`, in id order) before counting places, so buyers
+  of the same slot are serialised. Settling re-checks capacity under those
+  locks even when the hold still looks valid, because a hold can lapse and
+  its places be taken in the moment before the payment is confirmed.
+  `npm run test:postgres` (with `TEST_POSTGRES_URL`) proves this on real
+  PostgreSQL with many connections: 25 buyers for one place get exactly one
+  hold, and buyers paying at once never book more than the places.
 - **ConfirmPayment** is safe to repeat. It verifies with the provider and
   sends a wrong amount or currency to `REQUIRES_REVIEW`. An abandoned payment
   page stays pending while the hold lasts. A failed payment fails the
@@ -573,8 +585,9 @@ can be replaced or scaled; rate limits already live in the database.
 **Tests.** `npm test` runs Vitest suites in [`tests`](../tests) (domain, components,
 partners, reviews use cases, Kemi proxy). `test:modules` runs use cases
 against the real database; `test:integration`, `test:admin`, `test:workspace`
-and `test:overlays` drive a running app. Multi-process races on PostgreSQL
-have not been tested.
+and `test:overlays` drive a running app. `test:postgres` runs the
+concurrent checkout tests against PostgreSQL in a throwaway database it
+creates and drops; it is skipped unless `TEST_POSTGRES_URL` is set.
 
 ## Not built yet
 

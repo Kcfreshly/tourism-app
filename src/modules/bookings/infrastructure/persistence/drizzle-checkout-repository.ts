@@ -51,6 +51,21 @@ type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 const openStatuses: CheckoutStatus[] = ["HELD", "PAYMENT_PENDING"];
 
+// A unique-constraint failure on the named column, from postgres.js or
+// PGlite, possibly wrapped by Drizzle.
+function isUniqueViolation(e: unknown, column: string): boolean {
+  for (let err = e as Record<string, unknown> | undefined; err;) {
+    const name = String(err.constraint_name ?? err.constraint ?? "");
+    if (
+      err.code === "23505" &&
+      (name.includes(column) || String(err.message).includes(column))
+    )
+      return true;
+    err = err.cause as Record<string, unknown> | undefined;
+  }
+  return false;
+}
+
 // Thrown inside a transaction to roll it back with a result.
 class Refused<T> {
   constructor(public result: T) {}
@@ -282,6 +297,10 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
       });
     } catch (e) {
       if (e instanceof Refused) return e.result;
+      // The same Pay press arrived twice at once and the other request
+      // stored its checkout first. The caller continues that one.
+      if (isUniqueViolation(e, "idempotency_key"))
+        return { held: false as const, duplicateKey: true as const };
       throw e;
     }
   }
@@ -355,7 +374,30 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
     checkoutId: string,
     payment: Parameters<CheckoutRepository["attachPayment"]>[1],
   ) {
-    await this.db().transaction(async (tx) => {
+    return this.db().transaction(async (tx) => {
+      // One open payment per checkout: two retries racing to open a payment
+      // must not leave the traveller two payment pages to pay twice. The
+      // checkout row lock orders them; the second gets the first's page.
+      await tx
+        .select({ id: checkouts.id })
+        .from(checkouts)
+        .where(eq(checkouts.id, checkoutId))
+        .for("update");
+      const [open] = await tx
+        .select()
+        .from(payments)
+        .where(
+          and(
+            eq(payments.checkoutId, checkoutId),
+            eq(payments.status, "INITIALISED"),
+          ),
+        )
+        .limit(1);
+      if (open?.authorizationUrl)
+        return {
+          reference: open.reference,
+          authorizationUrl: open.authorizationUrl,
+        };
       await tx.insert(payments).values({
         id: randomUUID(),
         checkoutId,
@@ -370,6 +412,10 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           updatedAt: new Date(),
         })
         .where(and(eq(checkouts.id, checkoutId), eq(checkouts.status, "HELD")));
+      return {
+        reference: payment.reference,
+        authorizationUrl: payment.authorizationUrl,
+      };
     });
   }
 
@@ -467,11 +513,13 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
       );
       const services = lines.filter((l) => !l.slotId);
 
-      const holdValid =
-        openStatuses.includes(checkout.status as CheckoutStatus) &&
-        checkout.expiresAt > req.now;
-      if (!holdValid) {
-        // Paid after the hold lapsed: take the places again if still free.
+      // Always re-check the places under the slot locks, even when the hold
+      // looks valid: a hold can lapse between that check and this commit,
+      // and another checkout may have taken its places in that moment. The
+      // locks serialise this with every hold on the same slots, so a
+      // payment can never oversell. This checkout's own lines are excluded
+      // from what is taken.
+      {
         const slotIds = [...new Set(placed.map((l) => l.slotId))];
         const locked = await lockSlots(tx, slotIds);
         const taken = await takenBySlot(tx, slotIds, req.now, checkout.id);

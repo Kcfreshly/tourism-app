@@ -97,6 +97,20 @@ export class StartCheckout {
       },
       now,
     );
+    if (!hold.held && "duplicateKey" in hold) {
+      // Double press reaching the server at once: the other request won.
+      const first = await this.payments.resume(
+        command.user,
+        command.idempotencyKey,
+        now,
+      );
+      if (first) return first;
+      throw new AppError(
+        "CONFLICT",
+        "IDEMPOTENCY_KEY_REUSED",
+        "Reload the page and press Pay again.",
+      );
+    }
     if (!hold.held) {
       const line = quote.lines.find((l) => l.id === hold.cartLineId);
       throw new AppError(

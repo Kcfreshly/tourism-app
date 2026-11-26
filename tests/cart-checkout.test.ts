@@ -438,6 +438,43 @@ describe("payment", () => {
     expect((await confirm.execute(roomy)).status).toBe("PAID");
   });
 
+  it("never oversells when a payment lands as its hold expires", async () => {
+    const t0 = clock.getTime();
+    const first = referenceOf(await pay("u1", [marketLine()]));
+    // Seen from another server, the first hold has lapsed, so a second
+    // buyer takes the only place.
+    clock = new Date(t0 + 16 * 60000);
+    const second = referenceOf(await pay("u2", [marketLine()]));
+    expect(second).not.toBe("");
+    // The first payment is confirmed by a server whose clock still sees
+    // its hold as valid. It must not be booked on top of the second.
+    clock = new Date(t0 + 60000);
+    gateway.pay(first);
+    expect(await confirm.execute(first)).toEqual({
+      status: "REQUIRES_REVIEW",
+    });
+    gateway.pay(second);
+    expect((await confirm.execute(second)).status).toBe("PAID");
+    const { rows } = await pg.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM bookings",
+    );
+    expect(rows[0].n).toBe(1);
+  });
+
+  it("continues the first checkout when the same press arrives twice at once", async () => {
+    const lines = [walkLine()];
+    const key = randomUUID();
+    const [a, b] = await Promise.all([
+      pay("u1", lines, key),
+      pay("u1", lines, key),
+    ]);
+    expect(a).toEqual(b);
+    const { rows } = await pg.query<{ c: number; p: number }>(
+      "SELECT (SELECT count(*)::int FROM checkouts) AS c, (SELECT count(*)::int FROM payments) AS p",
+    );
+    expect(rows[0]).toEqual({ c: 1, p: 1 });
+  });
+
   it("only shows a payment to the traveller who made it", async () => {
     const reference = referenceOf(await pay("u1", [walkLine()]));
     const own = new ConfirmOwnPayment(checkouts, confirm);

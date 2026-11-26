@@ -40,7 +40,11 @@ export type NewCheckout = {
 };
 
 export type HoldResult =
-  { held: true } | { held: false; cartLineId: string; remaining: number };
+  | { held: true }
+  | { held: false; cartLineId: string; remaining: number }
+  // The same Idempotency-Key was stored by a request running at the same
+  // time; continue that checkout instead.
+  | { held: false; duplicateKey: true };
 
 export type CheckoutPayment = {
   checkout: {
@@ -115,6 +119,8 @@ export interface CheckoutRepository {
   findByIdempotencyKey(key: string): Promise<CheckoutPayment | null>;
   findByPaymentReference(reference: string): Promise<CheckoutPayment | null>;
   // Stores the payment attempt and moves the checkout to PAYMENT_PENDING.
+  // If another attempt already opened a payment for this checkout, nothing
+  // is stored and that payment is returned instead.
   attachPayment(
     checkoutId: string,
     payment: {
@@ -125,7 +131,7 @@ export interface CheckoutRepository {
       amountMinor: number;
       currency: string;
     },
-  ): Promise<void>;
+  ): Promise<{ reference: string; authorizationUrl: string }>;
   // A payment that won't complete: the checkout fails unless already paid.
   recordFailure(
     reference: string,
