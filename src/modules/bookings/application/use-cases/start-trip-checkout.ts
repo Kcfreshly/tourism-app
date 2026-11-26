@@ -40,6 +40,10 @@ export class StartTripCheckout {
     if (earlier) return earlier;
 
     const trip = await this.trips.load(command.user.id, command.tripId);
+    // Paid already (another tab, or Pay pressed again after paying): show
+    // that order rather than charging twice.
+    if (trip.orderReference)
+      return { status: "PAID", orderReference: trip.orderReference };
     if (trip.version !== command.input.expectedVersion)
       throw new AppError(
         "CONFLICT",
@@ -71,6 +75,19 @@ export class StartTripCheckout {
       await this.catalogue.load(),
       now.getTime(),
     );
+    // The address may be added after booking, but not once a driver needs
+    // it to be matched and briefed.
+    if (
+      trip.pickupOverdue &&
+      lines.some(
+        (l) =>
+          l.line.kind === "SERVICE" &&
+          (l.line.service === "CAR" || l.line.service === "NIGHT_CAR"),
+      )
+    )
+      problems.push(
+        "Add your pickup address first: your driver needs it to be matched.",
+      );
     if (problems.length)
       throw new AppError("CONFLICT", "TRIP_NOT_READY", problems.join(" "), {
         problems,

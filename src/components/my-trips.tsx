@@ -22,6 +22,8 @@ type Trip = {
   profile: Profile;
   items?: Item[];
   services?: Services;
+  // The order that paid for it; set means booked and read-only.
+  orderReference?: string | null;
 };
 function shortDate(date: string) {
   return new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
@@ -189,7 +191,14 @@ export default function MyTrips({ saved }: { saved?: string }) {
               >
                 <div className="trip-card-cover">
                   <img src={cover.src} alt="" loading="lazy" />
-                  <span className="status-badge">Draft · not booked</span>
+                  <span
+                    className="status-badge"
+                    data-booked={t.orderReference ? "true" : undefined}
+                  >
+                    {t.orderReference
+                      ? `Booked · ${t.orderReference}`
+                      : "Draft · not booked"}
+                  </span>
                 </div>
                 <div className="trip-card-body">
                   <h2>{t.profile.draftName || "Your Lagos stay"}</h2>
@@ -226,13 +235,22 @@ export default function MyTrips({ saved }: { saved?: string }) {
                     </li>
                   </ul>
                   <div className="draft-actions">
-                    <Link
-                      className="button"
-                      href={`/trips/${t.id}/plan`}
-                      onClick={() => activateTrip(t.id)}
-                    >
-                      Open planner
-                    </Link>
+                    {t.orderReference ? (
+                      <Link
+                        className="button"
+                        href={`/bookings/${t.orderReference}`}
+                      >
+                        View booking
+                      </Link>
+                    ) : (
+                      <Link
+                        className="button"
+                        href={`/trips/${t.id}/plan`}
+                        onClick={() => activateTrip(t.id)}
+                      >
+                        Open planner
+                      </Link>
+                    )}
                     <Link
                       className="button secondary"
                       href={`/trips/${t.id}/today`}
@@ -279,13 +297,15 @@ export default function MyTrips({ saved }: { saved?: string }) {
                     >
                       Duplicate profile
                     </button>
-                    <button
-                      className="text-button danger-text"
-                      disabled={busy}
-                      onClick={() => askToDelete(t)}
-                    >
-                      Delete plan
-                    </button>
+                    {!t.orderReference && (
+                      <button
+                        className="text-button danger-text"
+                        disabled={busy}
+                        onClick={() => askToDelete(t)}
+                      >
+                        Delete plan
+                      </button>
+                    )}
                   </div>
                 </div>
               </article>

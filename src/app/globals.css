@@ -2164,6 +2164,9 @@ body:has(.planner-page) .site-header-inner {
   border-radius: 50%;
   background: var(--c-danfo);
 }
+.status-badge[data-booked]::before {
+  background: var(--c-lagoon);
+}
 .draft-actions {
   display: flex;
   flex-wrap: wrap;

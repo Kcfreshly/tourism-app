@@ -36,6 +36,19 @@ import { PaymentStarter } from "../src/modules/bookings/application/services/pay
 import { StartTripCheckout } from "../src/modules/bookings/application/use-cases/start-trip-checkout";
 import { ConfirmPayment } from "../src/modules/bookings/application/use-cases/confirm-payment";
 import { DrizzleCheckoutRepository } from "../src/modules/bookings/infrastructure/persistence/drizzle-checkout-repository";
+import type {
+  TripRepository,
+  TripRow,
+} from "../src/modules/trips/application/ports/trip-repository";
+import type { TripBookings } from "../src/modules/trips/application/ports/trip-bookings";
+import { LoadOwnedTrip } from "../src/modules/trips/application/use-cases/load-owned-trip";
+import { SaveWorkspace } from "../src/modules/trips/application/use-cases/save-workspace";
+import { UpdateTripProfile } from "../src/modules/trips/application/use-cases/update-trip-profile";
+import { DeleteTrip } from "../src/modules/trips/application/use-cases/delete-trip";
+import { ListTrips } from "../src/modules/trips/application/use-cases/list-trips";
+import { OfferSelection } from "../src/modules/trips/application/services/offer-selection";
+import { onlyBookedEditsChanged } from "../src/modules/trips/domain/booked-trip";
+import { defaultTransportSettings } from "../src/modules/trips/domain/transport-settings";
 import { DrizzleServiceRequestRepository } from "../src/modules/bookings/infrastructure/persistence/drizzle-service-request-repository";
 import {
   ExpireOverdueServices,
@@ -126,8 +139,17 @@ let trip: ReturnType<typeof plannedTrip>;
 let gateway: FakeGateway;
 let start: StartTripCheckout;
 let confirm: ConfirmPayment;
+// Whether the test trip's pickup address is overdue.
+let pickupOverdue = false;
 const source: TripSource = {
-  load: async () => ({ ...trip, blockers: trip.price.blockers }),
+  load: async () => ({
+    ...trip,
+    blockers: trip.price.blockers,
+    // The real lookup, as the container wires it.
+    orderReference:
+      (await checkouts.ordersForTrips([trip.id])).get(trip.id) ?? null,
+    pickupOverdue,
+  }),
 };
 const contact = { name: "Ada Lovelace", phone: "+234 801 234 5678" };
 const user = { id: "u1", email: "u1@example.com" };
@@ -435,5 +457,139 @@ describe("matching drivers and guides", () => {
       note: "No guide free that day",
     });
     expect(done.status).toBe("UNMATCHED");
+  });
+});
+
+describe("a paid trip", () => {
+  const owner = { id: "u1", kind: "ACCOUNT" };
+  // One stored trip, enough for the trips use cases.
+  function tripStore() {
+    let row: TripRow | null = {
+      id: trip.id,
+      ownerId: "u1",
+      ownerType: "ACCOUNT",
+      version: trip.version,
+      profile: trip.profile,
+      items: trip.items,
+      services: trip.services,
+      updatedAt: new Date(),
+    };
+    return {
+      listOwned: async () => (row ? [row] : []),
+      findOwned: async () => row,
+      create: async () => row!,
+      update: async (_id, _owner, expected, changes) => {
+        if (!row || row.version !== expected) return null;
+        row = { ...row, ...changes, version: row.version + 1 };
+        return row;
+      },
+      deleteOwned: async () => {
+        const had = !!row;
+        row = null;
+        return had;
+      },
+    } as TripRepository;
+  }
+  const bookingsOf: TripBookings = {
+    orderFor: async (id) =>
+      (await checkouts.ordersForTrips([id])).get(id) ?? null,
+    ordersFor: (ids) => checkouts.ordersForTrips(ids),
+  };
+  const offerCatalogue = { listPublished: async () => offers };
+  const transport = {
+    get: async () => ({ settings: defaultTransportSettings, version: 1 }),
+    save: async () => null,
+  };
+
+  async function payTrip() {
+    const started = await pay();
+    const reference =
+      started.status === "PAYMENT_REDIRECT" ? started.reference : "";
+    gateway.paid.add(reference);
+    const paid = await confirm.execute(reference);
+    return paid.status === "PAID" ? paid.orderReference : "";
+  }
+
+  it("can't be paid for twice", async () => {
+    const reference = await payTrip();
+    expect(await pay()).toEqual({ status: "PAID", orderReference: reference });
+    const { rows } = await pg.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM payments",
+    );
+    expect(rows[0].n).toBe(1);
+  });
+
+  it("refuses a car booked when its pickup address is overdue", async () => {
+    pickupOverdue = true;
+    try {
+      const refused = await refusal(pay());
+      expect(refused?.code).toBe("TRIP_NOT_READY");
+      expect(refused?.message).toMatch(/pickup address/);
+    } finally {
+      pickupOverdue = false;
+    }
+  });
+
+  it("keeps its plan but lets the pickup address change", async () => {
+    const reference = await payTrip();
+    const trips = tripStore();
+    const context = await new LoadOwnedTrip(trips, bookingsOf).execute(
+      trip.id,
+      owner,
+    );
+    expect(context.booking).toEqual({ orderReference: reference });
+
+    const save = new SaveWorkspace(trips, offerCatalogue, transport as never);
+    const refused = await refusal(
+      save.execute(context, {
+        expectedVersion: trip.version,
+        items: [],
+        services: trip.services,
+      }),
+    );
+    expect(refused?.code).toBe("TRIP_BOOKED");
+
+    const update = new UpdateTripProfile(
+      trips,
+      offerCatalogue,
+      new OfferSelection(offerCatalogue),
+      bookingsOf,
+    );
+    const moreAdults = await refusal(
+      update.execute({
+        id: trip.id,
+        owner,
+        expectedVersion: trip.version,
+        profile: { ...trip.profile, adults: 3 },
+      }),
+    );
+    expect(moreAdults?.code).toBe("TRIP_BOOKED");
+    const address = await update.execute({
+      id: trip.id,
+      owner,
+      expectedVersion: trip.version,
+      profile: { ...trip.profile, accommodation: "12 Admiralty Way, Lekki" },
+    });
+    expect(address.version).toBe(trip.version + 1);
+
+    const removed = await refusal(
+      new DeleteTrip(trips, bookingsOf).execute(trip.id, owner),
+    );
+    expect(removed?.code).toBe("TRIP_BOOKED");
+    const [listed] = await new ListTrips(trips, bookingsOf).execute(owner);
+    expect(listed.orderReference).toBe(reference);
+  });
+
+  it("only treats name, address and notes as safe edits", () => {
+    const before = trip.profile;
+    expect(
+      onlyBookedEditsChanged(before, {
+        ...before,
+        draftName: "Lagos with Mum",
+      }),
+    ).toBe(true);
+    expect(
+      onlyBookedEditsChanged(before, { ...before, endDate: before.startDate }),
+    ).toBe(false);
   });
 });

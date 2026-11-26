@@ -10,6 +10,9 @@ import { profileSchema, type Profile } from "../../domain/profile";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { TripOwner, TripRepository } from "../ports/trip-repository";
 import type { OfferSelection } from "../services/offer-selection";
+import { noTripBookings, type TripBookings } from "../ports/trip-bookings";
+import { tripBooked } from "../services/booked-trip";
+import { onlyBookedEditsChanged } from "../../domain/booked-trip";
 
 // Changes dates, party or interests, refusing any change that would make the
 // existing schedule invalid.
@@ -18,6 +21,7 @@ export class UpdateTripProfile {
     private readonly trips: TripRepository,
     private readonly offers: OfferCatalogue,
     private readonly selection: OfferSelection,
+    private readonly bookings: TripBookings = noTripBookings,
   ) {}
 
   async execute(command: {
@@ -30,6 +34,14 @@ export class UpdateTripProfile {
     const existing = await this.trips.findOwned(id, owner);
     if (!existing)
       throw new AppError("NOT_FOUND", "NOT_FOUND", "Draft not found.");
+    // A booked trip keeps its plan; its pickup address and notes can still
+    // be added or changed.
+    const orderReference = await this.bookings.orderFor(id);
+    if (
+      orderReference &&
+      !onlyBookedEditsChanged(profileSchema.parse(existing.profile), profile)
+    )
+      throw tripBooked(orderReference);
     await this.selection.validate(
       profile.selectedOfferIds,
       profileSchema.parse(existing.profile).selectedOfferIds,

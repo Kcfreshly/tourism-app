@@ -20,6 +20,10 @@ type Workspace = {
     services: Services;
   };
   price: ReturnType<typeof assess>;
+  // Set once the trip is paid for: it is then read-only.
+  booking: { orderReference: string } | null;
+  // When the pickup address is due, if one is still needed.
+  pickup: { overdue: boolean; message: string } | null;
 };
 
 const money = (n: number) => formatMoney(n, n % 100 ? 2 : 0);
@@ -94,8 +98,14 @@ export default function Checkout({
   const { profile } = trip;
   const empty = unplannedDays(profile, trip.items);
   const planned = trip.items.some((i) => i.kind === "EXPERIENCE");
-  const blocked = price.blockers.length > 0 || !planned;
   const pickup = price.warnings.find((w) => w.code === "PICKUP_ADDRESS");
+  // The address can follow the booking, but not once a booked car's
+  // pickup is inside the notice window: the driver needs it to be matched.
+  const hasCar = price.lines.some(
+    (l) => l.key.startsWith("vehicle:") || l.key.startsWith("night:"),
+  );
+  const addressOverdue = !!data.pickup?.overdue && hasCar;
+  const blocked = price.blockers.length > 0 || !planned || addressOverdue;
   const leadName = name ?? session?.user.name ?? "";
   const phoneValid = /^\+?[0-9][0-9 ()-]{6,19}$/.test(phone.trim());
   const problems = [
@@ -103,6 +113,38 @@ export default function Checkout({
     !phoneValid && "Add a phone number your driver can reach.",
     !agreed && "Tick the box to agree to the terms.",
   ].filter((p): p is string => !!p);
+
+  if (data.booking) {
+    const reference = data.booking.orderReference;
+    return (
+      <section className="page checkout-page">
+        <div className="empty-state">
+          <Icon name="check" size={28} />
+          <h1>This trip is booked</h1>
+          <p>
+            Order <strong>{reference}</strong>. Each activity, driver and guide
+            is confirmed or matched on its own; follow them in your booking. The
+            plan can’t change here any more. Contact Fastlife from your booking
+            to change it.
+          </p>
+          {pickup && <p>{pickup.message}</p>}
+          <div className="actions">
+            <Link className="button" href={`/bookings/${reference}`}>
+              View booking
+            </Link>
+            {pickup && (
+              <Link
+                className="button secondary"
+                href={`/trips/${id}/profile#accommodation`}
+              >
+                Add pickup address
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   async function pay() {
     setTried(true);
@@ -211,6 +253,11 @@ export default function Checkout({
               </h2>
               <ul>
                 {!planned && <li>Add at least one activity to your trip.</li>}
+                {addressOverdue && (
+                  <li>
+                    Add your pickup address: your driver needs it to be matched.
+                  </li>
+                )}
                 {price.blockers.map((b, index) => (
                   <li key={index}>{friendly(b.message)}</li>
                 ))}

@@ -6,6 +6,7 @@ import type { ProposalRepository } from "../ports/proposal-repository";
 import type { OfferSelection } from "../services/offer-selection";
 import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
+import { assertNotBooked } from "../services/booked-trip";
 
 // Proposals are previews: they are stored for 15 minutes and change nothing
 // until applied.
@@ -20,6 +21,7 @@ export class GenerateProposal {
   ) {}
 
   async execute(context: TripContext, selectedOfferIds?: string[]) {
+    assertNotBooked(context);
     const offers = await this.offers.listPublished();
     if (selectedOfferIds) await this.selection.validate(selectedOfferIds);
     const profile = {

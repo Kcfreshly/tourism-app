@@ -15,6 +15,7 @@ import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { ProposalRepository } from "../ports/proposal-repository";
 import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
+import { assertNotBooked } from "../services/booked-trip";
 
 const payloadSchema = z
   .object({ items: z.array(itemSchema).max(240), services: servicesSchema })
@@ -33,6 +34,7 @@ export class ApplyProposal {
     context: TripContext,
     input: { proposalId: string; expectedVersion: number },
   ) {
+    assertNotBooked(context);
     const offers = await this.offers.listPublished();
     let applied: z.infer<typeof payloadSchema> | undefined;
     const result = await this.proposals.apply(

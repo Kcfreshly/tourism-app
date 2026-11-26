@@ -839,6 +839,19 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
     return this.orderViews(and(this.ownedBy(viewer)), 50);
   }
 
+  async ordersForTrips(tripIds: string[]) {
+    const found = new Map<string, string>();
+    if (!tripIds.length) return found;
+    const rows = await this.db()
+      .select({ tripId: orders.tripId, reference: orders.reference })
+      .from(orders)
+      .where(inArray(orders.tripId, tripIds))
+      .orderBy(desc(orders.createdAt));
+    for (const r of rows)
+      if (r.tripId && !found.has(r.tripId)) found.set(r.tripId, r.reference);
+    return found;
+  }
+
   async findOrder(viewer: Viewer, reference: string) {
     const [order] = await this.orderViews(
       and(this.ownedBy(viewer), eq(orders.reference, reference)),

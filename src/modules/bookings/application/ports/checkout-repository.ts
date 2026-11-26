@@ -148,6 +148,8 @@ export interface CheckoutRepository {
   finishEvent(id: string, error: string | null): Promise<void>;
   // The viewer's account orders plus guest orders made in this browser.
   listOrders(viewer: Viewer): Promise<OrderView[]>;
+  // The reference of the order that paid for each trip, newest first wins.
+  ordersForTrips(tripIds: string[]): Promise<Map<string, string>>;
   findOrder(viewer: Viewer, reference: string): Promise<OrderView | null>;
   // Unscoped: only for the receipt email and a verified emailed link.
   findOrderByReference(reference: string): Promise<OrderView | null>;

@@ -10,6 +10,7 @@ import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { TripRepository } from "../ports/trip-repository";
 import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
+import { assertNotBooked } from "../services/booked-trip";
 
 // Autosave: validates placement, then saves only if no other tab saved first.
 export class SaveWorkspace {
@@ -23,6 +24,7 @@ export class SaveWorkspace {
     context: TripContext,
     input: { expectedVersion: number; items: Item[]; services: Services },
   ) {
+    assertNotBooked(context);
     const { items, services, expectedVersion } = input;
     const offers = await this.offers.listPublished();
     const issue = placementIssues(context.profile, items, services, offers)[0];

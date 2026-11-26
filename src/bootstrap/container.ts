@@ -43,6 +43,7 @@ import { StartCheckout } from "@/modules/bookings/application/use-cases/start-ch
 import { StartTripCheckout } from "@/modules/bookings/application/use-cases/start-trip-checkout";
 import { PaymentStarter } from "@/modules/bookings/application/services/payment-starter";
 import type { TripSource } from "@/modules/bookings/application/ports/trip-source";
+import type { TripBookings } from "@/modules/trips/application/ports/trip-bookings";
 import { LogNotifier } from "@/modules/bookings/infrastructure/notifications/log-notifier";
 import { ReceiptNotifier } from "@/modules/bookings/infrastructure/notifications/receipt-notifier";
 import {
@@ -403,7 +404,13 @@ const getOrder = new GetOrder(
 const selection = new OfferSelection(offers);
 const proposals = new DrizzleProposalRepository(db);
 // What trip checkout reads: the traveller's own trip, freshly priced.
-const loadOwnedTrip = new LoadOwnedTrip(tripRepository);
+// Which order paid for a trip: what makes it read-only.
+const tripBookings: TripBookings = {
+  orderFor: async (tripId) =>
+    (await checkoutRepository.ordersForTrips([tripId])).get(tripId) ?? null,
+  ordersFor: (tripIds) => checkoutRepository.ordersForTrips(tripIds),
+};
+const loadOwnedTrip = new LoadOwnedTrip(tripRepository, tripBookings);
 const getWorkspace = new GetWorkspace(offers, transportSettings);
 const tripSource: TripSource = {
   async load(userId, tripId) {
@@ -411,7 +418,7 @@ const tripSource: TripSource = {
       id: userId,
       kind: "ACCOUNT",
     });
-    const { price } = await getWorkspace.execute(context);
+    const { price, pickup } = await getWorkspace.execute(context);
     return {
       id: context.trip.id,
       version: context.trip.version,
@@ -420,6 +427,8 @@ const tripSource: TripSource = {
       services: context.services,
       price,
       blockers: price.blockers,
+      orderReference: context.booking?.orderReference ?? null,
+      pickupOverdue: !!pickup?.overdue,
     };
   },
 };
@@ -586,7 +595,10 @@ export const api = {
   orders: createOrderControllers({ guards, list: listOrders, get: getOrder }),
   intake: createIntakeController(guards, new SuggestProfile()),
   trips: {
-    list: createListTripsController(guards, new ListTrips(tripRepository)),
+    list: createListTripsController(
+      guards,
+      new ListTrips(tripRepository, tripBookings),
+    ),
     create: createCreateTripController(
       guards,
       new CreateTrip(tripRepository, selection),
@@ -594,9 +606,12 @@ export const api = {
     get: createGetTripController(guards, new GetTrip(tripRepository)),
     updateProfile: createUpdateTripProfileController(
       guards,
-      new UpdateTripProfile(tripRepository, offers, selection),
+      new UpdateTripProfile(tripRepository, offers, selection, tripBookings),
     ),
-    remove: createDeleteTripController(guards, new DeleteTrip(tripRepository)),
+    remove: createDeleteTripController(
+      guards,
+      new DeleteTrip(tripRepository, tripBookings),
+    ),
     getWorkspace: createGetWorkspaceController(ownedTrip, getWorkspace),
     saveWorkspace: createSaveWorkspaceController(
       guards,

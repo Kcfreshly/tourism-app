@@ -180,6 +180,14 @@ export default function Planner({
     api(`${root}/workspace`)
       .then((data) => {
         if (!active) return;
+        // A paid trip is read-only: show its booking instead of an editor
+        // whose saves would be refused.
+        if (data.booking) {
+          window.location.replace(
+            `/trips/${encodeURIComponent(data.trip.id)}/checkout`,
+          );
+          return;
+        }
         receive(data);
         setOffers(data.offers);
         if (data.settings) setSettings(data.settings);
