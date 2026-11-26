@@ -96,7 +96,14 @@ stay: {
 - [ ] Plan form and Kemi chat: area → type → search/name/link → "recommend"
 - [ ] Link recognition + validation tests
 - [ ] Staff stay-request queue with 48 h deadline
-- [ ] Stay offers: send, approve, pay (second checkout on the order)
+- [x] Stay offers: send, approve, pay (second checkout on the order).
+      Built 2026-11-26: migration `0014_stay_offers.sql`, staff "Stays"
+      section in the admin panel (up to 3 open offers per paid trip, price
+      includes markup, "held until" time, withdraw), and "Approve and pay" on
+      the booking page. Paying books the chosen offer on the same order and
+      declines the rest; two stays paid at once book one and send the other
+      to review. Not yet: emails when an offer is sent, the stay request
+      queue, and offers for trips that aren't paid yet.
 
 ---
 

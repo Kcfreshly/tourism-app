@@ -84,8 +84,8 @@ export default async function Booking({
             <strong>Your booking isn’t final until it’s confirmed</strong>
             <p>
               We’ve sent it to the partner. Each part below shows when they’ll
-              confirm by. If they can’t, that part is refunded in full. Keep
-              the reference <strong>{order.reference}</strong>; it’s also in My
+              confirm by. If they can’t, that part is refunded in full. Keep the
+              reference <strong>{order.reference}</strong>; it’s also in My
               bookings
               {emailed
                 ? ` and in the email we’ve sent to ${order.contact.email}`
@@ -104,7 +104,7 @@ export default async function Booking({
             : "; it’s also in My bookings."}
         </p>
       )}
-      <OrderDetail order={order} />
+      <OrderDetail order={order} paymentsEnabled={pages.paymentsEnabled()} />
     </section>
   );
 }

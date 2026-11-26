@@ -13,6 +13,7 @@ import { user } from "../../../identity/infrastructure/persistence/schema";
 import type { CartLine, PriceRow } from "../../domain/cart";
 import type { LineTerms } from "../../domain/resolve-line";
 import type { ServiceLine } from "../../domain/trip-checkout";
+import type { StayLine } from "../../domain/stay-offer";
 
 // See migrations/0010_cart_checkout.sql and 0011_trip_checkout.sql.
 const money = () => bigint({ mode: "number" });
@@ -58,6 +59,8 @@ export const checkouts = pgTable("checkouts", {
   // Set when a planned trip was paid; the version it was priced from.
   tripId: uuid(),
   tripVersion: integer(),
+  // Set when this checkout pays into an existing order (a stay).
+  orderId: uuid(),
   version: integer().notNull().default(1),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -78,7 +81,7 @@ export const checkoutLines = pgTable("checkout_lines", {
   units: integer().notNull(),
   title: text().notNull(),
   // What was bought: a cart line, or a trip's car or guide.
-  cartLine: jsonb().$type<CartLine | ServiceLine>().notNull(),
+  cartLine: jsonb().$type<CartLine | ServiceLine | StayLine>().notNull(),
   priceRows: jsonb().$type<PriceRow[]>().notNull(),
   subtotalMinor: money().notNull(),
   feeMinor: money().notNull(),
@@ -187,4 +190,25 @@ export const serviceRequestHistory = pgTable("service_request_history", {
   actorId: text().notNull(),
   note: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+// See migrations/0014_stay_offers.sql.
+export const stayOffers = pgTable("stay_offers", {
+  id: uuid().primaryKey(),
+  orderId: uuid().notNull(),
+  propertyName: text().notNull(),
+  area: text().notNull(),
+  address: text().notNull(),
+  room: text().notNull(),
+  checkIn: date().notNull(),
+  checkOut: date().notNull(),
+  note: text().notNull().default(""),
+  priceMinor: money().notNull(),
+  availableUntil: timestamp({ withTimezone: true }).notNull(),
+  status: text().notNull(),
+  checkoutId: uuid(),
+  createdBy: text().notNull(),
+  version: integer().notNull().default(1),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

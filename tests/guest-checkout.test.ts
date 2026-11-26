@@ -140,7 +140,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pg.exec(
-    "TRUNCATE service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots, account_carts",
+    "TRUNCATE stay_offers, service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots, account_carts",
   );
   gateway = new FakeGateway();
   start = new StartCheckout(
@@ -388,6 +388,7 @@ describe("confirmation email", () => {
       totalMinor: 500000,
       contact: { name: "Ada", email: "ada@example.com", phone: "+234" },
       services: [],
+      stays: [],
     };
     const booking = {
       id: "b1",

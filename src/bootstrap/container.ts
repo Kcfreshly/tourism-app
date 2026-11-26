@@ -37,6 +37,14 @@ import {
   UpdateServiceRequest,
 } from "@/modules/bookings/application/use-cases/service-requests";
 import { DrizzleServiceRequestRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-service-request-repository";
+import { DrizzleStayOfferRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-stay-offer-repository";
+import {
+  ApproveStay,
+  ListStayOrders,
+  SendStayOfferToTrip,
+  WithdrawStayOffer,
+} from "@/modules/bookings/application/use-cases/stay-offers";
+import { createStayOfferControllers } from "@/modules/bookings/presentation/http/controllers/stay-offer-controllers";
 import { createServiceRequestControllers } from "@/modules/bookings/presentation/http/controllers/service-request-controllers";
 import { SimulatedPayment } from "@/modules/bookings/application/use-cases/simulated-payment";
 import { StartCheckout } from "@/modules/bookings/application/use-cases/start-checkout";
@@ -79,6 +87,7 @@ import {
   createSimulatedPaymentController,
   createStartCheckoutController,
   createStartTripCheckoutController,
+  createApproveStayController,
   createVerifyPaymentController,
 } from "@/modules/bookings/presentation/http/controllers/checkout-controllers";
 import { toPublishedExperience } from "@/modules/catalogue/domain/experience";
@@ -420,6 +429,7 @@ const expireUnconfirmedBookings = new ExpireUnconfirmedBookings(
   partnerBookings,
   notifier,
 );
+const stayOffers = new DrizzleStayOfferRepository(db);
 const expireOverdue = {
   execute: async () => {
     await expireOverdueServices.execute();
@@ -621,6 +631,19 @@ export const api = {
     simulated: createSimulatedPaymentController({
       guards,
       simulated: simulatedPayment,
+    }),
+  },
+  adminStayOffers: createStayOfferControllers({
+    guards,
+    list: new ListStayOrders(stayOffers),
+    send: new SendStayOfferToTrip(stayOffers),
+    withdraw: new WithdrawStayOffer(stayOffers),
+  }),
+  stayOffers: {
+    approve: createApproveStayController({
+      guards,
+      approve: new ApproveStay(stayOffers, checkoutRepository, paymentStarter),
+      enabled: paymentsOn,
     }),
   },
   adminServiceRequests: createServiceRequestControllers({

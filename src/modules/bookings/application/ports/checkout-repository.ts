@@ -7,11 +7,12 @@ import type {
 } from "../../domain/checkout";
 import type { LineTerms, SlotRef } from "../../domain/resolve-line";
 import type { ServiceLine } from "../../domain/trip-checkout";
+import type { StayLine } from "../../domain/stay-offer";
 
 // A line ready to hold: priced, with its slot and booked terms. A trip's
 // car or guide has no slot; it becomes a service request when paid.
 export type HeldLine = {
-  line: CartLine | ServiceLine;
+  line: CartLine | ServiceLine | StayLine;
   title: string;
   rows: PriceRow[];
   subtotalMinor: number;
@@ -36,6 +37,8 @@ export type NewCheckout = {
   expiresAt: Date;
   // The planned trip and version this checkout pays for; null for a cart.
   trip: { id: string; version: number } | null;
+  // Pays into this existing order (a stay) instead of creating one.
+  orderId?: string | null;
   lines: HeldLine[];
 };
 

@@ -44,7 +44,13 @@ import {
   payments,
   serviceRequestHistory,
   serviceRequests,
+  stayOffers,
 } from "./schema";
+import type {
+  StayLine,
+  StayOfferStatus,
+  StayView,
+} from "../../domain/stay-offer";
 
 type Runner = Pick<Database, "select">;
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -258,6 +264,7 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           contactPhone: checkout.contact.phone,
           tripId: checkout.trip?.id ?? null,
           tripVersion: checkout.trip?.version ?? null,
+          orderId: checkout.orderId ?? null,
         });
         await tx.insert(checkoutLines).values(
           checkout.lines.map((l, i) => ({
@@ -275,15 +282,25 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
                   startTime: l.slot.startTime,
                   units: l.slot.units,
                 }
-              : {
-                  productType: "SERVICE",
-                  productId: (l.line as ServiceLine).service,
-                  partnerId: null,
-                  slotId: null,
-                  localDate: (l.line as ServiceLine).date,
-                  startTime: (l.line as ServiceLine).startTime,
-                  units: 1,
-                }),
+              : l.line.kind === "STAY"
+                ? {
+                    productType: "STAY",
+                    productId: l.line.id,
+                    partnerId: null,
+                    slotId: null,
+                    localDate: l.line.checkIn,
+                    startTime: "DAY",
+                    units: 1,
+                  }
+                : {
+                    productType: "SERVICE",
+                    productId: (l.line as ServiceLine).service,
+                    partnerId: null,
+                    slotId: null,
+                    localDate: (l.line as ServiceLine).date,
+                    startTime: (l.line as ServiceLine).startTime,
+                    units: 1,
+                  }),
             title: l.title,
             cartLine: l.line,
             priceRows: l.rows,
@@ -327,7 +344,11 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
     const [o] = await this.db()
       .select({ reference: orders.reference })
       .from(orders)
-      .where(eq(orders.checkoutId, checkoutId));
+      .where(
+        c.orderId
+          ? eq(orders.id, c.orderId)
+          : eq(orders.checkoutId, checkoutId),
+      );
     return {
       checkout: {
         id: c.id,
@@ -486,7 +507,11 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         const [order] = await tx
           .select({ reference: orders.reference })
           .from(orders)
-          .where(eq(orders.checkoutId, checkout.id));
+          .where(
+            checkout.orderId
+              ? eq(orders.id, checkout.orderId)
+              : eq(orders.checkoutId, checkout.id),
+          );
         return {
           status: "PAID",
           orderReference: order.reference,
@@ -512,6 +537,8 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         l.slotId ? [{ ...l, slotId: l.slotId }] : [],
       );
       const services = lines.filter((l) => !l.slotId);
+      if (checkout.orderId)
+        return this.settleStay(tx, req, payment.id, checkout, lines);
 
       // Always re-check the places under the slot locks, even when the hold
       // looks valid: a hold can lapse between that check and this commit,
@@ -706,6 +733,121 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
     });
   }
 
+  // A stay payment books the chosen offer on the order it was offered for;
+  // no new order is made. Every offer on that order is locked first, so two
+  // stays paid at once can't both be booked: the second goes to review for
+  // a refund, like a place lost after a lapsed hold.
+  private async settleStay(
+    tx: Tx,
+    req: SettleRequest,
+    paymentId: string,
+    checkout: typeof checkouts.$inferSelect,
+    lines: (typeof checkoutLines.$inferSelect)[],
+  ): Promise<SettleResult> {
+    const orderId = checkout.orderId!;
+    const offerId = (lines[0].cartLine as StayLine).id;
+    const offers = await tx
+      .select()
+      .from(stayOffers)
+      .where(eq(stayOffers.orderId, orderId))
+      .orderBy(asc(stayOffers.id))
+      .for("update");
+    const chosen = offers.find((o) => o.id === offerId);
+    const [order] = await tx
+      .select({ reference: orders.reference })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    await tx
+      .update(payments)
+      .set({
+        status: "SUCCESS",
+        channel: req.channel,
+        paidAt: req.paidAt,
+        providerPayload: req.payload,
+        version: sql`${payments.version} + 1`,
+        updatedAt: req.now,
+      })
+      .where(eq(payments.id, paymentId));
+    const reason = !chosen
+      ? "STAY_GONE"
+      : chosen.status === "WITHDRAWN"
+        ? "STAY_WITHDRAWN"
+        : chosen.status !== "OFFERED" ||
+            offers.some((o) => o.status === "BOOKED")
+          ? "STAY_TAKEN"
+          : checkout.createdAt > chosen.availableUntil
+            ? "STAY_LAPSED"
+            : null;
+    if (reason) {
+      await tx
+        .update(checkouts)
+        .set({
+          status: "REQUIRES_REVIEW",
+          reviewReason: reason,
+          version: sql`${checkouts.version} + 1`,
+          updatedAt: req.now,
+        })
+        .where(eq(checkouts.id, checkout.id));
+      await tx.insert(audit).values({
+        id: randomUUID(),
+        actorId: "SYSTEM",
+        action: "CHECKOUT_REQUIRES_REVIEW",
+        entityId: checkout.id,
+        details: { reason, paymentReference: req.reference, offerId },
+      });
+      return { status: "REQUIRES_REVIEW", reason };
+    }
+    await tx
+      .update(stayOffers)
+      .set({
+        status: "BOOKED",
+        checkoutId: checkout.id,
+        version: sql`${stayOffers.version} + 1`,
+        updatedAt: req.now,
+      })
+      .where(eq(stayOffers.id, offerId));
+    // The traveller chose; the other offers are released.
+    await tx
+      .update(stayOffers)
+      .set({
+        status: "DECLINED",
+        version: sql`${stayOffers.version} + 1`,
+        updatedAt: req.now,
+      })
+      .where(
+        and(
+          eq(stayOffers.orderId, orderId),
+          eq(stayOffers.status, "OFFERED"),
+          ne(stayOffers.id, offerId),
+        ),
+      );
+    await tx
+      .update(orders)
+      .set({ totalMinor: sql`${orders.totalMinor} + ${checkout.totalMinor}` })
+      .where(eq(orders.id, orderId));
+    await tx
+      .update(checkouts)
+      .set({
+        status: "PAID",
+        version: sql`${checkouts.version} + 1`,
+        updatedAt: req.now,
+      })
+      .where(eq(checkouts.id, checkout.id));
+    await tx.insert(audit).values({
+      id: randomUUID(),
+      actorId: checkout.userId ?? "GUEST",
+      action: "STAY_BOOKED",
+      entityId: offerId,
+      details: {
+        orderReference: order.reference,
+        checkoutId: checkout.id,
+        paymentReference: req.reference,
+        totalMinor: checkout.totalMinor,
+      },
+    });
+    return { status: "PAID", orderReference: order.reference, created: true };
+  }
+
   async recordEvent(event: PaymentEvent) {
     const [row] = await this.db()
       .insert(paymentEvents)
@@ -779,6 +921,19 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
         ),
       )
       .orderBy(asc(checkoutLines.lineNo));
+    const stays = await this.db()
+      .select()
+      .from(stayOffers)
+      .where(
+        and(
+          inArray(
+            stayOffers.orderId,
+            rows.map((r) => r.id),
+          ),
+          ne(stayOffers.status, "WITHDRAWN"),
+        ),
+      )
+      .orderBy(asc(stayOffers.createdAt));
     return rows.map((o) => ({
       reference: o.reference,
       tripId: o.tripId,
@@ -816,6 +971,22 @@ export class DrizzleCheckoutRepository implements CheckoutRepository {
           totalMinor: q.totalMinor,
           feeMinor: q.feeMinor,
           rows: l.priceRows,
+        })),
+      stays: stays
+        .filter((st) => st.orderId === o.id)
+        .map((st): StayView => ({
+          id: st.id,
+          version: st.version,
+          propertyName: st.propertyName,
+          area: st.area,
+          address: st.address,
+          room: st.room,
+          checkIn: st.checkIn,
+          checkOut: st.checkOut,
+          note: st.note,
+          priceMinor: st.priceMinor,
+          availableUntil: st.availableUntil.toISOString(),
+          status: st.status as StayOfferStatus,
         })),
     }));
   }

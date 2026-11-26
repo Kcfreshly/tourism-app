@@ -10,6 +10,7 @@ import {
 } from "./cart";
 import type { LineTerms } from "./resolve-line";
 import type { ServiceKind, ServiceStatus } from "./trip-checkout";
+import type { StayView } from "./stay-offer";
 
 export const holdMinutes = rules.holdMinutes;
 export const priceVersion = rules.version;
@@ -180,4 +181,6 @@ export type OrderView = {
   contact: { name: string; email: string; phone: string };
   bookings: BookingView[];
   services: ServiceView[];
+  // Places to stay Fastlife offered for a paid trip, and the one booked.
+  stays: StayView[];
 };

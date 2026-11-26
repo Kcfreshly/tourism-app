@@ -180,7 +180,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   // Each test starts with no holds, bookings or carts.
   await pg.exec(
-    "TRUNCATE service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots, account_carts",
+    "TRUNCATE stay_offers, service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots, account_carts",
   );
   gateway = new FakeGateway();
   clock = new Date();

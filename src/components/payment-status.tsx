@@ -168,6 +168,75 @@ export function SimulatedPay({
   );
 }
 
+// Approve a stay offer and go to the payment page. One key per press, kept
+// only when retrying after the provider didn't answer.
+export function ApproveStayButton({
+  offerId,
+  priceMinor,
+  disabled,
+}: {
+  offerId: string;
+  priceMinor: number;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [key, setKey] = useState("");
+  async function approve() {
+    setBusy(true);
+    setError("");
+    const pressKey = key || crypto.randomUUID();
+    setKey(pressKey);
+    try {
+      const response = await fetch(
+        `/api/v1/stay-offers/${encodeURIComponent(offerId)}/checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": pressKey,
+          },
+          body: JSON.stringify({ agreed: true }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (body.data?.status === "PAYMENT_REDIRECT") {
+        window.location.assign(body.data.authorizationUrl);
+        return;
+      }
+      if (body.data?.status === "PAID") {
+        router.refresh();
+        return;
+      }
+      if (body.error?.code !== "PAYMENT_PROVIDER_UNAVAILABLE") setKey("");
+      setError(body.error?.message ?? "That didn’t work. Try again.");
+    } catch {
+      setError("We couldn’t reach Fastlife. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="stay-approve">
+      <button type="button" disabled={disabled || busy} onClick={approve}>
+        <Icon name="lock" size={16} />
+        {busy
+          ? "Opening payment…"
+          : `Approve and pay ${formatMoney(priceMinor)}`}
+      </button>
+      {disabled && (
+        <p className="muted">Payments aren’t switched on in this preview.</p>
+      )}
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Lines that became bookings leave the browser cart too. The server cart
 // already dropped them; this covers a cart with unsaved local changes.
 export function ClearPaidLines({ ids }: { ids: string[] }) {

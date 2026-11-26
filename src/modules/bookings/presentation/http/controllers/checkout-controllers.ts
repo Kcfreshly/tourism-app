@@ -15,6 +15,8 @@ import {
 import { guestKeyFromCookies, guestKeyHash } from "../guest-key";
 import type { StartCheckout } from "../../../application/use-cases/start-checkout";
 import type { StartTripCheckout } from "../../../application/use-cases/start-trip-checkout";
+import type { ApproveStay } from "../../../application/use-cases/stay-offers";
+import { approveStaySchema } from "../../../domain/stay-offer";
 import type { RecordPaymentEvent } from "../../../application/use-cases/record-payment-event";
 import type { ConfirmOwnPayment } from "../../../application/use-cases/confirm-payment";
 import type {
@@ -156,6 +158,35 @@ export function createStartTripCheckoutController(deps: {
         ...press,
         user: { id: press.user.id, email: press.user.email },
         tripId: id,
+      }),
+      201,
+    );
+  });
+}
+
+// POST /stay-offers/{id}/checkout: the traveller approves a stay and pays
+// for it, on their trip's order. Needs the account that paid for the trip.
+export function createApproveStayController(deps: {
+  guards: RequestGuards;
+  approve: ApproveStay;
+  enabled: () => boolean;
+}) {
+  return controller(async (request: Request, { params }: IdParams) => {
+    const press = await payPress(
+      deps.guards,
+      deps.enabled,
+      request,
+      approveStaySchema,
+    );
+    if (!press.user.id) throw signIn();
+    const { id } = await params;
+    if (!z.uuid().safeParse(id).success)
+      throw new AppError("NOT_FOUND", "NOT_FOUND", "Offer not found.");
+    return success(
+      await deps.approve.execute({
+        user: { id: press.user.id, email: press.user.email },
+        offerId: id,
+        idempotencyKey: press.idempotencyKey,
       }),
       201,
     );

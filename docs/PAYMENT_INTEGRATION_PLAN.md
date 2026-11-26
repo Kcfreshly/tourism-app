@@ -39,7 +39,10 @@ of vehicle and guide pools:
   line.
 - Build steps, each reviewed before the next: (1) trip checkout and service
   requests, built in migration `0011_trip_checkout.sql`; (2) staff matching
-  queue and traveller updates; (3) accommodation offers; (4) optional
+  queue and traveller updates; (3) accommodation offers,
+  built as stay offers in migration `0014_stay_offers.sql` (the stay checkout
+  carries `order_id` and settles onto that order, adding its price, with no
+  fee); (4) optional
   one-tap charge of the saved card for offers. Until refunds exist, an
   unmatched request is marked "refund due" for staff to handle.
 

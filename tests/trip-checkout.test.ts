@@ -169,7 +169,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await pg.exec(
-    "TRUNCATE service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots",
+    "TRUNCATE stay_offers, service_request_history, service_requests, booking_status_history, bookings, orders, payments, payment_events, checkout_lines, checkouts, inventory_slots",
   );
   trip = plannedTrip(addDays(lagosToday(), 10));
   gateway = new FakeGateway();

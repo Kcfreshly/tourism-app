@@ -5,6 +5,7 @@ import AdminPackages from "@/components/admin-packages";
 import AdminPartners from "@/components/admin-partners";
 import AdminServiceRequests from "@/components/admin-service-requests";
 import PartnerBookings from "@/components/partner-bookings";
+import AdminStayOffers from "@/components/admin-stay-offers";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import Link from "next/link";
 import { isSuperAdmin } from "@/modules/identity/domain/actor";
@@ -44,6 +45,7 @@ export default async function Admin() {
       <nav className="admin-jump" aria-label="Staff workspace sections">
         <a href="#services">Drivers &amp; guides</a>
         <a href="#partner-bookings">Partner bookings</a>
+        <a href="#stays">Stays</a>
         <a href="#listings">Activities</a>
         <a href="#partners">Partners</a>
         <a href="#packages">Ready-made trips</a>
@@ -76,6 +78,21 @@ export default async function Admin() {
           </p>
         </div>
         <PartnerBookings staff />
+      </section>
+      <section
+        id="stays"
+        className="admin-section"
+        aria-labelledby="admin-stays-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-stays-heading">Stays</h2>
+          <p className="muted">
+            Send up to three places to stay into a paid trip. The price you
+            enter is what the traveller pays, markup included. They approve one
+            and pay for it in the app; the others are released.
+          </p>
+        </div>
+        <AdminStayOffers />
       </section>
       <section id="listings" aria-labelledby="admin-listings-heading">
         <AdminCatalogue canDelete={isSuperAdmin(actor)} />

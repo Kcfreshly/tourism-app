@@ -13,6 +13,13 @@ import {
   serviceTitles,
 } from "@/modules/bookings/domain/trip-checkout";
 import { assigneeLines } from "@/modules/bookings/domain/service-request";
+import {
+  nights,
+  stayOpen,
+  stayStatusLabel,
+  type StayView,
+} from "@/modules/bookings/domain/stay-offer";
+import { ApproveStayButton } from "./payment-status";
 import Icon from "./icons";
 
 const plural = (n: number, one: string, many: string) =>
@@ -137,7 +144,83 @@ export function OrderList({ orders }: { orders: OrderView[] }) {
 }
 
 // One order: each booking with its status, what happens next and its terms.
-export function OrderDetail({ order }: { order: OrderView }) {
+// A place to stay Fastlife offered for this trip: approve and pay while
+// it is open, or see it booked.
+function StayCard({
+  stay,
+  now,
+  paymentsEnabled,
+}: {
+  stay: StayView;
+  now: Date;
+  paymentsEnabled: boolean;
+}) {
+  const open = stayOpen(stay, now);
+  const n = nights(stay);
+  return (
+    <li
+      className="checkout-line card stay-offer"
+      data-status={open ? "OPEN" : stay.status}
+    >
+      <div className="checkout-line-head">
+        <span className="checkout-line-number">Stay</span>
+        <span
+          className="status-chip"
+          data-tone={
+            stay.status === "BOOKED" ? "ok" : open ? "wait" : undefined
+          }
+        >
+          {stayStatusLabel(stay, now)}
+        </span>
+      </div>
+      <h3>{stay.propertyName}</h3>
+      <p className="cart-line-when">
+        <Icon name="calendar" size={14} />
+        {shortDay(stay.checkIn)} – {shortDay(stay.checkOut)} · {n}{" "}
+        {n === 1 ? "night" : "nights"} · {stay.room}
+      </p>
+      <p className="cart-line-where">
+        <Icon name="pin" size={14} />
+        {stay.address} · {stay.area}
+      </p>
+      {stay.note && <p className="checkout-line-after">{stay.note}</p>}
+      <dl className="booking-rows">
+        <div className="booking-rows-total">
+          <dt>{stay.status === "BOOKED" ? "Paid" : "Price, all in"}</dt>
+          <dd>{formatMoney(stay.priceMinor)}</dd>
+        </div>
+      </dl>
+      {open && (
+        <>
+          <p className="checkout-line-after">
+            <strong>Held until</strong> {lagosTime(stay.availableUntil)}.
+            Approving pays for it now, as a second payment on this order.
+          </p>
+          <ApproveStayButton
+            offerId={stay.id}
+            priceMinor={stay.priceMinor}
+            disabled={!paymentsEnabled}
+          />
+        </>
+      )}
+    </li>
+  );
+}
+
+export function OrderDetail({
+  order,
+  paymentsEnabled = false,
+}: {
+  order: OrderView;
+  paymentsEnabled?: boolean;
+}) {
+  const now = new Date();
+  // Offers to act on first, then the booked stay; unchosen ones last.
+  const stays = [...order.stays].sort(
+    (a, b) =>
+      Number(stayOpen(b, now)) - Number(stayOpen(a, now)) ||
+      Number(b.status === "BOOKED") - Number(a.status === "BOOKED"),
+  );
   return (
     <div className="checkout-layout">
       <ol className="checkout-lines checkout-main">
@@ -247,6 +330,14 @@ export function OrderDetail({ order }: { order: OrderView }) {
               </div>
             </dl>
           </li>
+        ))}
+        {stays.map((stay) => (
+          <StayCard
+            key={stay.id}
+            stay={stay}
+            now={now}
+            paymentsEnabled={paymentsEnabled}
+          />
         ))}
       </ol>
       <aside className="checkout-pay order-summary">
