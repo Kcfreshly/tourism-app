@@ -3863,3 +3863,18 @@ main:has(.pocket) {
   border: 0;
   border-top: 1px solid var(--c-line);
 }
+
+/* A notice with a leading icon and a heading plus text beside it. */
+.notice-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.notice-row > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.notice-row strong:first-child {
+  display: block;
+  margin-bottom: var(--space-1);
+}

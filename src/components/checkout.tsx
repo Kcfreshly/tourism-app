@@ -242,7 +242,7 @@ export default function Checkout({
           />
         </div>
         <aside className="checkout-pay" aria-labelledby="pay-title">
-          <h2 id="pay-title">Pay and confirm</h2>
+          <h2 id="pay-title">Pay and book</h2>
           <p className="checkout-total">
             <span>Total to pay</span>
             <strong>{money(price.totalMinor)}</strong>

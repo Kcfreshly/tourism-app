@@ -293,7 +293,7 @@ export default function CheckoutReview({
           </section>
         </div>
         <aside className="checkout-pay" aria-labelledby="pay-title">
-          <h2 id="pay-title">Pay and confirm</h2>
+          <h2 id="pay-title">Pay and book</h2>
           <Totals totals={shownTotals} />
           <label className="check">
             <input

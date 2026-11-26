@@ -109,7 +109,8 @@ export function initialBookingStatus(terms: LineTerms, paidAt: Date) {
 }
 
 export const bookingStatusLabels: Record<BookingStatus, string> = {
-  AWAITING_PARTNER: "Waiting for the operator",
+  // Paid, but not final until the partner confirms (D4).
+  AWAITING_PARTNER: "Booked · waiting for partner to confirm",
   CONFIRMED: "Confirmed",
   DECLINED: "Declined, refund due",
   CANCELLED: "Cancelled",

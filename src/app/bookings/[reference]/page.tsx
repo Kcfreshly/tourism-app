@@ -37,21 +37,50 @@ export default async function Booking({
   const waiting =
     order.bookings.filter((b) => b.status === "AWAITING_PARTNER").length +
     order.services.filter((sv) => sv.status === "REQUESTED").length;
+  const confirmed =
+    order.bookings.filter((b) => ["CONFIRMED", "COMPLETED"].includes(b.status))
+      .length +
+    order.services.filter((sv) => ["MATCHED", "COMPLETED"].includes(sv.status))
+      .length;
   const parts = order.bookings.length + order.services.length;
+  // Paying books a place; it is only final once the partner confirms it.
   return (
     <section className="page checkout-page">
       {paid && <ClearPaidLines ids={order.bookings.map((b) => b.cartLineId)} />}
       <header className="page-intro">
         <p className="eyebrow">Order {order.reference}</p>
-        <h1>{paid ? "Payment received" : "Your booking"}</h1>
-        <p className="lede">
-          {parts} {parts === 1 ? "part" : "parts"}
+        <h1>
           {waiting
-            ? `; ${waiting} still being confirmed or matched.`
-            : ", all confirmed."}
+            ? "Booked, waiting for confirmation"
+            : confirmed === parts
+              ? paid
+                ? "You’re booked"
+                : "Your booking"
+              : "Your booking"}
+        </h1>
+        <p className="lede">
+          {waiting
+            ? `Payment received. ${confirmed} of ${parts} ${parts === 1 ? "part" : "parts"} confirmed so far; ${waiting} still waiting for the partner to confirm or for us to match you.`
+            : confirmed === parts
+              ? `${parts === 1 ? "It’s" : `All ${parts} parts are`} confirmed.`
+              : `${confirmed} of ${parts} ${parts === 1 ? "part" : "parts"} confirmed. See each one below.`}
         </p>
       </header>
-      {paid && (
+      {paid && waiting > 0 && (
+        <div className="notice notice-row" role="status">
+          <Icon name="clock" size={18} />
+          <div>
+            <strong>Your booking isn’t final until it’s confirmed</strong>
+            <p>
+              We’ve sent it to the partner. Each part below shows when they’ll
+              confirm by. If they can’t, that part is refunded in full. Keep
+              the reference <strong>{order.reference}</strong>; it’s also in My
+              bookings.
+            </p>
+          </div>
+        </div>
+      )}
+      {paid && !waiting && (
         <p className="notice" role="status">
           <Icon name="check" size={16} /> Thank you. Keep the reference{" "}
           <strong>{order.reference}</strong>; it’s also in My bookings.
