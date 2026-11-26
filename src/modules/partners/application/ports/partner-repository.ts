@@ -1,6 +1,7 @@
 import type {
   Partner,
   PartnerApplication,
+  PartnerInvite,
   ProductType,
   Submission,
   SubmissionStatus,
@@ -50,6 +51,31 @@ export interface PartnerRepository {
       >
     > & { decidedBy?: string; audit: Omit<AuditEntry, "actorId"> },
   ): Promise<Partner | null>;
+
+  // Invites: the link token is stored only as its hash.
+  createInvite(
+    invite: PartnerApplication & {
+      id: string;
+      tokenHash: string;
+      expiresAt: Date;
+    },
+    entry: AuditEntry,
+  ): Promise<PartnerInvite>;
+  listInvites(): Promise<PartnerInvite[]>;
+  findInvite(tokenHash: string): Promise<PartnerInvite | null>;
+  // Cancels an open invite; null when it was already used or cancelled.
+  revokeInvite(id: string, actorId: string): Promise<PartnerInvite | null>;
+  // In one transaction: claims the invite if it is still open, then creates a
+  // verified partner owned by the account, or verifies the account's own
+  // pending or declined application with the invite's details. Null when the
+  // invite was used, cancelled or expired meanwhile.
+  acceptInvite(input: {
+    tokenHash: string;
+    userId: string;
+    partnerId: string;
+    existing: { id: string; version: number } | null;
+    now: Date;
+  }): Promise<Partner | null>;
 
   createSubmission(
     row: Omit<

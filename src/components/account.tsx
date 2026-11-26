@@ -4,12 +4,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient as client } from "./auth-client";
 import { useSignOut } from "@/hooks/use-sign-out";
-export default function Account({ next }: { next?: string }) {
+import { PartnerPortalLink, usePartnerMembership } from "./partner-portal-link";
+export default function Account({
+  next,
+  startWithSignup = false,
+}: {
+  next?: string;
+  startWithSignup?: boolean;
+}) {
   const router = useRouter();
   const { signOut, signingOut } = useSignOut();
   const { data: session, isPending } = client.useSession();
   const planning = !!next && /^\/(plan|trips)/.test(next);
-  const [signup, setSignup] = useState(false),
+  // Partner links (apply, sign in, invitations) come back to /partner.
+  const partnering = !!next && next.startsWith("/partner");
+  const partner = usePartnerMembership();
+  const [signup, setSignup] = useState(startWithSignup),
     [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -75,20 +85,34 @@ export default function Account({ next }: { next?: string }) {
   return (
     <section className="account-page">
       <div className="page-intro">
-        <p className="eyebrow">{planning ? "Before you plan" : "Account"}</p>
+        <p className="eyebrow">
+          {partnering
+            ? "Fastlife partners"
+            : planning
+              ? "Before you plan"
+              : "Account"}
+        </p>
         <h1>
           {session
             ? "Welcome back."
-            : planning
-              ? "Sign in to start planning."
-              : "Keep your trips with you."}
+            : partnering
+              ? signup
+                ? "Create your partner account."
+                : "Sign in to your partner account."
+              : planning
+                ? "Sign in to start planning."
+                : "Keep your trips with you."}
         </h1>
         <p className="lede">
           {session
-            ? "Your trip drafts are saved to this account."
-            : planning
-              ? "Your trip drafts are saved to your account so you can pick them up anytime. Your saved activities are kept while you sign in."
-              : "Exploring is open to everyone. Sign in to plan a trip and keep your drafts."}
+            ? partnering
+              ? "Continue to the partner portal."
+              : "Your trip drafts are saved to this account."
+            : partnering
+              ? "Partners use the same Fastlife account as travellers. Use an email you check: bookings and updates go there."
+              : planning
+                ? "Your trip drafts are saved to your account so you can pick them up anytime. Your saved activities are kept while you sign in."
+                : "Exploring is open to everyone. Sign in to plan a trip and keep your drafts."}
         </p>
       </div>
       <div className="card form-card">
@@ -149,7 +173,9 @@ export default function Account({ next }: { next?: string }) {
             <div className="actions">
               {next && (
                 <Link className="button" href={next}>
-                  Continue planning
+                  {partnering
+                    ? "Continue to partner portal"
+                    : "Continue planning"}
                 </Link>
               )}
               <Link
@@ -176,6 +202,11 @@ export default function Account({ next }: { next?: string }) {
                 Sign out
               </button>
             </div>
+            {partner && (
+              <p>
+                <PartnerPortalLink />
+              </p>
+            )}
             {(session.user as { role?: string }).role === "ADMIN" && (
               <p>
                 <Link className="text-link" href="/admin">
@@ -249,7 +280,9 @@ export default function Account({ next }: { next?: string }) {
                   : signup
                     ? planning
                       ? "Create account & start planning"
-                      : "Create account"
+                      : partnering
+                        ? "Create account & continue"
+                        : "Create account"
                     : planning
                       ? "Sign in & start planning"
                       : "Sign in"}

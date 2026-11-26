@@ -41,6 +41,25 @@ export const partnerMembers = pgTable(
   (t) => [primaryKey({ columns: [t.partnerId, t.userId] })],
 );
 
+// See migrations/0013_partner_invites.sql.
+export const partnerInvites = pgTable("partner_invites", {
+  id: uuid().primaryKey(),
+  tokenHash: text().notNull().unique(),
+  businessName: text().notNull(),
+  contactEmail: text().notNull(),
+  phone: text().notNull(),
+  offering: text().notNull(),
+  createdBy: text()
+    .notNull()
+    .references(() => user.id),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  revokedAt: timestamp({ withTimezone: true }),
+  acceptedBy: text().references(() => user.id),
+  acceptedAt: timestamp({ withTimezone: true }),
+  partnerId: uuid().references(() => partners.id),
+});
+
 export const listingSubmissions = pgTable("listing_submissions", {
   id: uuid().primaryKey(),
   partnerId: uuid()

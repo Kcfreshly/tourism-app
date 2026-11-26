@@ -6,7 +6,10 @@ import type { Actor } from "@/modules/identity/domain/actor";
 import { catalogueEditSchema } from "@/modules/catalogue/domain/catalogue";
 import { packageSchema } from "@/modules/catalogue/domain/packages";
 import {
+  acceptInviteSchema,
+  inviteActionSchema,
   partnerApplicationSchema,
+  partnerInviteSchema,
   partnerDecisionSchema,
   productTypes,
   submissionDecisionSchema,
@@ -31,6 +34,12 @@ import type {
   WithdrawSubmission,
 } from "../../../application/use-cases/save-submission";
 import type { StartSubmission } from "../../../application/use-cases/start-submission";
+import type {
+  AcceptPartnerInvite,
+  CreatePartnerInvite,
+  ListPartnerInvites,
+  RevokePartnerInvite,
+} from "../../../application/use-cases/partner-invites";
 
 function issues(error: z.ZodError) {
   return error.issues
@@ -196,6 +205,59 @@ export function createAdminPartnerControllers(deps: {
       return success(
         await deps.decideSubmission.execute({ actorId: actor.id, ...body }),
       );
+    }),
+  };
+}
+
+// Staff invite businesses they've vetted; the invited person accepts while
+// signed in.
+export function createPartnerInviteControllers(deps: {
+  guards: RequestGuards;
+  create: CreatePartnerInvite;
+  list: ListPartnerInvites;
+  revoke: RevokePartnerInvite;
+  accept: AcceptPartnerInvite;
+}) {
+  const { guards } = deps;
+  return {
+    list: controller(async () => {
+      await guards.requireAdmin();
+      return success(await deps.list.execute());
+    }),
+    create: controller(async (request: Request) => {
+      await guards.checkOrigin();
+      const actor = await guards.requireAdmin();
+      await guards.throttle(`partner-invite:${actor.id}`, 30);
+      const invite = parse(
+        partnerInviteSchema,
+        await request.json(),
+        "INVALID_INVITE",
+      );
+      return success(
+        await deps.create.execute({ actorId: actor.id, invite }),
+        201,
+      );
+    }),
+    revoke: controller(async (request: Request) => {
+      await guards.checkOrigin();
+      const actor = await guards.requireAdmin();
+      const { id } = parse(
+        inviteActionSchema,
+        await request.json(),
+        "INVALID_INVITE",
+      );
+      return success(await deps.revoke.execute({ actorId: actor.id, id }));
+    }),
+    accept: controller(async (request: Request) => {
+      await guards.checkOrigin();
+      const actor = await guards.requireActor();
+      await guards.throttle(`partner-invite-accept:${actor.id}`, 10);
+      const { token } = parse(
+        acceptInviteSchema,
+        await request.json(),
+        "INVALID_INVITE",
+      );
+      return success(await deps.accept.execute({ userId: actor.id, token }));
     }),
   };
 }

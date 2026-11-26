@@ -103,6 +103,41 @@ export const submissionDecisionSchema = z
     "Tell the partner what to change, in at least 5 characters",
   );
 
+// Staff invite a business they've already vetted: the same details as an
+// application, and the business is verified when the invite is accepted.
+export const inviteDays = 14;
+export const partnerInviteSchema = partnerApplicationSchema;
+export const inviteActionSchema = z.object({ id: z.uuid() }).strict();
+export const acceptInviteSchema = z
+  .object({ token: z.string().min(20).max(100) })
+  .strict();
+
+export type InviteStatus = "OPEN" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+export type PartnerInvite = PartnerApplication & {
+  id: string;
+  createdAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  acceptedAt: Date | null;
+  partnerId: string | null;
+};
+
+export function inviteStatus(
+  invite: Pick<PartnerInvite, "expiresAt" | "revokedAt" | "acceptedAt">,
+  now: Date,
+): InviteStatus {
+  if (invite.acceptedAt) return "ACCEPTED";
+  if (invite.revokedAt) return "REVOKED";
+  return invite.expiresAt <= now ? "EXPIRED" : "OPEN";
+}
+
+export const inviteStatusLabels: Record<InviteStatus, string> = {
+  OPEN: "Waiting for them",
+  ACCEPTED: "Accepted",
+  EXPIRED: "Expired",
+  REVOKED: "Cancelled",
+};
+
 export const partnerStatusLabels: Record<PartnerStatus, string> = {
   PENDING: "Waiting for review",
   VERIFIED: "Verified",

@@ -51,8 +51,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/cart">Cart</Link>
                 </div>
                 <div>
-                  <h2>Preview</h2>
+                  <h2>For partners</h2>
                   <Link href="/partner">Partner with us</Link>
+                  <Link href="/account?next=/partner">Partner sign in</Link>
+                </div>
+                <div>
+                  <h2>Preview</h2>
                   <Link href="/photo-credits">Photo credits</Link>
                 </div>
               </nav>

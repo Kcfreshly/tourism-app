@@ -12,6 +12,7 @@ import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
 import PartnerListings from "../src/components/partner-listings";
 import PartnerDashboard from "../src/components/partner-dashboard";
 import AdminPartners from "../src/components/admin-partners";
+import AdminPartnerInvites from "../src/components/admin-partner-invites";
 
 const market = fixture.experiences.find((e) => e.id === "local-market")!;
 const draftId = "1b9e6a8e-3c1d-4c51-9f00-7d0c9a2b5e21";
@@ -126,6 +127,22 @@ beforeEach(() => {
             createdAt: "2026-11-20T10:00:00Z",
           },
         ]);
+      if (url === "/api/v1/admin/partner-invites" && method === "GET")
+        return respond([]);
+      if (url === "/api/v1/admin/partner-invites" && method === "POST")
+        return respond(
+          {
+            invite: {
+              ...body,
+              id: "9b1d2c3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
+              status: "OPEN",
+              createdAt: "2026-11-26T10:00:00Z",
+              expiresAt: "2026-12-10T10:00:00Z",
+            },
+            url: "http://app.test/partner/invite/abc123",
+          },
+          201,
+        );
       if (method === "PATCH") return respond({ ...body, status: "VERIFIED" });
       return respond(null, 404);
     }),
@@ -208,5 +225,42 @@ describe("staff review of partners", () => {
         )?.body,
       ).toMatchObject({ status: "VERIFIED", expectedVersion: 1 }),
     );
+  });
+});
+
+describe("partner invitations in admin", () => {
+  it("checks the details, then shows the link once to send", async () => {
+    render(<AdminPartnerInvites />);
+    await screen.findByText("No invitations yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Invite a partner" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create invitation link" }),
+    );
+    expect(screen.getByRole("alert").textContent).toMatch(/what you run/i);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+
+    fireEvent.change(screen.getByLabelText("Business name"), {
+      target: { value: "Obudu Escapes" },
+    });
+    fireEvent.change(screen.getByLabelText("Contact email"), {
+      target: { value: "trips@obudu.example" },
+    });
+    fireEvent.change(screen.getByLabelText("Phone"), {
+      target: { value: "+234 802 000 0000" },
+    });
+    fireEvent.change(screen.getByLabelText("What they run"), {
+      target: { value: "Three-day trips to Obudu every month" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create invitation link" }),
+    );
+    const link = (await screen.findByLabelText(
+      "Invitation link",
+    )) as HTMLInputElement;
+    expect(link.value).toBe("http://app.test/partner/invite/abc123");
+    expect(screen.getByText("Send this link to Obudu Escapes")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Cancel invitation" }),
+    ).toBeTruthy();
   });
 });

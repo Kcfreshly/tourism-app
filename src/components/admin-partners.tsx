@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { showToast } from "./toast";
+import AdminPartnerInvites from "./admin-partner-invites";
 import { runsPastMidnight } from "@/modules/catalogue/domain/catalogue";
 import {
   changedFields,
@@ -462,6 +463,7 @@ export default function AdminPartners() {
           <p className="muted">No new applications.</p>
         )}
       </section>
+      <AdminPartnerInvites />
       {others.length > 0 && (
         <details className="admin-advanced">
           <summary>All partners ({others.length})</summary>

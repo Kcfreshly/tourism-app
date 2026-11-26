@@ -42,6 +42,13 @@ import {
   WithdrawSubmission,
 } from "../src/modules/partners/application/use-cases/save-submission";
 import { StartSubmission } from "../src/modules/partners/application/use-cases/start-submission";
+import {
+  AcceptPartnerInvite,
+  CreatePartnerInvite,
+  ListPartnerInvites,
+  RevokePartnerInvite,
+  ViewPartnerInvite,
+} from "../src/modules/partners/application/use-cases/partner-invites";
 import type { Partner } from "../src/modules/partners/domain/partner";
 import { lagosToday } from "../src/modules/catalogue/domain/events";
 import { addDays } from "../src/modules/catalogue/domain/schedule";
@@ -151,7 +158,15 @@ beforeAll(async () => {
       readFileSync(`migrations/${file}`, "utf8"),
     ))
       await pg.exec(statement);
-  for (const id of [owner, "partner-user-2", "traveller-1"])
+  for (const id of [
+    owner,
+    "partner-user-2",
+    "traveller-1",
+    "invite-admin",
+    "invitee-1",
+    "invitee-2",
+    "invitee-3",
+  ])
     await pg.query(
       "INSERT INTO auth_user (id, name, email) VALUES ($1, $1, $1 || '@example.com')",
       [id],
@@ -470,5 +485,109 @@ describe("partner dashboard", () => {
     ).execute(other!);
     expect(theirs.totals.views).toBe(0);
     expect(theirs.listings).toEqual([]);
+  });
+});
+
+describe("partner invitations", () => {
+  const admin = "invite-admin";
+  const details = {
+    businessName: "Obudu Escapes",
+    contactEmail: "trips@obudu.example",
+    phone: "+234 802 000 0000",
+    offering: "Three-day trips to Obudu every month",
+  };
+  const create = new CreatePartnerInvite(partners, () => "http://app.test");
+  const accept = new AcceptPartnerInvite(partners);
+  const view = new ViewPartnerInvite(partners);
+  const tokenOf = (url: string) => url.split("/partner/invite/")[1];
+
+  it("sets up a verified partner when the invited account accepts", async () => {
+    const { invite, url } = await create.execute({
+      actorId: admin,
+      invite: details,
+    });
+    expect(invite.status).toBe("OPEN");
+    expect(url).toMatch(/^http:\/\/app\.test\/partner\/invite\/[\w-]{30,}$/);
+    const token = tokenOf(url);
+    // Only the hash is stored.
+    const stored = await pg.query<{ token_hash: string }>(
+      "SELECT token_hash FROM partner_invites WHERE id = $1",
+      [invite.id],
+    );
+    expect(stored.rows[0].token_hash).not.toContain(token);
+    expect(await view.execute(token)).toMatchObject({
+      businessName: "Obudu Escapes",
+      status: "OPEN",
+    });
+
+    const made = await accept.execute({ userId: "invitee-1", token });
+    expect(made).toMatchObject({ ...details, status: "VERIFIED" });
+    expect((await access.verified("invitee-1")).id).toBe(made.id);
+    expect((await partners.forUser("invitee-1"))?.memberRole).toBe("OWNER");
+    // A link works once.
+    await expect(
+      accept.execute({ userId: "invitee-2", token }),
+    ).rejects.toMatchObject({ code: "INVITE_CLOSED" });
+    expect((await view.execute(token)).status).toBe("ACCEPTED");
+  });
+
+  it("verifies the account's own pending application instead of adding one", async () => {
+    const pending = await new ApplyAsPartner(partners).execute({
+      userId: "invitee-2",
+      application: { ...details, businessName: "Obudu Trips (draft)" },
+    });
+    const { url } = await create.execute({ actorId: admin, invite: details });
+    const made = await accept.execute({
+      userId: "invitee-2",
+      token: tokenOf(url),
+    });
+    expect(made.id).toBe(pending.id);
+    expect(made).toMatchObject({
+      businessName: "Obudu Escapes",
+      status: "VERIFIED",
+    });
+  });
+
+  it("refuses accounts that already run a partner, and bad links", async () => {
+    const { url } = await create.execute({ actorId: admin, invite: details });
+    await expect(
+      accept.execute({ userId: "invitee-1", token: tokenOf(url) }),
+    ).rejects.toMatchObject({ code: "ALREADY_PARTNER" });
+    await expect(
+      accept.execute({ userId: "invitee-3", token: "x".repeat(32) }),
+    ).rejects.toMatchObject({ code: "INVITE_NOT_FOUND" });
+  });
+
+  it("can be cancelled, and expires", async () => {
+    const { invite, url } = await create.execute({
+      actorId: admin,
+      invite: details,
+    });
+    const revoke = new RevokePartnerInvite(partners);
+    expect(
+      (await revoke.execute({ actorId: admin, id: invite.id })).status,
+    ).toBe("REVOKED");
+    await expect(
+      revoke.execute({ actorId: admin, id: invite.id }),
+    ).rejects.toMatchObject({ code: "INVITE_CLOSED" });
+    await expect(
+      accept.execute({ userId: "invitee-3", token: tokenOf(url) }),
+    ).rejects.toMatchObject({ code: "INVITE_CLOSED" });
+
+    const later = new Date(Date.now() + 15 * 86400000);
+    const old = await create.execute({ actorId: admin, invite: details });
+    await expect(
+      new AcceptPartnerInvite(partners, () => later).execute({
+        userId: "invitee-3",
+        token: tokenOf(old.url),
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining("expired") });
+    const listed = await new ListPartnerInvites(
+      partners,
+      () => later,
+    ).execute();
+    expect(listed.find((i) => i.id === old.invite.id)?.status).toBe("EXPIRED");
+    expect(listed.find((i) => i.id === invite.id)?.status).toBe("REVOKED");
+    expect(await access.membership("invitee-3")).toBeNull();
   });
 });

@@ -94,7 +94,12 @@ in the browser cart, so only their views are counted.
 | `GET /api/v1/partner/dashboard`                 | Verified partner    | The figures above.                                      |
 | `GET/PATCH /api/v1/admin/partners`              | Admin               | List partners; verify, decline, suspend, reinstate.     |
 | `GET/PATCH /api/v1/admin/submissions`           | Admin               | Queue; approve or decline.                              |
+| `GET/POST/DELETE /api/v1/admin/partner-invites` | Admin               | List, create (returns the link once), cancel invites.   |
+| `POST /api/v1/partner/invites`                  | Signed in           | Accept an invitation by its token.                      |
 | `POST /api/v1/views`                            | Anyone, same origin | Count a view. Throttled per visitor.                    |
+
+How partners find the portal, sign in and get invited is in
+[PARTNER_ONBOARDING.md](PARTNER_ONBOARDING.md).
 
 ## Trying it locally
 
@@ -105,7 +110,8 @@ apply. In another browser, sign in as your admin, verify the partner under
 
 ## Not built yet
 
-- Partner staff invitations (the table supports them; there's no screen).
+- Invitations for a partner's own staff (STAFF members). Staff invitations
+  of new businesses are built; see [PARTNER_ONBOARDING.md](PARTNER_ONBOARDING.md).
 - Bookings, confirmation queue, manifests and payouts. These follow checkout
   (plan sections 4 and 9).
 - Pausing a partner's own live listing without staff.

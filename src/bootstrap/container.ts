@@ -198,11 +198,19 @@ import {
   WithdrawSubmission,
 } from "@/modules/partners/application/use-cases/save-submission";
 import { StartSubmission } from "@/modules/partners/application/use-cases/start-submission";
+import {
+  AcceptPartnerInvite,
+  CreatePartnerInvite,
+  ListPartnerInvites,
+  RevokePartnerInvite,
+  ViewPartnerInvite,
+} from "@/modules/partners/application/use-cases/partner-invites";
 import { DrizzleListingStatsRepository } from "@/modules/partners/infrastructure/persistence/drizzle-listing-stats-repository";
 import { DrizzlePartnerRepository } from "@/modules/partners/infrastructure/persistence/drizzle-partner-repository";
 import {
   createAdminPartnerControllers,
   createPartnerControllers,
+  createPartnerInviteControllers,
   createRecordVisitController,
 } from "@/modules/partners/presentation/http/controllers/partner-controllers";
 
@@ -303,6 +311,7 @@ const partnerApi = createPartnerControllers({
     listingStats,
   ),
 });
+const viewPartnerInvite = new ViewPartnerInvite(partnerRepository);
 
 // Bookings, and the narrow view of the catalogue and partners they need:
 // published products run by Fastlife or a verified partner.
@@ -504,6 +513,13 @@ export const api = {
     queue: new ListSubmissionQueue(partnerRepository, listingCatalogue),
     decideSubmission: new DecideSubmission(partnerRepository, listingCatalogue),
   }),
+  partnerInvites: createPartnerInviteControllers({
+    guards,
+    create: new CreatePartnerInvite(partnerRepository, publicAppUrl),
+    list: new ListPartnerInvites(partnerRepository),
+    revoke: new RevokePartnerInvite(partnerRepository),
+    accept: new AcceptPartnerInvite(partnerRepository),
+  }),
   views: createRecordVisitController({
     guards,
     access: partnerAccess,
@@ -644,6 +660,7 @@ export const pages = {
   requireAdmin: guards.requireAdmin,
   currentActor: guards.currentActor,
   partnerFor: (userId: string) => partnerAccess.membership(userId),
+  partnerInvite: (token: string) => viewPartnerInvite.execute(token),
   listPublishedExperiences: () => listPublished.execute(),
   listPublishedPackages: () => listPublishedPackages.execute(),
   publishedPackage: async (slug: string) =>

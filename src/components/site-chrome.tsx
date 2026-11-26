@@ -6,6 +6,7 @@ import { BucketNav } from "./bucket";
 import { CartNav } from "./cart";
 import Icon from "./icons";
 import { authClient } from "./auth-client";
+import { usePartnerMembership } from "./partner-portal-link";
 import { useBucketSync } from "@/hooks/use-bucket-sync";
 import { useCartSync } from "@/hooks/use-cart-sync";
 
@@ -64,6 +65,8 @@ export default function SiteChrome() {
   const group = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
+  // Partner accounts get a way back to their portal.
+  const partner = usePartnerMembership();
   // Both menus close themselves when navigation changes the path.
   const [openPath, setOpenPath] = useState<string | null>(null);
   const [tripsPath, setTripsPath] = useState<string | null>(null);
@@ -168,6 +171,18 @@ export default function SiteChrome() {
                 ))}
               </ul>
             </div>
+            {partner && (
+              <Link
+                className="nav-partner"
+                href="/partner"
+                aria-current={at(["/partner"]) ? "page" : undefined}
+                onClick={close}
+              >
+                {partner.status === "VERIFIED"
+                  ? "Partner portal"
+                  : "Partner application"}
+              </Link>
+            )}
             {/* Header controls fold into the menu on narrow screens. */}
             <Link
               className="nav-mobile-only"

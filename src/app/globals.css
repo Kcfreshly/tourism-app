@@ -3881,3 +3881,91 @@ main:has(.pocket) {
   display: block;
   margin-bottom: var(--space-1);
 }
+
+/* ===== Partner onboarding: public page and invitations ===== */
+.partner-welcome .admin-header .actions {
+  margin-top: var(--space-4);
+}
+.partner-welcome .admin-header .button.secondary {
+  background: transparent;
+  border-color: rgb(255 255 255 / 60%);
+  color: white;
+}
+.partner-steps {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+.partner-steps h3 {
+  margin: 0 0 var(--space-2);
+}
+.partner-ways {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.partner-ways h3 {
+  margin: 0 0 var(--space-1);
+}
+.partner-ways p {
+  margin: 0 0 var(--space-2);
+}
+.partner-invite {
+  max-width: 40rem;
+  display: grid;
+  gap: var(--space-3);
+}
+.partner-invite p {
+  margin: 0;
+}
+.admin-invites {
+  display: grid;
+  gap: var(--space-3);
+}
+.admin-invites-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.admin-invites-head h3,
+.admin-invites > p {
+  margin: 0;
+}
+.admin-invite-link {
+  display: grid;
+  gap: var(--space-2);
+}
+.admin-invite-copy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.admin-invite-copy input {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+.admin-invite-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-invite-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.admin-invite-list li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.admin-invite-list p {
+  margin: var(--space-1) 0 0;
+}

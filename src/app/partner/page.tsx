@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import { pages } from "@/bootstrap/container";
 import PartnerApply from "@/components/partner-apply";
 import PartnerPortal from "@/components/partner-portal";
+import PartnerWelcome from "@/components/partner-welcome";
 import { partnerStatusLabels } from "@/modules/partners/domain/partner";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Partner portal" };
 
-// Partners sign in with an ordinary account. Until staff verify the business
-// it sees its application; afterwards its dashboard and listings.
+// Partners sign in with an ordinary account. Signed out, this page explains
+// partnering and links to apply or sign in. Until staff verify the business
+// it shows the application; afterwards the dashboard and listings.
 export default async function Partner() {
-  await pages.requireSignedIn("/partner");
   const actor = await pages.currentActor();
+  if (!actor) return <PartnerWelcome />;
   const partner = actor ? await pages.partnerFor(actor.id) : null;
   const verified = partner?.status === "VERIFIED";
   return (
