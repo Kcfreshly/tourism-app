@@ -158,6 +158,7 @@ beforeEach(async () => {
       orderPaid: async () => {},
       needsReview: async () => {},
       serviceUpdated: async () => {},
+      bookingDecided: async () => {},
     },
     () => clock,
   );
