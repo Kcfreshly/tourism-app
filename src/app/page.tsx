@@ -43,14 +43,17 @@ export default async function Home() {
             one thing, or plan a whole trip.
           </p>
           <DestinationSearch today={today} />
-          <p className="home-hero-paths">
-            <Link href="/packages">
-              Ready-made trips <Icon name="arrowRight" size={16} />
-            </Link>
+          <div className="home-hero-paths">
+            <span>Or</span>
             <Link href="/plan/new">
-              Start planning your trip <Icon name="arrowRight" size={16} />
+              <Icon name="calendar" size={16} />
+              Start planning your trip
             </Link>
-          </p>
+            <Link href="/packages">
+              <Icon name="compass" size={16} />
+              Ready-made trips
+            </Link>
+          </div>
         </div>
         <p className="home-hero-credit">
           {hero.title} · Photo: {hero.author} / {hero.license}

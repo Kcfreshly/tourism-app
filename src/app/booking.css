@@ -337,20 +337,52 @@ body:has(.booking-panel) .toast-region {
   justify-self: start;
   padding-left: var(--space-6);
 }
+/* The two other ways in, as smaller outline buttons under the search: clear
+   calls to action that don't compete with "Explore experiences". */
 .home-hero-paths {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
   margin: 0;
+}
+.home-hero-paths > span {
+  color: rgb(255 255 255 / 80%);
+  font-weight: 600;
 }
 .home-hero-paths a {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  border: 1.5px solid rgb(255 255 255 / 85%);
+  border-radius: var(--radius-pill);
+  background: rgb(14 17 38 / 45%);
+  backdrop-filter: blur(6px);
   color: #fff;
   font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration: none;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.home-hero-paths a:hover {
+  background: #fff;
+  color: var(--c-ink);
+}
+.home-hero-paths a:focus-visible {
+  outline: 3px solid var(--c-danfo);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .home-hero-paths > span {
+    display: none;
+  }
+  .home-hero-paths a {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
 }
 .destination-areas {
   display: flex;
