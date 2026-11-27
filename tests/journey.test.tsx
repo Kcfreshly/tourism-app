@@ -46,7 +46,7 @@ describe("trip journey", () => {
     render(
       <>
         <BucketButton id="offer-gallery" />
-        <Intake mode="chat" fresh />
+        <Intake mode="chat" kemi fresh />
       </>,
     );
     fireEvent.click(screen.getByRole("button", { name: /Save activity/ }));
@@ -129,8 +129,31 @@ describe("trip journey", () => {
     ).toHaveLength(2);
   });
 
-  it("allows manual onboarding and reports unavailable voice without losing the conversation", () => {
+  it("starts on the form with Kemi greyed out while Kemi is switched off", () => {
     render(<Intake mode="chat" fresh />);
+    const manual = screen.getByRole("button", {
+      name: "Enter details manually",
+    });
+    const kemi = screen.getByRole("button", { name: /Plan with Kemi/ });
+    expect(manual.getAttribute("aria-pressed")).toBe("true");
+    expect((kemi as HTMLButtonElement).disabled).toBe(true);
+    expect(kemi.textContent).toContain("Coming soon");
+    // Manual comes first.
+    expect(
+      manual.compareDocumentPosition(kemi) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Arrival date")).toBeTruthy();
+    expect(screen.queryByLabelText("Your trip, in your own words")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Next: check summary" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Ask Kemi to edit" }),
+    ).toBeNull();
+  });
+
+  it("allows manual onboarding and reports unavailable voice without losing the conversation", () => {
+    render(<Intake mode="chat" kemi fresh />);
     fireEvent.click(screen.getByRole("button", { name: "Use voice" }));
     expect(screen.getByRole("status").textContent).toContain(
       "Voice is unavailable",
@@ -149,7 +172,7 @@ describe("trip journey", () => {
   });
 
   it("opens on upcoming dates and refuses an arrival that has passed", async () => {
-    render(<Intake mode="chat" fresh />);
+    render(<Intake mode="chat" kemi fresh />);
     // Dates from the conversation skip the form's date picker.
     fireEvent.change(screen.getByLabelText("Your trip, in your own words"), {
       target: { value: "2020-01-01 to 2020-01-03, 2 adults. We love art." },
@@ -173,7 +196,7 @@ describe("trip journey", () => {
   });
 
   it("explains each way of getting around and carries it to the summary", () => {
-    render(<Intake mode="chat" fresh />);
+    render(<Intake mode="chat" kemi fresh />);
     fireEvent.click(
       screen.getByRole("button", { name: "Enter details manually" }),
     );
@@ -209,7 +232,9 @@ describe("trip journey", () => {
         .every((button) => button.getAttribute("aria-pressed") === "true"),
     ).toBe(true);
     fireEvent.click(
-      screen.getAllByRole("button", { name: /Remove from saved activities/ })[1],
+      screen.getAllByRole("button", {
+        name: /Remove from saved activities/,
+      })[1],
     );
     expect(
       screen

@@ -25,7 +25,7 @@ const starts = [
   {
     icon: "compass",
     title: "Planning a trip to Nigeria?",
-    text: "Take a ready-made trip, or build your own with Kemi.",
+    text: "Take a ready-made trip, or plan your own day by day.",
     href: "/packages",
   },
 ] as const;

@@ -25,8 +25,8 @@ const tripLinks = [
     match: ["/packages"],
   },
   {
-    href: "/plan/new?mode=chat",
-    label: "Plan with Kemi",
+    href: "/plan/new",
+    label: "Plan your trip",
     hint: "Build your own day-by-day plan",
     match: ["/plan"],
   },

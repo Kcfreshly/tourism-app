@@ -720,6 +720,8 @@ export const pages = {
     (await listPublishedPackages.execute()).find((p) => p.slug === slug),
   transportSettings: async () =>
     (await getTransportSettings.execute()).settings,
+  // Kemi isn't in v1: off unless KEMI_ENABLED=true.
+  kemiEnabled: () => kemiSettings().enabled,
   // A misconfigured provider shows as switched off here and fails loudly
   // on Pay instead.
   paymentsEnabled: () => {

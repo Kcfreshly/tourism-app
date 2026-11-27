@@ -47,8 +47,8 @@ export default async function Home() {
             <Link href="/packages">
               Ready-made trips <Icon name="arrowRight" size={16} />
             </Link>
-            <Link href="/plan/new?mode=chat">
-              Plan with Kemi <Icon name="arrowRight" size={16} />
+            <Link href="/plan/new">
+              Start planning your trip <Icon name="arrowRight" size={16} />
             </Link>
           </p>
         </div>
@@ -96,17 +96,17 @@ export default async function Home() {
 
       <section className="page-section kemi-card">
         <span className="kemi-avatar" aria-hidden="true">
-          K
+          <Icon name="compass" size={24} />
         </span>
         <div>
-          <h2>Want a plan built for you?</h2>
+          <h2>Want to plan the whole trip?</h2>
           <p>
-            Tell Kemi your dates and what you love. You get a day-by-day plan
-            with drivers and guides you can change.
+            Add your dates and what you love, then arrange each day with drivers
+            and guides you can change.
           </p>
         </div>
-        <Link className="button" href="/plan/new?mode=chat">
-          Plan with Kemi
+        <Link className="button" href="/plan/new">
+          Start planning your trip
           <Icon name="arrowRight" size={16} />
         </Link>
       </section>

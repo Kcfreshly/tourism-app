@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import contract from "../../../../tourism-v1-handoff/contracts/planner-output.schema.json";
+import contract from "../../../../../tourism-v1-handoff/contracts/planner-output.schema.json";
 import {
   assess,
   dayTransport,
@@ -14,13 +14,13 @@ import {
   travelMinutes,
   type Item,
   type Services,
-} from "./planner";
-import type { Profile } from "./profile";
-import type { Experience } from "../../catalogue/domain/experience";
+} from "../../domain/planner";
+import type { Profile } from "../../domain/profile";
+import type { Experience } from "../../../catalogue/domain/experience";
 import {
   defaultTransportSettings,
   type TransportSettings,
-} from "./transport-settings";
+} from "../../domain/transport-settings";
 const ajv = new Ajv();
 addFormats(ajv);
 const valid = ajv.compile(contract);

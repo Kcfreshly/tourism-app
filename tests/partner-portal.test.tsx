@@ -11,6 +11,7 @@ import {
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
 import PartnerListings from "../src/components/partner-listings";
 import PartnerDashboard from "../src/components/partner-dashboard";
+import PartnerPortal from "../src/components/partner-portal";
 import AdminPartners from "../src/components/admin-partners";
 import AdminPartnerInvites from "../src/components/admin-partner-invites";
 import PartnerBookings from "../src/components/partner-bookings";
@@ -208,16 +209,32 @@ describe("partner portal", () => {
     expect(screen.getByText(/In review\./)).toBeTruthy();
   });
 
-  it("shows views, visitors and interest, and says sales start with payments", async () => {
+  it("shows views, visitors and interest for each listing", async () => {
     render(<PartnerDashboard onOpenListings={() => {}} />);
     const stats = await screen.findByRole("list", { name: "Key figures" });
     expect(within(stats).getByText("12")).toBeTruthy();
     expect(within(stats).getByText(/▲ 100%/)).toBeTruthy();
-    expect(
-      within(stats).getAllByText(/Starts when online payment/),
-    ).toHaveLength(2);
+    expect(within(stats).getByText("In trip plans")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /Lagoon kayak morning/ }),
+    ).toBeTruthy();
+  });
+
+  it("opens analytics and booking actions from the dashboard", async () => {
+    render(<PartnerPortal />);
+    expect(
+      await screen.findByRole("list", { name: "Listing status" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "View analytics" }));
+    expect(
+      screen.getByRole("heading", { name: "Listing performance" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Analytics", pressed: true }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Answer now" }));
+    expect(
+      await screen.findByRole("button", { name: "Confirm booking" }),
     ).toBeTruthy();
   });
 });

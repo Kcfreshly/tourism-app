@@ -10,7 +10,7 @@ import {
 import {
   assertPlannerContract,
   lockedItemsUnchanged,
-} from "../../domain/proposal";
+} from "../services/proposal";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { ProposalRepository } from "../ports/proposal-repository";
 import type { TransportSettingsRepository } from "../ports/transport-settings-repository";

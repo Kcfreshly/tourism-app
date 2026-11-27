@@ -43,7 +43,7 @@ describe("site header", () => {
 
     expect(href(/things to do/i)).toBe("/explore");
     expect(href(/ready-made trips/i)).toBe("/packages");
-    expect(href(/plan with kemi/i)).toBe("/plan/new?mode=chat");
+    expect(href(/plan your trip/i)).toBe("/plan/new");
     expect(href(/my plans/i)).toBe("/trips");
   });
 });

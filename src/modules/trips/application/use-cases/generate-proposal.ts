@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assess } from "../../domain/planner";
-import { propose } from "../../domain/proposal";
+import { propose } from "../services/proposal";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { ProposalRepository } from "../ports/proposal-repository";
 import type { OfferSelection } from "../services/offer-selection";

@@ -69,7 +69,8 @@ function longDate(value: string) {
 }
 export default function Intake({
   id,
-  mode: entry = "chat",
+  mode: entry = "form",
+  kemi = false,
   offer,
   fresh = false,
   embedded = false,
@@ -79,6 +80,9 @@ export default function Intake({
 }: {
   id?: string;
   mode?: string;
+  // Whether Kemi is switched on (KEMI_ENABLED). Off in v1: the chat option
+  // shows greyed out and the form is the only way in.
+  kemi?: boolean;
   offer?: string;
   fresh?: boolean;
   embedded?: boolean;
@@ -101,7 +105,7 @@ export default function Intake({
     ...(seed && { startDate: seed.startDate, endDate: seed.endDate }),
     selectedOfferIds: offer ? [offer] : [],
   });
-  const [mode, setMode] = useState(entry === "form" ? "form" : "chat");
+  const [mode, setMode] = useState(kemi && entry === "chat" ? "chat" : "form");
   const [stage, setStage] = useState<Stage>(id ? "review" : "details");
   const [saved, setSaved] = useState<Saved | null>(null);
   const [busy, setBusy] = useState(!!id);
@@ -436,7 +440,7 @@ export default function Intake({
           {stage === "saved"
             ? "Nothing is booked. Save more activities, or start arranging your days."
             : stage === "review"
-              ? "This is the profile Kemi and the planner will use. Correct anything that isn’t right."
+              ? "This is the profile the planner will use. Correct anything that isn’t right."
               : "Your dates, who’s coming and what you love. You’ll check a summary before anything is saved."}
         </p>
       </div>
@@ -458,19 +462,21 @@ export default function Intake({
           >
             <button
               type="button"
-              aria-pressed={mode === "chat"}
-              onClick={() => chooseMode("chat")}
-            >
-              <Icon name="chat" size={18} />
-              Talk to Kemi
-            </button>
-            <button
-              type="button"
               aria-pressed={mode === "form"}
               onClick={() => chooseMode("form")}
             >
               <Icon name="list" size={18} />
               Enter details manually
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === "chat"}
+              disabled={!kemi}
+              onClick={() => chooseMode("chat")}
+            >
+              <Icon name="chat" size={18} />
+              Plan with Kemi, your personal AI agent
+              {!kemi && <span className="soon-tag">Coming soon</span>}
             </button>
           </div>
           {mode === "chat" ? (
@@ -941,14 +947,16 @@ export default function Intake({
                 <Icon name="edit" size={16} />
                 Edit details manually
               </button>
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() => edit("chat")}
-              >
-                <Icon name="chat" size={16} />
-                Ask Kemi to edit
-              </button>
+              {kemi && (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => edit("chat")}
+                >
+                  <Icon name="chat" size={16} />
+                  Ask Kemi to edit
+                </button>
+              )}
             </div>
           </div>
           <aside className="review-next">
@@ -1064,7 +1072,7 @@ export default function Intake({
                   draftName: "",
                 });
                 setHasReviewed(false);
-                setMode("chat");
+                setMode(kemi ? "chat" : "form");
                 setStage("details");
                 setStatus("");
                 localStorage.removeItem("tourism.profile");

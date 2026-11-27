@@ -7,5 +7,5 @@ export default async function Profile({
 }) {
   const { id } = await params;
   await pages.requireSignedIn(`/trips/${encodeURIComponent(id)}/profile`);
-  return <Intake id={id} />;
+  return <Intake id={id} kemi={pages.kemiEnabled()} />;
 }

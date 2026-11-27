@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s · Fastlife",
   },
   description:
-    "Discover and book things to do across Nigeria, take a ready-made trip, or plan your own with Kemi. Preview with sample experiences; no real bookings.",
+    "Discover and book things to do across Nigeria, take a ready-made trip, or plan your own. Preview with sample experiences; no real bookings.",
 };
 export const viewport: Viewport = { themeColor: "#26337a" };
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -46,7 +46,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div>
                   <h2>Plan</h2>
-                  <Link href="/plan/new?mode=chat">Plan with Kemi</Link>
+                  <Link href="/plan/new">Plan your trip</Link>
                   <Link href="/trips">My plans</Link>
                   <Link href="/cart">Cart</Link>
                 </div>

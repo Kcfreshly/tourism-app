@@ -16,7 +16,7 @@ export default async function Packages() {
         <h1>Multi-day trips, run by local operators</h1>
         <p className="lede">
           Each trip shows its route, dates, who runs it and what’s included.
-          Prefer to shape your own days? Plan with Kemi instead.
+          Prefer to shape your own days? Plan your own trip instead.
         </p>
       </header>
       {packages.length ? (
@@ -33,17 +33,17 @@ export default async function Packages() {
       )}
       <aside className="kemi-card">
         <span className="kemi-avatar" aria-hidden="true">
-          K
+          <Icon name="compass" size={24} />
         </span>
         <div>
           <h2>Not quite right?</h2>
           <p>
-            Build your own trip with Kemi: your dates, your pace, and only the
-            things you want.
+            Plan your own trip: your dates, your pace, and only the things you
+            want.
           </p>
         </div>
-        <Link className="button" href="/plan/new?mode=chat">
-          Plan with Kemi
+        <Link className="button" href="/plan/new">
+          Start planning your trip
           <Icon name="arrowRight" size={16} />
         </Link>
       </aside>

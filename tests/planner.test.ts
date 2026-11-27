@@ -22,7 +22,7 @@ import {
   propose,
   lockedItemsUnchanged,
   assertPlannerContract,
-} from "../src/modules/trips/domain/proposal";
+} from "../src/modules/trips/application/services/proposal";
 import {
   demoPublishIssues,
   emptyReview,

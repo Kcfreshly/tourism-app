@@ -145,13 +145,13 @@ export default async function PackageDetail({
               <div>
                 <h2>Prefer to build your own?</h2>
                 <p>
-                  Start a custom plan with the same dates and length. Kemi helps
-                  you choose each day, and you can add drivers and guides.
+                  Start a custom plan with the same dates and length. You choose
+                  each day, and you can add drivers and guides.
                 </p>
               </div>
               <Link
                 className="button secondary"
-                href={`/plan/new?mode=chat&from=${p.slug}`}
+                href={`/plan/new?from=${p.slug}`}
               >
                 Build my own version
                 <Icon name="arrowRight" size={16} />

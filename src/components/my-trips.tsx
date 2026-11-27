@@ -152,12 +152,12 @@ export default function MyTrips({ saved }: { saved?: string }) {
           <Icon name="calendar" size={28} />
           <h2>No trips yet</h2>
           <p>
-            Start with Kemi or explore experiences first — your saved activities
-            come with you either way.
+            Start planning now, or explore experiences first. Your saved
+            activities come with you either way.
           </p>
           <div className="actions">
-            <Link className="button" href="/plan/new?mode=chat">
-              Plan with Kemi
+            <Link className="button" href="/plan/new">
+              Start planning your trip
             </Link>
             <Link className="button secondary" href="/explore">
               Explore experiences

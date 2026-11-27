@@ -1633,6 +1633,19 @@ body:has(.planner-page) .site-header-inner {
   padding: 0 var(--space-5);
   font-weight: 600;
 }
+/* Kemi isn't in v1: its option stays visible, greyed, with a tag. */
+.method-switch button:disabled:hover {
+  background: transparent;
+  color: var(--c-ink-2);
+}
+.soon-tag {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--c-sunken);
+  color: var(--c-ink-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
 .method-switch button[aria-pressed="true"] {
   color: var(--c-indigo);
   font-weight: 700;
@@ -1867,13 +1880,18 @@ body:has(.planner-page) .site-header-inner {
   color: var(--c-indigo);
 }
 @media (max-width: 600px) {
+  /* The Kemi label is long: stack the two options instead of squeezing. */
   .method-switch {
+    display: grid;
     justify-self: stretch;
+    border-radius: var(--radius-lg);
   }
   .method-switch button {
-    flex: 1;
     justify-content: center;
-    padding: 0 var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    white-space: normal;
   }
 }
 .intake-form {
@@ -3338,6 +3356,92 @@ main:has(.pocket) {
   background: var(--c-indigo-wash);
   font-weight: 700;
 }
+.workspace-nav {
+  padding: var(--space-2);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-lg);
+  background: var(--c-sunken);
+}
+.admin-jump.workspace-nav :is(a, button) {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+}
+.admin-jump.workspace-nav :is(a, button):hover {
+  background: var(--c-indigo-wash);
+}
+.admin-jump.workspace-nav button[aria-pressed="true"] {
+  background: var(--c-indigo);
+  color: white;
+}
+.admin-page > section[id] {
+  scroll-margin-top: calc(var(--site-header-height, 96px) + var(--space-4));
+}
+.admin-header h1 {
+  overflow-wrap: anywhere;
+}
+.workspace-section,
+.workspace-analytics-grid {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+.workspace-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.workspace-heading :is(h2, p),
+.workspace-analytics-grid :is(h3, p),
+.workspace-section > [role="status"] p {
+  margin: 0;
+}
+.workspace-heading h2 {
+  margin-bottom: var(--space-1);
+}
+.workspace-stat {
+  border-top: 3px solid var(--c-indigo);
+}
+.workspace-stat a {
+  width: fit-content;
+  margin-top: var(--space-2);
+  font-weight: 700;
+}
+.workspace-analytics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+.workspace-analytics-grid > section {
+  align-content: start;
+}
+.workspace-breakdown {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.workspace-breakdown > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-2);
+}
+.workspace-breakdown dd {
+  margin: 0;
+  font-weight: 700;
+}
+.workspace-breakdown span {
+  grid-column: 1 / -1;
+  height: 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--c-indigo-wash);
+}
+.workspace-breakdown i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--c-indigo);
+}
 .admin-section {
   display: grid;
   gap: var(--space-3);
@@ -3707,9 +3811,6 @@ main:has(.pocket) {
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   line-height: 1.1;
-}
-.partner-stat-pending {
-  background: var(--c-sunken);
 }
 .partner-up {
   color: var(--c-lagoon);

@@ -59,13 +59,15 @@ const liveHref = (l: Dashboard["listings"][number]) =>
     ? `/packages/${l.slug}`
     : `/experiences/${l.slug}`;
 
-// Basic figures for a partner's own listings over the last 30 days. Views and
-// visitors come from listing pages and quick views; bookings and sales start
-// when checkout goes live.
+// Views and visitors come from listing pages and quick views.
 export default function PartnerDashboard({
+  view = "analytics",
   onOpenListings,
+  onOpenAnalytics,
 }: {
+  view?: "dashboard" | "analytics";
   onOpenListings: () => void;
+  onOpenAnalytics?: () => void;
 }) {
   const [data, setData] = useState<Dashboard | null>(null),
     [error, setError] = useState("");
@@ -93,15 +95,77 @@ export default function PartnerDashboard({
     );
   if (!data) return <p className="muted">Loading your figures…</p>;
   const { totals } = data;
-  const peak = Math.max(1, ...data.daily.map((d) => d.views));
+  const peak = Math.max(0, ...data.daily.map((d) => d.views));
+
+  if (view === "dashboard") {
+    const stages = [
+      ["Live listings", totals.live],
+      ["In review", totals.inReview],
+      ["Changes requested", totals.changesRequested],
+      ["Drafts", totals.drafts],
+    ] as const;
+
+    return (
+      <section
+        className="workspace-section"
+        aria-labelledby="partner-dashboard-heading"
+      >
+        <div className="workspace-heading">
+          <div>
+            <h2 id="partner-dashboard-heading">Dashboard</h2>
+            <p className="muted">
+              Check listing progress and pick up where you left off.
+            </p>
+          </div>
+          <button type="button" onClick={onOpenListings}>
+            Manage listings
+          </button>
+        </div>
+        <ul className="partner-stats" aria-label="Listing status">
+          {stages.map(([label, count]) => (
+            <li className="card workspace-stat" key={label}>
+              <span>{label}</span>
+              <strong>{count.toLocaleString()}</strong>
+            </li>
+          ))}
+        </ul>
+        <div className="card partner-panel">
+          <div className="workspace-heading">
+            <div>
+              <h2>Traveller interest</h2>
+              <p className="muted">
+                {totals.views.toLocaleString()} views from{" "}
+                {totals.visitors.toLocaleString()} visitors over the last{" "}
+                {data.period.days} days.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={onOpenAnalytics}
+            >
+              View analytics
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div className="partner-dashboard">
-      <p className="muted">
-        Last {data.period.days} days, {shortDate(data.period.from)} to{" "}
-        {shortDate(data.period.to)}. Views by Fastlife staff and partners are
-        not counted.
-      </p>
+    <section
+      className="partner-dashboard"
+      aria-labelledby="partner-analytics-heading"
+    >
+      <div className="workspace-heading">
+        <div>
+          <h2 id="partner-analytics-heading">Analytics</h2>
+          <p className="muted">
+            Last {data.period.days} days, {shortDate(data.period.from)} to{" "}
+            {shortDate(data.period.to)}. Traffic figures cover traveller views.
+          </p>
+        </div>
+      </div>
       <ul className="partner-stats" aria-label="Key figures">
         <li className="card">
           <span>Views</span>
@@ -123,40 +187,36 @@ export default function PartnerDashboard({
           <strong>{totals.tripPlans}</strong>
           <small className="muted">Plans that include your activities</small>
         </li>
-        <li className="card partner-stat-pending">
-          <span>Bookings</span>
-          <strong>—</strong>
-          <small className="muted">Starts when online payment goes live</small>
-        </li>
-        <li className="card partner-stat-pending">
-          <span>Sales</span>
-          <strong>—</strong>
-          <small className="muted">Starts when online payment goes live</small>
-        </li>
       </ul>
 
       <section className="card partner-panel" aria-labelledby="views-heading">
         <h2 id="views-heading">Views per day</h2>
-        <ol
-          className="partner-chart"
-          aria-label={`Views per day, highest ${peak}`}
-        >
-          {data.daily.map((d) => (
-            <li key={d.day} title={`${shortDate(d.day)}: ${d.views} views`}>
-              <span
-                style={{ height: `${(d.views / peak) * 100}%` }}
-                data-empty={d.views === 0 || undefined}
-              />
-              <span className="sr-only">
-                {shortDate(d.day)}: {d.views}
-              </span>
-            </li>
-          ))}
-        </ol>
-        <p className="partner-chart-axis muted" aria-hidden="true">
-          <span>{shortDate(data.period.from)}</span>
-          <span>Today</span>
-        </p>
+        {peak > 0 ? (
+          <>
+            <ol
+              className="partner-chart"
+              aria-label={`Views per day, highest ${peak}`}
+            >
+              {data.daily.map((d) => (
+                <li key={d.day} title={`${shortDate(d.day)}: ${d.views} views`}>
+                  <span
+                    style={{ height: `${(d.views / peak) * 100}%` }}
+                    data-empty={d.views === 0 || undefined}
+                  />
+                  <span className="sr-only">
+                    {shortDate(d.day)}: {d.views}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="partner-chart-axis muted" aria-hidden="true">
+              <span>{shortDate(data.period.from)}</span>
+              <span>{shortDate(data.period.to)}</span>
+            </p>
+          </>
+        ) : (
+          <p className="muted">No traveller views in this period.</p>
+        )}
       </section>
 
       <section
@@ -164,15 +224,15 @@ export default function PartnerDashboard({
         aria-labelledby="partner-listings-heading"
       >
         <div className="admin-editor-head">
-          <h2 id="partner-listings-heading">Your listings</h2>
-          <p className="muted">
-            {totals.live} live · {totals.inReview} in review ·{" "}
-            {totals.changesRequested} with changes requested · {totals.drafts}{" "}
-            drafts
-          </p>
+          <h2 id="partner-listings-heading">Listing performance</h2>
         </div>
         {data.listings.length ? (
-          <div className="partner-table-wrap">
+          <div
+            className="partner-table-wrap"
+            role="region"
+            aria-labelledby="partner-listings-heading"
+            tabIndex={0}
+          >
             <table className="partner-table">
               <thead>
                 <tr>
@@ -220,6 +280,6 @@ export default function PartnerDashboard({
           </div>
         )}
       </section>
-    </div>
+    </section>
   );
 }

@@ -26,6 +26,7 @@ export default async function NewPlan({
     <>
       <Intake
         mode={mode}
+        kemi={pages.kemiEnabled()}
         offer={offer}
         fresh={fresh === "1" || !!source}
         seed={source && planSeed(source)}
@@ -42,8 +43,8 @@ export default async function NewPlan({
             <span className="step-number">1</span>
             <h3>Tell us about your stay</h3>
             <p>
-              Dates, who’s coming, where you’re staying and what you love, by
-              chatting with Kemi or filling in a short form.
+              Dates, who’s coming, where you’re staying and what you love, in
+              a short form.
             </p>
           </li>
           <li>

@@ -7,6 +7,7 @@ import AdminServiceRequests from "@/components/admin-service-requests";
 import PartnerBookings from "@/components/partner-bookings";
 import AdminStayOffers from "@/components/admin-stay-offers";
 import AdminTransportSettings from "@/components/admin-transport-settings";
+import AdminOverview from "@/components/admin-overview";
 import Link from "next/link";
 import { isSuperAdmin } from "@/modules/identity/domain/actor";
 export const dynamic = "force-dynamic";
@@ -35,14 +36,16 @@ export default async function Admin() {
         <div>
           <p className="eyebrow">Fastlife operations</p>
           <h1>Staff workspace</h1>
-          <p>
-            Create and publish activities and ready-made trips, and set
-            transport rates and guide availability for the Fastlife demo.
-          </p>
+          <p>Manage bookings, partner reviews and the Fastlife catalogue.</p>
         </div>
         <p className="admin-demo">Demo catalogue</p>
       </header>
-      <nav className="admin-jump" aria-label="Staff workspace sections">
+      <nav
+        className="admin-jump workspace-nav"
+        aria-label="Staff workspace sections"
+      >
+        <a href="#dashboard">Dashboard</a>
+        <a href="#analytics">Analytics</a>
         <a href="#services">Drivers &amp; guides</a>
         <a href="#partner-bookings">Partner bookings</a>
         <a href="#stays">Stays</a>
@@ -51,6 +54,7 @@ export default async function Admin() {
         <a href="#packages">Ready-made trips</a>
         <a href="#transport">Transport &amp; guides</a>
       </nav>
+      <AdminOverview />
       <section
         id="services"
         className="admin-section"

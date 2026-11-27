@@ -5,7 +5,8 @@ import PartnerDashboard from "./partner-dashboard";
 import PartnerListings from "./partner-listings";
 
 const tabs = [
-  { id: "overview", label: "Overview" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "analytics", label: "Analytics" },
   { id: "bookings", label: "Bookings" },
   { id: "listings", label: "Listings & trips" },
 ] as const;
@@ -14,7 +15,7 @@ type Tab = (typeof tabs)[number]["id"];
 // A verified partner's workspace: figures, bookings to answer, listings.
 // Bookings waiting for an answer are flagged on every tab.
 export default function PartnerPortal() {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [waiting, setWaiting] = useState(0);
   useEffect(() => {
     let active = true;
@@ -34,7 +35,10 @@ export default function PartnerPortal() {
   }, []);
   return (
     <>
-      <nav className="admin-jump partner-tabs" aria-label="Partner portal">
+      <nav
+        className="admin-jump partner-tabs workspace-nav"
+        aria-label="Partner portal"
+      >
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -70,8 +74,12 @@ export default function PartnerPortal() {
           </button>
         </div>
       )}
-      {tab === "overview" ? (
-        <PartnerDashboard onOpenListings={() => setTab("listings")} />
+      {tab === "dashboard" || tab === "analytics" ? (
+        <PartnerDashboard
+          view={tab}
+          onOpenListings={() => setTab("listings")}
+          onOpenAnalytics={() => setTab("analytics")}
+        />
       ) : tab === "bookings" ? (
         <PartnerBookings onCount={setWaiting} />
       ) : (
