@@ -23,11 +23,13 @@ function Form() {
     // What choosing "Book it for me" sets.
     stay: { type: "HOTEL", choice: { kind: "RECOMMEND" } },
   });
-  latest = profile;
   return (
     <StayFields
       profile={profile}
-      onChange={(stay) => setProfile((p) => ({ ...p, stay }))}
+      onChange={(stay) => {
+        latest = { ...profile, stay };
+        setProfile(latest);
+      }}
     />
   );
 }
