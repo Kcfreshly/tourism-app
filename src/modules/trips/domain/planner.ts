@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Profile } from "./profile";
+import { airports, type Profile } from "./profile";
 import type { Experience } from "../../catalogue/domain/experience";
 import {
   clockLabel,
@@ -205,6 +205,31 @@ export function pickupReminder(
     };
   }
   return null;
+}
+// When a traveller with an airport pickup still owes us their flight number
+// or landing time: reminded like the pickup address, until that notice
+// before the landing day starts. Null when nothing is missing.
+export function flightReminder(
+  profile: Pick<Profile, "airportPickup">,
+  settings: Pick<TransportSettings, "pickupAddressNoticeHours">,
+  now = Date.now(),
+) {
+  const pickup = profile.airportPickup;
+  if (!pickup || (pickup.flight && pickup.landingTime)) return null;
+  const dueAt =
+    lagosInstant(pickup.landingDate, "00:00") -
+    settings.pickupAddressNoticeHours * 3600000;
+  const lagos = new Date(dueAt + 3600000).toISOString();
+  const due = `${shortDay(lagos.slice(0, 10))}, ${lagos.slice(11, 16)}`;
+  const missing = !pickup.flight ? "flight number" : "landing time";
+  return {
+    dueAt,
+    overdue: now >= dueAt,
+    message:
+      now >= dueAt
+        ? `Add your ${missing} now: your driver needs it to meet you on ${shortDay(pickup.landingDate)}.`
+        : `Add your ${missing} by ${due}, so your driver can meet you at the airport. You can book now and add it later.`,
+  };
 }
 // Guides are arranged with a local partner, so they need notice before the
 // activity (or the start of a full-day guide's day).
@@ -735,6 +760,18 @@ export function assess(
         });
     }
   }
+  // A flat price per pickup, whatever the flight.
+  const arrival = profile.airportPickup;
+  if (arrival)
+    lines.push({
+      key: `airport:${arrival.landingDate}`,
+      label: `${arrival.landingDate} · Airport pickup · ${airports[arrival.airport]}`,
+      group: "transport",
+      quantity: 1,
+      unitRateMinor: settings.airportPickupMinor,
+      totalMinor: settings.airportPickupMinor,
+      rule: "transport-settings:airport-pickup",
+    });
   const activitiesMinor = lines
       .filter((l) => l.group === "activities")
       .reduce((n, l) => n + l.totalMinor, 0),
@@ -755,6 +792,8 @@ export function assess(
   const pickup = pickupReminder(profile, items, services, settings, now);
   if (pickup)
     warnings.push({ code: "PICKUP_ADDRESS", message: pickup.message });
+  const flight = flightReminder(profile, settings, now);
+  if (flight) warnings.push({ code: "FLIGHT_DETAILS", message: flight.message });
   if (budget > 0 && totalMinor > budget)
     warnings.push({
       code: "BUDGET",

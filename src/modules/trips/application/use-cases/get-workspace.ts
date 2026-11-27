@@ -1,4 +1,8 @@
-import { assess, pickupReminder } from "../../domain/planner";
+import {
+  assess,
+  flightReminder,
+  pickupReminder,
+} from "../../domain/planner";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
@@ -25,6 +29,8 @@ export class GetWorkspace {
         context.services,
         settings,
       ),
+      // When the flight details for an airport pickup are due, if missing.
+      flight: flightReminder(context.profile, settings),
       offers,
       settings,
       price: assess(

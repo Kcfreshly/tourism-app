@@ -44,7 +44,7 @@ export const serviceActionSchema = z.discriminatedUnion("action", [
 export type ServiceAction = z.infer<typeof serviceActionSchema>;
 
 const isCar = (service: ServiceKind) =>
-  service === "CAR" || service === "NIGHT_CAR";
+  service === "CAR" || service === "NIGHT_CAR" || service === "AIRPORT_PICKUP";
 
 // Where an action takes a request, or null when it isn't allowed. Matching
 // again changes who was matched.

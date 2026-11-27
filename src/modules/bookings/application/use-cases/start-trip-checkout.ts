@@ -88,6 +88,15 @@ export class StartTripCheckout {
       problems.push(
         "Add your pickup address first: your driver needs it to be matched.",
       );
+    if (
+      trip.flightOverdue &&
+      lines.some(
+        (l) => l.line.kind === "SERVICE" && l.line.service === "AIRPORT_PICKUP",
+      )
+    )
+      problems.push(
+        "Add your flight number and landing time first: your driver needs them to meet you.",
+      );
     if (problems.length)
       throw new AppError("CONFLICT", "TRIP_NOT_READY", problems.join(" "), {
         problems,

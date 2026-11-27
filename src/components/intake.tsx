@@ -19,6 +19,7 @@ import { useBucket } from "@/hooks/use-bucket";
 import { activateTrip } from "@/hooks/use-active-trip";
 import Icon from "./icons";
 import { TripEvents } from "./whats-on";
+import ArrivalFields, { arrivalSummary } from "./intake-arrival";
 
 type Saved = { id: string; version: number; profile: Profile };
 type Stage = "details" | "review" | "saved";
@@ -77,6 +78,7 @@ export default function Intake({
   seed,
   onContinue,
   onSaved,
+  airportPickupMinor,
 }: {
   id?: string;
   mode?: string;
@@ -95,6 +97,8 @@ export default function Intake({
   };
   onContinue?: () => void;
   onSaved?: (id: string) => void;
+  // From transport settings, to show the pickup price.
+  airportPickupMinor?: number;
 }) {
   const router = useRouter();
   const { ids: bucket } = useBucket();
@@ -125,17 +129,18 @@ export default function Intake({
     if (mounted.current) heading.current?.focus();
     mounted.current = true;
   }, [stage]);
-  // Set when a reminder link opens this page; focuses the address field
-  // once the loaded form is enabled.
-  const focusStay = useRef(false);
+  // Set to the field's hash when a reminder link opens this page; focuses
+  // the address or flight field once the loaded form is enabled.
+  const focusStay = useRef("");
   useEffect(() => {
     if (!focusStay.current || busy || stage !== "details") return;
-    focusStay.current = false;
-    const field = document.querySelector<HTMLInputElement>(
-      "#accommodation input",
-    );
+    // The pickup address, or the first flight detail (else the question).
+    const field =
+      document.querySelector<HTMLElement>(`${focusStay.current} input`) ??
+      document.querySelector<HTMLElement>(`${focusStay.current} button`);
     field?.focus({ preventScroll: true });
     field?.scrollIntoView({ block: "center" });
+    focusStay.current = "";
   }, [busy, stage]);
   useEffect(() => {
     let active = true;
@@ -150,10 +155,10 @@ export default function Intake({
             setStatus("");
             // Reminders link here to add the pickup address: open the form
             // at that field.
-            if (window.location.hash === "#accommodation") {
+            if (["#accommodation", "#arrival"].includes(window.location.hash)) {
               setMode("form");
               setStage("details");
-              focusStay.current = true;
+              focusStay.current = window.location.hash;
             }
           }
         })
@@ -368,6 +373,11 @@ export default function Intake({
       `${longDate(profile.startDate)} – ${longDate(profile.endDate)}`,
     ],
     ["Travellers", `${profile.adults} adults`],
+    [
+      "Arriving",
+      arrivalSummary(profile) ?? "Not answered yet",
+      arrivalSummary(profile) === null,
+    ],
     [
       "Staying in",
       profile.accommodationBy === "FASTLIFE"
@@ -655,6 +665,21 @@ export default function Intake({
                 <p className="form-hint">
                   Trips of 1–30 days. All times are Lagos time.
                 </p>
+                <ArrivalFields
+                  profile={profile}
+                  priceMinor={airportPickupMinor}
+                  onChange={(arrival) =>
+                    setProfile((previous) => {
+                      const next = { ...previous, ...arrival };
+                      if (!id)
+                        localStorage.setItem(
+                          "tourism.profile",
+                          JSON.stringify(next),
+                        );
+                      return next;
+                    })
+                  }
+                />
                 <TripEvents start={profile.startDate} end={profile.endDate} />
               </fieldset>
               <fieldset className="form-section" disabled={busy}>

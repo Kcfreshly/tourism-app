@@ -9,6 +9,7 @@ import type {
   QueuedService,
   ServiceRequestRepository,
 } from "../ports/service-request-repository";
+import { noTripDetails, type TripDetails } from "../ports/trip-details";
 
 // Marks requests nobody was matched to in time. There is no scheduled job
 // yet (D7), so the queue and the traveller's booking pages run this before
@@ -26,16 +27,32 @@ export class ExpireOverdueServices {
   }
 }
 
-// Staff's matching queue.
+// Staff's matching queue. Airport pickups carry the flight details from
+// the trip.
 export class ListServiceQueue {
   constructor(
     private readonly services: ServiceRequestRepository,
     private readonly expire: ExpireOverdueServices,
+    private readonly trips: TripDetails = noTripDetails,
   ) {}
 
-  async execute() {
+  async execute(): Promise<QueuedService[]> {
     await this.expire.execute();
-    return this.services.listQueue();
+    const queue = await this.services.listQueue();
+    const pickups = queue.filter(
+      (q) => q.service === "AIRPORT_PICKUP" && q.tripId,
+    );
+    if (!pickups.length) return queue;
+    const trips = await this.trips.arrangements(
+      pickups.map((q) => q.tripId!),
+    );
+    return queue.map((q) => {
+      const arrival =
+        q.service === "AIRPORT_PICKUP" && q.tripId
+          ? trips.get(q.tripId)?.airportPickup
+          : undefined;
+      return arrival ? { ...q, arrival } : q;
+    });
   }
 }
 

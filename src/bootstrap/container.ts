@@ -36,6 +36,7 @@ import {
   ListServiceQueue,
   UpdateServiceRequest,
 } from "@/modules/bookings/application/use-cases/service-requests";
+import { DrizzleTripArrangements } from "@/modules/trips/infrastructure/persistence/drizzle-trip-arrangements";
 import { DrizzleServiceRequestRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-service-request-repository";
 import { DrizzleStayOfferRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-stay-offer-repository";
 import {
@@ -403,6 +404,8 @@ const confirmPayment = new ConfirmPayment(
   notifier,
 );
 const serviceRequests = new DrizzleServiceRequestRepository(db);
+// Paid trips' pickups and stay preferences, read live for staff queues.
+const tripArrangements = new DrizzleTripArrangements(db);
 const expireOverdueServices = new ExpireOverdueServices(
   serviceRequests,
   notifier,
@@ -457,7 +460,7 @@ const tripSource: TripSource = {
       id: userId,
       kind: "ACCOUNT",
     });
-    const { price, pickup } = await getWorkspace.execute(context);
+    const { price, pickup, flight } = await getWorkspace.execute(context);
     return {
       id: context.trip.id,
       version: context.trip.version,
@@ -468,6 +471,7 @@ const tripSource: TripSource = {
       blockers: price.blockers,
       orderReference: context.booking?.orderReference ?? null,
       pickupOverdue: !!pickup?.overdue,
+      flightOverdue: !!flight?.overdue,
     };
   },
 };
@@ -648,7 +652,11 @@ export const api = {
   },
   adminServiceRequests: createServiceRequestControllers({
     guards,
-    list: new ListServiceQueue(serviceRequests, expireOverdueServices),
+    list: new ListServiceQueue(
+      serviceRequests,
+      expireOverdueServices,
+      tripArrangements,
+    ),
     update: new UpdateServiceRequest(serviceRequests, notifier),
   }),
   orders: createOrderControllers({ guards, list: listOrders, get: getOrder }),

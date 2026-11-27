@@ -300,6 +300,20 @@ export default function AdminTransportSettings() {
         </div>
       </fieldset>
       <fieldset className="card admin-transport-card" disabled={busy}>
+        <legend>Airport pickup</legend>
+        <p className="muted">
+          For travellers arriving from abroad: a driver meets them at arrivals
+          and takes them to their stay. Paid trips keep the price they paid.
+        </p>
+        <div className="field-grid">
+          <Naira
+            label="Airport pickup price (₦)"
+            value={edit.airportPickupMinor}
+            onChange={(airportPickupMinor) => set({ airportPickupMinor })}
+          />
+        </div>
+      </fieldset>
+      <fieldset className="card admin-transport-card" disabled={busy}>
         <legend>Guides and pickups</legend>
         <div className="field-grid">
           <Whole

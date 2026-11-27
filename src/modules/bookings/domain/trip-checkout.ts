@@ -18,6 +18,7 @@ export const serviceKinds = [
   "NIGHT_CAR",
   "FULL_DAY_GUIDE",
   "ACTIVITY_GUIDE",
+  "AIRPORT_PICKUP",
 ] as const;
 export type ServiceKind = (typeof serviceKinds)[number];
 
@@ -50,6 +51,7 @@ const who: Record<ServiceKind, string> = {
   NIGHT_CAR: "night driver",
   FULL_DAY_GUIDE: "guide",
   ACTIVITY_GUIDE: "guide",
+  AIRPORT_PICKUP: "driver",
 };
 
 export const serviceTitles: Record<ServiceKind, string> = {
@@ -57,6 +59,7 @@ export const serviceTitles: Record<ServiceKind, string> = {
   NIGHT_CAR: "Night car and driver",
   FULL_DAY_GUIDE: "Full-day guide",
   ACTIVITY_GUIDE: "Activity guide",
+  AIRPORT_PICKUP: "Airport pickup",
 };
 
 export function serviceStatusLabel(service: ServiceKind, status: string) {
@@ -69,7 +72,7 @@ export function serviceStatusLabel(service: ServiceKind, status: string) {
 
 // The planned trip as checkout needs it, with the planner's price.
 export type TripForCheckout = {
-  profile: Pick<Profile, "adults">;
+  profile: Pick<Profile, "adults" | "airportPickup">;
   items: Item[];
   services: Services;
   price: {
@@ -225,6 +228,15 @@ export function tripCheckoutLines(
         rest,
         trip.services.nightWindows?.[rest]?.startTime ?? "20:00",
         [`night-cross-zone:${rest}`],
+      );
+    else if (kind === "airport")
+      // Without a landing time yet, the deadline counts from the start of
+      // the landing day; staff see the flight details as they come in.
+      service(
+        price.key,
+        "AIRPORT_PICKUP",
+        rest,
+        trip.profile.airportPickup?.landingTime || "00:00",
       );
     else if (kind === "guide" && itemById.has(rest)) {
       const item = itemById.get(rest)!;

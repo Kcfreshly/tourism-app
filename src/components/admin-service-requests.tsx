@@ -9,6 +9,7 @@ import {
   type ServiceStatus,
 } from "@/modules/bookings/domain/trip-checkout";
 import { assigneeLines } from "@/modules/bookings/domain/service-request";
+import { airports, type AirportPickup } from "@/modules/trips/domain/profile";
 import { showToast } from "./toast";
 
 // Mirrors QueuedService from the API.
@@ -25,9 +26,28 @@ type Request = {
   assignee: Record<string, string> | null;
   contact: { name: string; phone: string };
   totalMinor: number;
+  arrival?: AirportPickup;
 };
 
-const isCar = (s: ServiceKind) => s === "CAR" || s === "NIGHT_CAR";
+const isCar = (s: ServiceKind) =>
+  s === "CAR" || s === "NIGHT_CAR" || s === "AIRPORT_PICKUP";
+
+// What the driver needs to meet the flight; missing details are flagged.
+function arrivalFacts(a: AirportPickup): [string, string, boolean?][] {
+  return [
+    ["Airport", airports[a.airport]],
+    ["Flight", a.flight || "Not given yet", !a.flight],
+    [
+      "Lands",
+      `${shortDay(a.landingDate)}${a.landingTime ? ` · ${clockLabel(a.landingTime)}` : " · time not given yet"}`,
+      !a.landingTime,
+    ],
+    [
+      "Party",
+      `${a.travellers} ${a.travellers === 1 ? "traveller" : "travellers"} · ${a.bags} ${a.bags === 1 ? "bag" : "bags"}`,
+    ],
+  ];
+}
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", {
     weekday: "short",
@@ -80,7 +100,11 @@ function RequestCard({ r, onChanged }: { r: Request; onChanged: () => void }) {
         <div>
           <h3>{serviceTitles[r.service]}</h3>
           <p className="muted">
-            {shortDay(r.date)} · {clockLabel(r.startTime)} · {r.label}
+            {shortDay(r.date)}
+            {r.service === "AIRPORT_PICKUP" && !r.arrival?.landingTime
+              ? ""
+              : ` · ${clockLabel(r.arrival?.landingTime || r.startTime)}`}{" "}
+            · {r.label}
           </p>
         </div>
         <span
@@ -116,6 +140,13 @@ function RequestCard({ r, onChanged }: { r: Request; onChanged: () => void }) {
           <dt>Paid</dt>
           <dd>{formatMoney(r.totalMinor)}</dd>
         </div>
+        {r.arrival &&
+          arrivalFacts(r.arrival).map(([k, v, missing]) => (
+            <div key={k} data-missing={missing || undefined}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
         {assigneeLines(r.service, r.assignee).map(([k, v]) => (
           <div key={k}>
             <dt>{k}</dt>

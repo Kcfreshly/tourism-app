@@ -42,6 +42,9 @@ export const transportSettingsSchema = z
     // Travellers who book their own stay are reminded to add a pickup
     // address until this many hours before their first pickup.
     pickupAddressNoticeHours: z.number().int().min(0).max(168),
+    // A flat price per airport pickup for travellers arriving from abroad,
+    // copied onto the checkout line when they pay.
+    airportPickupMinor: minor,
   })
   .strict();
 
@@ -60,6 +63,7 @@ export const defaultTransportSettings: TransportSettings = {
   lateReturnFrom: "22:00",
   guideNoticeHours: 24,
   pickupAddressNoticeHours: 12,
+  airportPickupMinor: 4_000_000,
 };
 
 // Settings saved before a field existed take its default; stored settings

@@ -49,6 +49,7 @@ export class DrizzleServiceRequestRepository implements ServiceRequestRepository
         id: r.id,
         version: r.version,
         userId: r.userId,
+        tripId: r.tripId,
         orderReference: reference,
         service: r.service as ServiceKind,
         date: r.localDate,

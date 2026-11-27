@@ -1538,7 +1538,14 @@ export default function Planner({
                     return (
                       <li key={index}>
                         {friendlyIssue(issue.message, days)}
-                        {driverCodes.has(issue.code) ? (
+                        {issue.code === "FLIGHT_DETAILS" ? (
+                          <Link
+                            className="text-link"
+                            href={`/trips/${id}/profile#arrival`}
+                          >
+                            Add flight details
+                          </Link>
+                        ) : driverCodes.has(issue.code) ? (
                           servicesOnly ? (
                             date &&
                             date !== day && (

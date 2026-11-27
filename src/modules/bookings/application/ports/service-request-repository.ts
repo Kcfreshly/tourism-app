@@ -1,3 +1,4 @@
+import type { AirportPickup } from "../../../trips/domain/profile";
 import type { ServiceKind, ServiceStatus } from "../../domain/trip-checkout";
 
 // A paid car or guide as staff see it in the matching queue.
@@ -5,6 +6,7 @@ export type QueuedService = {
   id: string;
   version: number;
   userId: string;
+  tripId: string | null;
   orderReference: string;
   service: ServiceKind;
   date: string;
@@ -15,6 +17,8 @@ export type QueuedService = {
   assignee: Record<string, string> | null;
   contact: { name: string; phone: string };
   totalMinor: number;
+  // An airport pickup's flight, read from the trip as it is now.
+  arrival?: AirportPickup;
 };
 
 export type ServiceChange = {

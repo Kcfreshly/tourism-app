@@ -30,6 +30,9 @@ export default async function NewPlan({
         offer={offer}
         fresh={fresh === "1" || !!source}
         seed={source && planSeed(source)}
+        airportPickupMinor={
+          (await pages.transportSettings()).airportPickupMinor
+        }
       />
       <section className="page-section how-it-works">
         <div className="section-head">
