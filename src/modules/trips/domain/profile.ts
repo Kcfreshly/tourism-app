@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { addDays } from "../../catalogue/domain/schedule";
-import { zoneLabel } from "../../catalogue/domain/experience-content";
+import {
+  formatMoney,
+  zoneLabel,
+} from "../../catalogue/domain/experience-content";
 // Where the traveller stays, for headers and summaries.
 export function stayLabel(
   p: Pick<Profile, "accommodation" | "accommodationBy" | "zoneId" | "stay">,
@@ -11,6 +14,8 @@ export function stayLabel(
       "Stay booked by Fastlife",
       area,
       p.stay && stayTypes[p.stay.type],
+      p.stay?.budgetPerNightMinor !== undefined &&
+        `up to ${formatMoney(p.stay.budgetPerNightMinor)} a night`,
       p.stay &&
         p.stay.choice.kind !== "RECOMMEND" &&
         stayChoiceLabel(p.stay.choice),

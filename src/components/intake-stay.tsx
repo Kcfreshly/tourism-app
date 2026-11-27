@@ -27,9 +27,9 @@ function ChosenPlace({
     choice.kind === "LISTED"
       ? choice.name
       : choice.kind === "NAMED"
-        ? `${choice.name} · we’ll check it for you`
+        ? `${choice.name} · we’ll check it and try to book it, or somewhere like it`
         : choice.kind === "LINK"
-          ? `${linkSources[choice.source]} · ${new URL(choice.url).hostname}`
+          ? `${linkSources[choice.source]} · ${new URL(choice.url).hostname} · we’ll use it as a guide`
           : `No preference · we’ll send you stay recommendations within ${stayRecommendHours} hours`;
   return (
     <div className="stay-chosen" role="status">
@@ -60,7 +60,12 @@ export default function StayFields({
     choice: recommend,
   };
   const [typed, setTyped] = useState("");
-  const [searching, setSearching] = useState(!profile.stay);
+  // The box starts open until they've named a place, so they see they can
+  // share one.
+  const [searching, setSearching] = useState(
+    !profile.stay || profile.stay.choice.kind === "RECOMMEND",
+  );
+  const recommending = stay.choice.kind === "RECOMMEND";
   const [matches, setMatches] = useState<HotelMatch[]>([]);
   const [error, setError] = useState("");
   const typeLabel = useId();
@@ -105,6 +110,12 @@ export default function StayFields({
 
   return (
     <div className="stay-fields">
+      <p className="stay-intro">
+        Tell us what you like and we’ll choose for you: your preferred area
+        (above), the type of place, the most you’d spend a night, and any hotel,
+        Booking.com or Airbnb listing you like the look of. The more you share,
+        the closer we get to your taste.
+      </p>
       <div className="stay-type">
         <span id={typeLabel}>Type of stay</span>
         <div className="chip-row" role="group" aria-labelledby={typeLabel}>
@@ -123,12 +134,13 @@ export default function StayFields({
       </div>
       <div className="field-grid">
         <label>
-          Budget per night (NGN, optional)
+          Most you’d spend per night (₦, optional)
           <input
             type="number"
             min="0"
             step="5000"
-            placeholder="Leave blank if you’re flexible"
+            placeholder="e.g. 80000"
+            aria-describedby={`${listId}-budget`}
             value={
               stay.budgetPerNightMinor === undefined
                 ? ""
@@ -144,12 +156,15 @@ export default function StayFields({
               })
             }
           />
+          <small id={`${listId}-budget`} className="form-hint">
+            We stay at or under this. Leave it blank if you’re flexible.
+          </small>
         </label>
       </div>
       <div className="stay-place">
         {!searching ? (
           <>
-            <span className="stay-place-label">Place in mind</span>
+            <span className="stay-place-label">A place you’d like</span>
             <ChosenPlace
               choice={stay.choice}
               onChange={() => setSearching(true)}
@@ -158,22 +173,26 @@ export default function StayFields({
         ) : (
           <>
             <label>
-              Do you have a place in mind?
+              Somewhere you’d like us to consider (optional)
               <input
                 maxLength={500}
                 autoComplete="off"
-                placeholder="Hotel name, or paste a Booking.com, Airbnb or hotel link"
+                placeholder="Hotel name or link"
                 aria-describedby={`${listId}-hint`}
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
               />
             </label>
             <p id={`${listId}-hint`} className="form-hint">
-              We search our list in{" "}
+              Type a hotel name, or paste a link to a Booking.com or Airbnb
+              listing or a hotel’s website. We’ll try to book it, or somewhere
+              like it. Names are searched in our list{" "}
               {profile.zoneId === "UNDECIDED"
-                ? "every area"
-                : `${zoneLabel(profile.zoneId)} first`}
-              . Not listed? Keep your own choice and we’ll check it.
+                ? "across Lagos"
+                : `in ${zoneLabel(profile.zoneId)} first`}
+              .
+              {recommending &&
+                ` Leave it empty and we’ll send you recommendations within ${stayRecommendHours} hours of booking.`}
             </p>
             {error && (
               <p className="field-error" role="alert">
@@ -189,8 +208,10 @@ export default function StayFields({
                         type="button"
                         onClick={() => choose({ kind: "LINK", ...link })}
                       >
-                        <strong>{linkSources[link.source]}</strong>
-                        <span>{new URL(link.url).hostname}</span>
+                        <strong>Use this {linkSources[link.source]}</strong>
+                        <span>
+                          {new URL(link.url).hostname} · we’ll use it as a guide
+                        </span>
                       </button>
                     </li>
                   ) : (
@@ -233,7 +254,10 @@ export default function StayFields({
                           }
                         >
                           <strong>Use ‘{typed.trim().slice(0, 120)}’</strong>
-                          <span>Not on our list; we’ll check it for you</span>
+                          <span>
+                            Not on our list; we’ll check it, or find somewhere
+                            like it
+                          </span>
                         </button>
                       </li>
                     )}
@@ -242,14 +266,16 @@ export default function StayFields({
               </ul>
             )}
             <div className="stay-place-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => choose(recommend)}
-              >
-                No preference: recommend somewhere
-              </button>
-              {profile.stay && (
+              {!recommending && (
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => choose(recommend)}
+                >
+                  No preference: recommend somewhere
+                </button>
+              )}
+              {!recommending && (
                 <button
                   type="button"
                   className="text-button"
