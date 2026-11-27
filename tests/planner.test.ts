@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import pricingCases from "../tourism-v1-handoff/qa/pricing-cases.json";
 import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
-import { initialProfile } from "../src/modules/trips/domain/profile";
+import {
+  categoryIds,
+  initialProfile,
+} from "../src/modules/trips/domain/profile";
 import {
   arithmetic,
   availableStarts,
@@ -12,18 +15,21 @@ import {
   defaultServices,
   feeHalfUp,
   tripDays,
+  pastBookingCutoff,
   type Item,
 } from "../src/modules/trips/domain/planner";
 import {
   propose,
   lockedItemsUnchanged,
   assertPlannerContract,
-} from "../src/modules/trips/domain/proposal";
+} from "../src/modules/trips/application/services/proposal";
 import {
   demoPublishIssues,
   emptyReview,
 } from "../src/modules/catalogue/domain/catalogue";
 import { extractProfile } from "../src/modules/trips/domain/intake";
+import { defaultTransportSettings } from "../src/modules/trips/domain/transport-settings";
+const { guideNoticeHours } = defaultTransportSettings;
 const profile = {
   ...initialProfile,
   accommodation: "Fictional fixed base",
@@ -89,6 +95,43 @@ describe("integer pricing", () => {
     );
     expect(price.totalMinor).toBe(0);
     expect(price.lines).toEqual([]);
+  });
+  it("charges no vehicle when travellers make their own way", () => {
+    const own = { ...profile, transport: "OWN" as const };
+    const price = assess(
+      own,
+      schedule,
+      defaultServices,
+      fixture.experiences,
+      now,
+    );
+    expect(price.transportMinor).toBe(0);
+    expect(price.lines.some((l) => l.group === "transport")).toBe(false);
+    expect(price.blockers).toEqual([]);
+    const guided = assess(
+      own,
+      schedule,
+      { ...defaultServices, guideDays: ["2026-11-10"] },
+      fixture.experiences,
+      now,
+    );
+    expect(guided.lines.find((l) => l.group === "hosting")?.label).toBe(
+      "2026-11-10 · full-day guide · 09:00–17:00",
+    );
+    expect(guided.blockers).toEqual([]);
+  });
+  it("keeps an own-transport full-day guide to 8 hours", () => {
+    const price = assess(
+      { ...profile, transport: "OWN" },
+      [
+        item("offer-nature-walk", "09:00", "11:00"),
+        item("offer-gallery", "16:00", "17:30"),
+      ],
+      { ...defaultServices, guideDays: ["2026-11-10"] },
+      fixture.experiences,
+      now,
+    );
+    expect(price.blockers.map((b) => b.code)).toContain("GUIDE_WINDOW");
   });
   it("suppresses an included host charge", () => {
     const hosted = [item("offer-cooking", "10:00", "12:00")];
@@ -177,6 +220,196 @@ describe("schedule constraints and proposals", () => {
       lockedItemsUnchanged([locked], [{ ...locked, startTime: "10:00" }]),
     ).toBe(false);
   });
+  it("fills suggested days to the traveller's pace", () => {
+    const plan = (pace: "RELAXED" | "BALANCED" | "FULL") => {
+      const trip = {
+        ...profile,
+        pace,
+        interests: [...categoryIds],
+        startDate: "2027-05-10",
+        endDate: "2027-05-14",
+      };
+      const visits = propose(
+        trip,
+        [],
+        services,
+        fixture.experiences,
+      ).items.filter((i) => i.kind === "EXPERIENCE");
+      const kind = (i: Item) =>
+        fixture.experiences.find((e) => e.offer.id === i.offerId)?.kind;
+      const perDay = (day: string, light: boolean) =>
+        visits.filter(
+          (i) => i.localDate === day && (kind(i) === "LIGHT") === light,
+        ).length;
+      return {
+        count: visits.length,
+        mains: Math.max(...tripDays(trip).map((d) => perDay(d, false))),
+        arrivalLights: perDay(trip.startDate, true),
+        firstStart: visits.map((i) => i.startTime).sort()[0],
+      };
+    };
+    const relaxed = plan("RELAXED"),
+      balanced = plan("BALANCED"),
+      full = plan("FULL");
+    expect(relaxed.mains).toBe(1);
+    expect(relaxed.firstStart).toBe("10:00");
+    expect(balanced.mains).toBe(2);
+    expect(balanced.firstStart).toBe("09:00");
+    expect(relaxed.count).toBeLessThan(balanced.count);
+    expect(full.mains).toBeLessThanOrEqual(3);
+    expect(full.arrivalLights).toBe(2);
+    expect(balanced.arrivalLights).toBe(1);
+  });
+  it("books the same day up to the start, unless the listing asks for notice", () => {
+    const day = "2027-05-10";
+    const trip = { ...profile, startDate: day, endDate: day };
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    const codes = (offerId: string, now: number) =>
+      assess(
+        trip,
+        [{ ...item(offerId, "13:00", "14:30"), localDate: day }],
+        services,
+        fixture.experiences,
+        now,
+      ).blockers.map((b) => b.message);
+    // No notice needed: bookable an hour before, refused once started.
+    expect(codes("offer-gallery", at("12:00")).join()).not.toMatch(
+      /passed|needs booking/,
+    );
+    expect(codes("offer-gallery", at("13:30"))).toContain(
+      "This start time has already passed.",
+    );
+    // The cooking host asks for 24 hours' notice.
+    expect(
+      codes("offer-cooking", at("09:00")).some((m) =>
+        m.includes("at least 24 hours"),
+      ),
+    ).toBe(true);
+  });
+  it("lets late arrivals drop in to a flexible listing for a shorter visit", () => {
+    const walk = fixture.experiences.find(
+      (e) => e.offer.id === "offer-nature-walk",
+    )!;
+    const day = "2027-05-10";
+    const trip = {
+      ...profile,
+      startDate: day,
+      endDate: day,
+      transport: "OWN" as const,
+    };
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    // Usually 2–3 hours, but at 16:30 there is still time for an hour.
+    expect(pastBookingCutoff(walk, day, at("16:30"))).toBe(false);
+    expect(
+      assess(
+        trip,
+        [{ ...item("offer-nature-walk", "16:45", "18:00"), localDate: day }],
+        defaultServices,
+        fixture.experiences,
+        at("16:30"),
+      ).blockers,
+    ).toEqual([]);
+    const latest = availableStarts(
+      trip,
+      walk,
+      day,
+      [],
+      defaultServices,
+      fixture.experiences,
+    ).at(-1)!;
+    expect([latest.startTime, latest.endTime]).toEqual(["17:00", "18:00"]);
+    // Less than an hour before closing is too late.
+    expect(pastBookingCutoff(walk, day, at("17:15"))).toBe(true);
+    expect(
+      assess(
+        trip,
+        [{ ...item("offer-nature-walk", "17:15", "18:00"), localDate: day }],
+        defaultServices,
+        fixture.experiences,
+        at("17:00"),
+      ).blockers.map((b) => b.code),
+    ).toContain("DURATION");
+  });
+  it("adds a guide only when booked far enough ahead", () => {
+    const day = "2027-05-10";
+    const trip = {
+      ...profile,
+      startDate: day,
+      endDate: day,
+      transport: "OWN" as const,
+    };
+    const walk = {
+      ...item("offer-nature-walk", "10:00", "12:00"),
+      localDate: day,
+    };
+    const start = Date.parse(`${day}T10:00:00+01:00`);
+    const hour = 3600000;
+    const guided = (guides: Partial<typeof defaultServices>, now: number) =>
+      assess(
+        trip,
+        [walk],
+        { ...defaultServices, ...guides },
+        fixture.experiences,
+        now,
+      );
+    const activity = { guideItemIds: [walk.id] };
+    const fullDay = { guideDays: [day] };
+    for (const guides of [activity, fullDay]) {
+      const early = guided(guides, start - (guideNoticeHours + 1) * hour);
+      expect(early.blockers).toEqual([]);
+      expect(early.hostingMinor).toBeGreaterThan(0);
+      const late = guided(guides, start - (guideNoticeHours - 1) * hour);
+      expect(late.blockers.map((b) => b.code)).toEqual(["GUIDE_NOTICE"]);
+      expect(late.hostingMinor).toBe(0);
+    }
+    // The activity itself can still be booked without the guide.
+    expect(guided({}, start - hour).blockers).toEqual([]);
+  });
+  it("closes a day only once its last start is inside the booking cutoff", () => {
+    const gallery = fixture.experiences.find(
+      (e) => e.offer.id === "offer-gallery",
+    )!;
+    const day = "2027-05-10";
+    const at = (t: string) => Date.parse(`${day}T${t}:00+01:00`);
+    // Same-day booking works while a later start is still far enough ahead.
+    expect(pastBookingCutoff(gallery, day, at("06:00") - 86400000)).toBe(false);
+    expect(pastBookingCutoff(gallery, day, at("23:00"))).toBe(true);
+    // A day without sessions isn't "too late"; it simply doesn't run.
+    expect(
+      pastBookingCutoff(
+        {
+          ...gallery,
+          schedulingType: "FIXED",
+          sessions: [
+            { startTime: "18:00", durationMinutes: 60, dates: ["2027-01-01"] },
+          ],
+        } as never,
+        day,
+        at("23:00"),
+      ),
+    ).toBe(false);
+  });
+  it("warns when a day is busier than the chosen pace", () => {
+    const relaxed = assess(
+      { ...profile, pace: "RELAXED" },
+      schedule,
+      services,
+      fixture.experiences,
+      now,
+    );
+    expect(relaxed.warnings.map((w) => w.message)).toContain(
+      "2026-11-10: busier than your relaxed pace. Consider a lighter day.",
+    );
+    expect(
+      assess(
+        profile,
+        schedule,
+        services,
+        fixture.experiences,
+        now,
+      ).warnings.some((w) => w.code === "DENSITY"),
+    ).toBe(false);
+  });
   it("never auto-adds a second daytime main alongside a retained full-day outing", () => {
     const full = item("offer-history", "09:00", "15:00", { locked: true });
     const result = propose(profile, [full], services, fixture.experiences);
@@ -211,7 +444,8 @@ describe("placement enforcement", () => {
       services,
       fixture.experiences,
     );
-    expect(valid.at(-1)?.startTime).toBe("16:00");
+    // A late drop-in still gets an hour before closing.
+    expect(valid.at(-1)?.startTime).toBe("17:00");
     expect(valid.some((i) => i.endTime > "18:00")).toBe(false);
     expect(
       placementIssues(

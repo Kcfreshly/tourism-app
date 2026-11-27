@@ -120,6 +120,12 @@ const paths = {
   list: (
     <path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" />
   ),
+  bag: (
+    <>
+      <path d="M5.5 8.5h13l-1 11h-11l-1-11Z" />
+      <path d="M9 8.5V7a3 3 0 0 1 6 0v1.5" />
+    </>
+  ),
   help: (
     <>
       <circle cx="12" cy="12" r="8.5" />

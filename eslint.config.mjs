@@ -61,5 +61,12 @@ export default defineConfig([
       ],
     },
   },
-  globalIgnores([".next/**", ".local/**", "tourism-v1-handoff/**", "asset/**"]),
+  globalIgnores([
+    ".next/**",
+    ".local/**",
+    "tourism-v1-handoff/**",
+    "asset/**",
+    // Separate services have their own toolchains.
+    "services/**",
+  ]),
 ]);

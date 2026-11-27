@@ -35,7 +35,7 @@
         "policyId": "demo-48h",
         "capacityUnit": "PERSON",
         "capacityPerSlot": 8,
-        "bookingCutoffHours": 48
+        "bookingCutoffHours": 0
       },
       "mobility": {
         "intensity": "MODERATE",
@@ -93,7 +93,7 @@
         "policyId": "demo-48h",
         "capacityUnit": "PERSON",
         "capacityPerSlot": 4,
-        "bookingCutoffHours": 48
+        "bookingCutoffHours": 0
       },
       "mobility": {
         "intensity": "LOW",
@@ -151,7 +151,7 @@
         "policyId": "demo-48h",
         "capacityUnit": "PERSON",
         "capacityPerSlot": 6,
-        "bookingCutoffHours": 48
+        "bookingCutoffHours": 0
       },
       "mobility": {
         "intensity": "LOW",
@@ -224,7 +224,7 @@
         "policyId": "demo-48h",
         "capacityUnit": "PERSON",
         "capacityPerSlot": 8,
-        "bookingCutoffHours": 48
+        "bookingCutoffHours": 0
       },
       "mobility": {
         "intensity": "MODERATE",
@@ -289,7 +289,7 @@
         "policyId": "demo-48h",
         "capacityUnit": "PERSON",
         "capacityPerSlot": 8,
-        "bookingCutoffHours": 48
+        "bookingCutoffHours": 0
       },
       "mobility": {
         "intensity": "MODERATE",
@@ -347,7 +347,7 @@
         "policyId": "demo-48h",
         "capacityUnit": "PERSON",
         "capacityPerSlot": 8,
-        "bookingCutoffHours": 48
+        "bookingCutoffHours": 0
       },
       "mobility": {
         "intensity": "MODERATE",

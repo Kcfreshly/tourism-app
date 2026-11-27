@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authClient } from "./auth-client";
 import type { Item, Services, assess } from "@/modules/trips/domain/planner";
-import type { Profile } from "@/modules/trips/domain/profile";
+import { stayLabel, type Profile } from "@/modules/trips/domain/profile";
 import { unplannedDays } from "@/modules/trips/domain/checkout";
-import {
-  formatMoney,
-  zoneLabel,
-} from "@/modules/catalogue/domain/experience-content";
+import { formatMoney } from "@/modules/catalogue/domain/experience-content";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
 import TripCost from "./trip-cost";
 import Icon from "./icons";
@@ -15,11 +14,18 @@ import Icon from "./icons";
 type Workspace = {
   trip: {
     id: string;
+    version: number;
     profile: Profile;
     items: Item[];
     services: Services;
   };
   price: ReturnType<typeof assess>;
+  // Set once the trip is paid for: it is then read-only.
+  booking: { orderReference: string } | null;
+  // When the pickup address is due, if one is still needed.
+  pickup: { overdue: boolean; message: string } | null;
+  // When an airport pickup's flight details are due, if still missing.
+  flight: { overdue: boolean; message: string } | null;
 };
 
 const money = (n: number) => formatMoney(n, n % 100 ? 2 : 0);
@@ -38,12 +44,28 @@ function friendly(message: string) {
   );
 }
 
-// Final review before paying. Payment is not connected in this preview, so the
-// pay button stays disabled and explains why; nothing is held or charged.
-export default function Checkout({ id }: { id: string }) {
+// Final review before paying for a planned trip: one payment for its
+// activities, cars and guides. Activities are held while the traveller
+// pays; drivers and guides are matched afterwards.
+export default function Checkout({
+  id,
+  paymentsEnabled,
+}: {
+  id: string;
+  paymentsEnabled: boolean;
+}) {
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
   const [data, setData] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [name, setName] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+  const [tried, setTried] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [notice, setNotice] = useState("");
+  // One key per Pay press, kept only when retrying after the provider failed.
+  const payKey = useRef("");
   useEffect(() => {
     let active = true;
     fetch(`/api/v1/trips/${encodeURIComponent(id)}/workspace`)
@@ -78,7 +100,111 @@ export default function Checkout({ id }: { id: string }) {
   const { profile } = trip;
   const empty = unplannedDays(profile, trip.items);
   const planned = trip.items.some((i) => i.kind === "EXPERIENCE");
-  const blocked = price.blockers.length > 0 || !planned;
+  const pickup = price.warnings.find((w) => w.code === "PICKUP_ADDRESS");
+  // The address can follow the booking, but not once a booked car's
+  // pickup is inside the notice window: the driver needs it to be matched.
+  const hasCar = price.lines.some(
+    (l) => l.key.startsWith("vehicle:") || l.key.startsWith("night:"),
+  );
+  const addressOverdue = !!data.pickup?.overdue && hasCar;
+  const flight = data.flight;
+  const flightOverdue =
+    !!flight?.overdue && price.lines.some((l) => l.key.startsWith("airport:"));
+  const blocked =
+    price.blockers.length > 0 || !planned || addressOverdue || flightOverdue;
+  const leadName = name ?? session?.user.name ?? "";
+  const phoneValid = /^\+?[0-9][0-9 ()-]{6,19}$/.test(phone.trim());
+  const problems = [
+    leadName.trim().length < 2 && "Add the lead guest’s name.",
+    !phoneValid && "Add a phone number your driver can reach.",
+    !agreed && "Tick the box to agree to the terms.",
+  ].filter((p): p is string => !!p);
+
+  if (data.booking) {
+    const reference = data.booking.orderReference;
+    return (
+      <section className="page checkout-page">
+        <div className="empty-state">
+          <Icon name="check" size={28} />
+          <h1>This trip is booked</h1>
+          <p>
+            Order <strong>{reference}</strong>. Each activity, driver and guide
+            is confirmed or matched on its own; follow them in your booking. The
+            plan can’t change here any more. Contact Fastlife from your booking
+            to change it.
+          </p>
+          {pickup && <p>{pickup.message}</p>}
+          {flight && <p>{flight.message}</p>}
+          <div className="actions">
+            <Link className="button" href={`/bookings/${reference}`}>
+              View booking
+            </Link>
+            {pickup && (
+              <Link
+                className="button secondary"
+                href={`/trips/${id}/profile#accommodation`}
+              >
+                Add pickup address
+              </Link>
+            )}
+            {flight && (
+              <Link
+                className="button secondary"
+                href={`/trips/${id}/profile#arrival`}
+              >
+                Add flight details
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  async function pay() {
+    setTried(true);
+    if (problems.length || blocked || !paymentsEnabled || paying) return;
+    setPaying(true);
+    setNotice("");
+    payKey.current ||= crypto.randomUUID();
+    try {
+      const response = await fetch(
+        `/api/v1/trips/${encodeURIComponent(id)}/checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": payKey.current,
+          },
+          body: JSON.stringify({
+            expectedVersion: trip.version,
+            shownTotalMinor: price.totalMinor,
+            contact: { name: leadName.trim(), phone: phone.trim() },
+            agreed: true,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (body.data?.status === "PAYMENT_REDIRECT") {
+        window.location.assign(body.data.authorizationUrl);
+        return;
+      }
+      if (body.data?.status === "PAID") {
+        router.push(`/bookings/${body.data.orderReference}?paid=1`);
+        return;
+      }
+      if (body.error?.code !== "PAYMENT_PROVIDER_UNAVAILABLE")
+        payKey.current = "";
+      setNotice(body.error?.message ?? "Payment couldn’t start. Try again.");
+    } catch {
+      setNotice(
+        "We couldn’t reach Fastlife. Check your connection and press Pay again.",
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
+
   return (
     <section className="page checkout-page">
       <ol className="journey-steps checkout-steps" aria-label="Booking steps">
@@ -97,11 +223,7 @@ export default function Checkout({ id }: { id: string }) {
           {profile.draftName || "Your Lagos trip"} ·{" "}
           {shortDate(profile.startDate)} – {shortDate(profile.endDate)} ·{" "}
           {profile.adults} {profile.adults === 1 ? "adult" : "adults"} · staying
-          in{" "}
-          {profile.accommodation ||
-            (profile.zoneId !== "UNDECIDED"
-              ? zoneLabel(profile.zoneId)
-              : "a base not yet set")}
+          in {stayLabel(profile)}
         </p>
       </header>
       <div className="checkout-layout">
@@ -124,6 +246,34 @@ export default function Checkout({ id }: { id: string }) {
               </div>
             </div>
           )}
+          {pickup && (
+            <div className="notice pickup-reminder">
+              <Icon name="pin" size={18} />
+              <div>
+                <strong>Pickup address needed</strong>
+                <p>
+                  {pickup.message}{" "}
+                  <Link href={`/trips/${id}/profile#accommodation`}>
+                    Add it now
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
+          {flight && (
+            <div className="notice pickup-reminder">
+              <Icon name="car" size={18} />
+              <div>
+                <strong>Flight details needed</strong>
+                <p>
+                  {flight.message}{" "}
+                  <Link href={`/trips/${id}/profile#arrival`}>
+                    Add them now
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
           {blocked && (
             <div className="checkout-blockers" role="alert">
               <h2>
@@ -132,6 +282,17 @@ export default function Checkout({ id }: { id: string }) {
               </h2>
               <ul>
                 {!planned && <li>Add at least one activity to your trip.</li>}
+                {addressOverdue && (
+                  <li>
+                    Add your pickup address: your driver needs it to be matched.
+                  </li>
+                )}
+                {flightOverdue && (
+                  <li>
+                    Add your flight number and landing time: your driver needs
+                    them to meet you.
+                  </li>
+                )}
                 {price.blockers.map((b, index) => (
                   <li key={index}>{friendly(b.message)}</li>
                 ))}
@@ -163,25 +324,47 @@ export default function Checkout({ id }: { id: string }) {
           />
         </div>
         <aside className="checkout-pay" aria-labelledby="pay-title">
-          <h2 id="pay-title">Pay and confirm</h2>
+          <h2 id="pay-title">Pay and book</h2>
           <p className="checkout-total">
             <span>Total to pay</span>
             <strong>{money(price.totalMinor)}</strong>
           </p>
           <ol className="checkout-next">
             <li>
-              Your places are held for {rules.holdMinutes} minutes while you
-              pay.
+              Your activity places are held for {rules.holdMinutes} minutes
+              while you pay.
             </li>
             <li>
-              Payment confirms every activity, driver and guide at once, at
-              these prices.
+              Each activity, driver and guide is confirmed on its own, at these
+              prices. You’ll see each one’s status in My bookings.
             </li>
             <li>
-              You get your confirmation straight away, and your driver’s details
-              48 hours before you arrive.
+              We match your driver and guide and send their details at least 48
+              hours before they start. If we can’t, that part is refunded in
+              full.
             </li>
           </ol>
+          <div className="field-grid checkout-contact">
+            <label className="field">
+              <span>Lead guest</span>
+              <input
+                value={leadName}
+                autoComplete="name"
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>Phone (for your driver and guide)</span>
+              <input
+                type="tel"
+                value={phone}
+                autoComplete="tel"
+                placeholder="+234 …"
+                aria-invalid={tried && !phoneValid}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+          </div>
           <label className="check">
             <input
               type="checkbox"
@@ -191,19 +374,34 @@ export default function Checkout({ id }: { id: string }) {
             I’ve checked my days and agree to each activity’s cancellation
             policy.
           </label>
-          <button type="button" disabled aria-describedby="pay-preview-note">
+          {notice && (
+            <p className="field-error" role="alert">
+              {notice}
+            </p>
+          )}
+          {tried && problems.length > 0 && (
+            <ul className="field-error booking-problems" role="alert">
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            disabled={blocked || !paymentsEnabled || paying}
+            aria-describedby="pay-preview-note"
+            onClick={pay}
+          >
             <Icon name="lock" size={16} />
-            Pay {money(price.totalMinor)}
+            {paying ? "Opening payment…" : `Pay ${money(price.totalMinor)}`}
           </button>
           <p id="pay-preview-note" className="checkout-preview-note">
             <Icon name="info" size={14} />
             {blocked
-              ? "Sort out the items above first. "
-              : agreed
-                ? ""
-                : "Tick the box above to continue. "}
-            Payments aren’t switched on in this preview, so nothing can be held
-            or charged yet.
+              ? "Sort out the items above first."
+              : paymentsEnabled
+                ? "One payment on the secure payment page. Test mode: no real money moves."
+                : "Payments aren’t switched on in this preview, so nothing can be held or charged yet."}
           </p>
           <Link className="text-link" href={`/trips/${id}/plan`}>
             <Icon name="arrowLeft" size={16} />

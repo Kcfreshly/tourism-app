@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import { pages } from "@/bootstrap/container";
 import AdminCatalogue from "@/components/admin-catalogue";
+import AdminPackages from "@/components/admin-packages";
+import AdminPartners from "@/components/admin-partners";
+import AdminServiceRequests from "@/components/admin-service-requests";
+import PartnerBookings from "@/components/partner-bookings";
+import AdminStayOffers from "@/components/admin-stay-offers";
+import AdminHotels from "@/components/admin-hotels";
+import AdminTransportSettings from "@/components/admin-transport-settings";
+import AdminOverview from "@/components/admin-overview";
 import Link from "next/link";
+import { isSuperAdmin } from "@/modules/identity/domain/actor";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Staff workspace" };
 export default async function Admin() {
@@ -24,15 +33,126 @@ export default async function Admin() {
     );
   return (
     <section className="admin-page">
-      <div className="page-intro">
-        <p className="eyebrow">Staff workspace</p>
-        <h1>Catalogue operations</h1>
-        <p className="lede">
-          Review rates, capacity and publication status. Demo supply only; live
-          sales remain disabled.
-        </p>
-      </div>
-      <AdminCatalogue />
+      <header className="admin-header">
+        <div>
+          <p className="eyebrow">Fastlife operations</p>
+          <h1>Staff workspace</h1>
+          <p>Manage bookings, partner reviews and the Fastlife catalogue.</p>
+        </div>
+        <p className="admin-demo">Demo catalogue</p>
+      </header>
+      <nav
+        className="admin-jump workspace-nav"
+        aria-label="Staff workspace sections"
+      >
+        <a href="#dashboard">Dashboard</a>
+        <a href="#analytics">Analytics</a>
+        <a href="#services">Drivers &amp; guides</a>
+        <a href="#partner-bookings">Partner bookings</a>
+        <a href="#stays">Stays</a>
+        <a href="#hotels">Hotel list</a>
+        <a href="#listings">Activities</a>
+        <a href="#partners">Partners</a>
+        <a href="#packages">Ready-made trips</a>
+        <a href="#transport">Transport &amp; guides</a>
+      </nav>
+      <AdminOverview />
+      <section
+        id="services"
+        className="admin-section"
+        aria-labelledby="admin-services-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-services-heading">Drivers &amp; guides</h2>
+          <p className="muted">
+            Match a driver or guide to each paid trip at least 48 hours before
+            it starts. The traveller sees who it is as soon as you match.
+          </p>
+        </div>
+        <AdminServiceRequests />
+      </section>
+      <section
+        id="partner-bookings"
+        className="admin-section"
+        aria-labelledby="admin-partner-bookings-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-partner-bookings-heading">Partner bookings</h2>
+          <p className="muted">
+            Paid bookings partners must confirm. Unanswered ones are declined at
+            their deadline and the traveller is due a full refund.
+          </p>
+        </div>
+        <PartnerBookings staff />
+      </section>
+      <section
+        id="stays"
+        className="admin-section"
+        aria-labelledby="admin-stays-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-stays-heading">Stays</h2>
+          <p className="muted">
+            Stay requests from paid trips where we book the stay, with what the
+            traveller asked for. Reply within 48 hours of payment when they
+            asked us to recommend. Send up to three places to stay; the price
+            you enter is what the traveller pays, markup included. They approve
+            one and pay for it in the app; the others are released.
+          </p>
+        </div>
+        <AdminStayOffers />
+      </section>
+      <section
+        id="hotels"
+        className="admin-section"
+        aria-labelledby="admin-hotels-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-hotels-heading">Hotel list</h2>
+          <p className="muted">
+            The places travellers search when they tell us where they’d like to
+            stay. Add other names people use, so their search finds it.
+          </p>
+        </div>
+        <AdminHotels />
+      </section>
+      <section id="listings" aria-labelledby="admin-listings-heading">
+        <AdminCatalogue canDelete={isSuperAdmin(actor)} />
+      </section>
+      <section
+        id="partners"
+        className="admin-section"
+        aria-labelledby="admin-partners-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-partners-heading">Partners</h2>
+          <p className="muted">
+            Verify partner businesses, and approve or send back the activities
+            and trips they submit. Approved ones go live straight away.
+          </p>
+        </div>
+        <AdminPartners />
+      </section>
+      <section
+        id="packages"
+        className="admin-section"
+        aria-labelledby="admin-packages-heading"
+      >
+        <AdminPackages />
+      </section>
+      <section
+        id="transport"
+        className="admin-section"
+        aria-labelledby="transport-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="transport-heading">Transport &amp; guides</h2>
+          <p className="muted">
+            Set demo car rates and booking rules used in planner estimates.
+          </p>
+        </div>
+        <AdminTransportSettings />
+      </section>
     </section>
   );
 }

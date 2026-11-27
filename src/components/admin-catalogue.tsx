@@ -1,43 +1,75 @@
 "use client";
-import { useEffect, useState } from "react";
-import categories from "../../tourism-v1-handoff/data/categories.json";
-import type { Experience } from "@/modules/catalogue/domain/experience";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { showToast } from "./toast";
+import Link from "next/link";
 import {
-  emptyReview,
-  type catalogueEditSchema,
+  catalogueEditSchema,
+  listingReadiness,
+  listingStatuses,
 } from "@/modules/catalogue/domain/catalogue";
-import type { z } from "zod";
-type Edit = z.infer<typeof catalogueEditSchema>;
-type Row = {
-  id: string;
-  seedKey: string;
-  version: number;
-  status: string;
-  record: Experience;
-  review: Edit["review"];
+import { displayName } from "@/modules/catalogue/domain/experience-content";
+import ListingForm, {
+  sections,
+  type FullEdit,
+  type SectionId,
+} from "./admin-listing-form";
+import { cleanEdit, editRow, type Row } from "./listing-edit";
+
+const approved = {
+  content: true,
+  rates: true,
+  capacity: true,
+  policy: true,
+  media: true,
 };
-function editRow(row: Row): Edit {
-  return {
-    id: row.id,
-    expectedVersion: row.version,
-    name: row.record.name,
-    categoryId: row.record.categoryId as Edit["categoryId"],
-    zoneId: row.record.zoneId as Edit["zoneId"],
-    kind: row.record.kind as Edit["kind"],
-    durationMinMinutes: row.record.durationMinMinutes,
-    durationMaxMinutes: row.record.durationMaxMinutes,
-    rateMinor: row.record.offer.rateMinor,
-    capacityPerSlot: row.record.offer.capacityPerSlot,
-    status: row.status as Edit["status"],
-    review: row.review ?? emptyReview,
-  };
+
+function statusLabel(status: string) {
+  return status.replace("DEMO_", "").replace("_", " ").toLowerCase();
 }
-export default function AdminCatalogue() {
+
+type Deleted = {
+  auditId: string;
+  id: string;
+  name: string;
+  deletedAt: string;
+  deletedBy: string;
+  reason: string | null;
+};
+
+// `canDelete` is true for super admins; the API enforces the same rule.
+export default function AdminCatalogue({
+  canDelete = false,
+}: {
+  canDelete?: boolean;
+}) {
   const [rows, setRows] = useState<Row[]>([]),
-    [edit, setEdit] = useState<Edit | null>(null),
+    [edit, setEdit] = useState<FullEdit | null>(null),
+    [baseline, setBaseline] = useState(""),
+    [section, setSection] = useState<SectionId>("basics"),
     [status, setStatus] = useState("Loading catalogue…"),
+    [problems, setProblems] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
-    [name, setName] = useState("");
+    [name, setName] = useState(""),
+    [draftError, setDraftError] = useState(""),
+    [query, setQuery] = useState(""),
+    [filter, setFilter] = useState("ALL"),
+    [deleted, setDeleted] = useState<Deleted[]>([]),
+    [reason, setReason] = useState("");
+  const dirty = !!edit && JSON.stringify(edit) !== baseline;
+  const current = rows.find((r) => r.id === edit?.id);
+  const editor = useRef<HTMLDivElement>(null);
+
+  function focusEditor() {
+    const panel = editor.current;
+    if (!panel) return;
+    if (window.matchMedia?.("(max-width: 900px)").matches) {
+      panel.focus({ preventScroll: true });
+      panel.scrollIntoView({ block: "start" });
+    } else {
+      panel.focus();
+    }
+  }
+
   async function load() {
     const r = await fetch("/api/v1/admin/catalogue");
     const body = await r.json();
@@ -63,268 +95,482 @@ export default function AdminCatalogue() {
       active = false;
     };
   }, []);
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  async function loadDeleted() {
+    const r = await fetch("/api/v1/admin/catalogue/deleted");
+    const body = await r.json();
+    if (r.ok) setDeleted(body.data);
+  }
+  useEffect(() => {
+    let active = true;
+    fetch("/api/v1/admin/catalogue/deleted")
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((body) => {
+        if (active) setDeleted(body.data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function remove() {
+    if (!edit || !current) return;
+    if (
+      !window.confirm(
+        `Delete “${displayName(edit.name)}”? Travellers stop seeing it at once. A full copy stays in the audit trail and it can be restored from Recently deleted.`,
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/v1/admin/catalogue", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: current.id,
+          expectedVersion: current.version,
+          reason: reason.trim() || undefined,
+        }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw Error(body.error.message);
+      setRows((rows) => rows.filter((row) => row.id !== current.id));
+      setEdit(null);
+      setBaseline("");
+      setReason("");
+      setStatus("Deleted. Restore it from Recently deleted if needed.");
+      showToast({ message: `“${displayName(edit.name)}” deleted.` });
+      await loadDeleted();
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Delete failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restore(item: Deleted) {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/v1/admin/catalogue/deleted", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auditId: item.auditId }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw Error(body.error.message);
+      setRows((rows) => [body.data, ...rows]);
+      setDeleted((list) => list.filter((d) => d.auditId !== item.auditId));
+      setStatus(`Restored “${displayName(item.name)}”.`);
+      showToast({ message: `Restored “${displayName(item.name)}”.` });
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Restore failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  function open(row: Row) {
+    if (dirty && !window.confirm("Discard unsaved changes to this listing?"))
+      return;
+    const next = editRow(row);
+    setEdit(next);
+    setBaseline(JSON.stringify(next));
+    setProblems([]);
+    setStatus("Editing local demo supply.");
+    focusEditor();
+  }
+  function set(patch: Partial<FullEdit>) {
+    setEdit((e) => (e ? { ...e, ...patch } : e));
+  }
+  // Saves the editor, optionally changing status. Publishing records the
+  // staff member's approval by ticking every review check.
+  async function save(change?: "PUBLISH" | "UNPUBLISH") {
+    if (!edit) return;
+    // Saving a listing that stays published (or approved) is the staff
+    // member's approval too, like Publish. Without this, listings published
+    // before the checklist was ticked (such as seeded demo rows) can't be
+    // saved at all.
+    const next: FullEdit =
+      change === "PUBLISH"
+        ? { ...edit, status: "DEMO_PUBLISHED", review: approved }
+        : change === "UNPUBLISH"
+          ? { ...edit, status: "PAUSED" }
+          : ["DEMO_PUBLISHED", "DEMO_VERIFIED"].includes(edit.status)
+            ? { ...edit, review: approved }
+            : edit;
+    const parsed = catalogueEditSchema.safeParse(cleanEdit(next));
+    const missing =
+      parsed.success &&
+      ["DEMO_PUBLISHED", "DEMO_VERIFIED"].includes(next.status)
+        ? listingReadiness(parsed.data)
+        : [];
+    if (!parsed.success || missing.length) {
+      setProblems(
+        parsed.success
+          ? missing
+          : parsed.error.issues.map((i) =>
+              i.path.length ? `${i.path.join(" › ")}: ${i.message}` : i.message,
+            ),
+      );
+      setStatus(
+        change === "PUBLISH"
+          ? "Not ready to publish yet. Fix the items below."
+          : "Fix the problems below, then save again.",
+      );
+      return;
+    }
+    setProblems([]);
     setBusy(true);
     try {
       const r = await fetch("/api/v1/admin/catalogue", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(edit),
+        body: JSON.stringify(parsed.data),
       });
       const body = await r.json();
       if (!r.ok) throw Error(body.error.message);
       setRows((rows) =>
         rows.map((row) => (row.id === body.data.id ? body.data : row)),
       );
-      setEdit(editRow(body.data));
-      setStatus(`Saved version ${body.data.version}. Audit recorded.`);
+      const saved = editRow(body.data);
+      setEdit(saved);
+      setBaseline(JSON.stringify(saved));
+      const message =
+        change === "PUBLISH"
+          ? "Published. Travellers can see it now."
+          : change === "UNPUBLISH"
+            ? "Unpublished. Hidden from new bookings."
+            : `Saved version ${body.data.version}.`;
+      setStatus(message);
+      showToast({
+        message: `“${displayName(body.data.record.name)}”: ${message}`,
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Save failed.");
     } finally {
       setBusy(false);
     }
   }
-  function field<K extends keyof Edit>(key: K, value: Edit[K]) {
-    setEdit((e) => (e ? { ...e, [key]: value } : e));
-  }
+
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        listingStatuses.map((s) => [
+          s,
+          rows.filter((r) => r.status === s).length,
+        ]),
+      ),
+    [rows],
+  );
+  const shown = rows.filter(
+    (r) =>
+      (filter === "ALL" || r.status === filter) &&
+      (!query ||
+        r.record.name.toLowerCase().includes(query.toLowerCase()) ||
+        r.seedKey.includes(query.toLowerCase())),
+  );
+
   return (
-    <>
-      <div className="admin-layout">
-        <aside className="card card-body">
-          <h2>Catalogue</h2>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setBusy(true);
-              try {
-                const r = await fetch("/api/v1/admin/catalogue", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name }),
-                });
-                const body = await r.json();
-                if (!r.ok) throw Error(body.error.message);
-                setRows((rows) => [body.data, ...rows]);
-                setEdit(editRow(body.data));
-                setName("");
-                setStatus("Fictional draft created.");
-              } catch (e) {
-                setStatus(
-                  e instanceof Error ? e.message : "Unable to create draft.",
-                );
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <label>
-              New fictional draft name
-              <input
-                required
-                minLength={5}
-                maxLength={100}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            <button disabled={busy}>Create draft</button>
-          </form>
-          <div className="catalogue-list">
-            {rows.map((row) => (
+    <div className="admin-layout">
+      <aside className="card admin-library">
+        <div className="admin-library-tools">
+          <h2 id="admin-listings-heading">Listings</h2>
+          <details className="admin-create">
+            <summary>Create listing</summary>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (
+                  dirty &&
+                  !window.confirm("Discard unsaved changes to this listing?")
+                )
+                  return;
+                setDraftError("");
+                setBusy(true);
+                try {
+                  const r = await fetch("/api/v1/admin/catalogue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name }),
+                  });
+                  const body = await r.json();
+                  if (!r.ok) throw Error(body.error.message);
+                  setRows((rows) => [body.data, ...rows]);
+                  const next = editRow(body.data);
+                  setEdit(next);
+                  setBaseline(JSON.stringify(next));
+                  setSection("basics");
+                  setName("");
+                  setProblems([]);
+                  setStatus("Fictional draft created.");
+                  showToast({ message: "Draft listing created." });
+                  focusEditor();
+                } catch (e) {
+                  setDraftError(
+                    e instanceof Error ? e.message : "Unable to create draft.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                New fictional draft name
+                <input
+                  required
+                  minLength={5}
+                  maxLength={100}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+              <button disabled={busy}>Create draft</button>
+              {draftError && (
+                <p className="field-error" role="alert">
+                  {draftError}
+                </p>
+              )}
+            </form>
+          </details>
+          <label>
+            Search listings
+            <input
+              type="search"
+              placeholder="Listing name or ID"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <div className="admin-filters" role="group" aria-label="Status">
+            {["ALL", ...listingStatuses].map((s) => (
               <button
-                className="secondary"
-                key={row.id}
-                aria-pressed={edit?.id === row.id}
-                onClick={() => {
-                  setEdit(editRow(row));
-                  setStatus("Editing local demo supply.");
-                }}
+                key={s}
+                type="button"
+                className="chip"
+                aria-pressed={filter === s}
+                onClick={() => setFilter(s)}
               >
-                <span>{row.record.name}</span>
-                <small>
-                  <span className="status-dot" data-status={row.status} />
-                  {row.status.replace("_", " ").toLowerCase()} · v{row.version}
-                </small>
+                {s === "ALL"
+                  ? `All ${rows.length}`
+                  : `${statusLabel(s)} ${counts[s]}`}
               </button>
             ))}
           </div>
-        </aside>
-        <div className="card form-card">
-          {edit ? (
-            <form onSubmit={save}>
-              <h2>Edit fictional supply</h2>
-              <p className="notice">
-                Demo review checks do not verify real suppliers or enable live
-                sales. Publish only exposes this fictional listing in the demo.
-              </p>
-              <fieldset disabled={busy}>
+        </div>
+        <div className="catalogue-list" aria-label="Listing results">
+          {shown.map((row) => (
+            <button
+              className="secondary"
+              key={row.id}
+              disabled={busy}
+              aria-pressed={edit?.id === row.id}
+              onClick={() => open(row)}
+            >
+              <span>{displayName(row.record.name)}</span>
+              <small>
+                <span className="status-dot" data-status={row.status} />
+                {statusLabel(row.status)} · v{row.version}
+                {row.record.event ? " · event" : ""}
+              </small>
+            </button>
+          ))}
+          {!shown.length && <p className="muted">No listings match.</p>}
+        </div>
+        {deleted.length > 0 && (
+          <details className="admin-deleted">
+            <summary>Recently deleted ({deleted.length})</summary>
+            <ul>
+              {deleted.map((d) => (
+                <li key={d.auditId}>
+                  <span>{displayName(d.name)}</span>
+                  <small className="muted">
+                    Deleted by {d.deletedBy} ·{" "}
+                    {new Date(d.deletedAt).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                    {d.reason ? ` · ${d.reason}` : ""}
+                  </small>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => restore(d)}
+                  >
+                    Restore
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </aside>
+      <div
+        className="card admin-editor"
+        ref={editor}
+        tabIndex={-1}
+        role="region"
+        aria-label="Listing editor"
+      >
+        {edit ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              save();
+            }}
+            noValidate
+          >
+            <div className="admin-editor-top">
+              <a
+                href="#admin-listings-heading"
+                className="text-link admin-back"
+              >
+                Back to listings
+              </a>
+              <div className="admin-editor-head">
+                <div>
+                  <h2>{displayName(edit.name)}</h2>
+                  <p className="muted">
+                    <span
+                      className="status-dot"
+                      data-status={current?.status}
+                    />
+                    {statusLabel(current?.status ?? edit.status)} · version{" "}
+                    {edit.expectedVersion}
+                  </p>
+                </div>
+                {current?.status === "DEMO_PUBLISHED" && (
+                  <Link
+                    className="text-link"
+                    href={`/experiences/${current.seedKey}`}
+                    target="_blank"
+                  >
+                    View live listing
+                  </Link>
+                )}
+              </div>
+              <nav className="admin-tabs" aria-label="Listing sections">
+                {sections.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="chip"
+                    aria-pressed={section === s.id}
+                    onClick={() => setSection(s.id)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+            <fieldset className="admin-editor-fields" disabled={busy}>
+              {section === "review" && (
+                <p className="notice">
+                  New listings are added by staff, so publishing needs no second
+                  approval.
+                </p>
+              )}
+              <ListingForm edit={edit} set={set} section={section} />
+            </fieldset>
+            {section === "review" && canDelete && current && (
+              <div className="admin-danger">
+                <h3>Delete listing</h3>
+                <p className="form-hint">
+                  Super admins only. The listing disappears for travellers, and
+                  a full copy is kept in the audit trail so it can be restored.
+                </p>
                 <label>
-                  Name
+                  Reason (optional)
                   <input
-                    required
-                    minLength={5}
-                    maxLength={140}
-                    value={edit.name}
-                    onChange={(e) => field("name", e.target.value)}
+                    maxLength={300}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
                   />
                 </label>
-                <div className="field-grid">
-                  <label>
-                    Category
-                    <select
-                      value={edit.categoryId}
-                      onChange={(e) =>
-                        field(
-                          "categoryId",
-                          e.target.value as Edit["categoryId"],
-                        )
-                      }
-                    >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Service zone
-                    <select
-                      value={edit.zoneId}
-                      onChange={(e) =>
-                        field("zoneId", e.target.value as Edit["zoneId"])
-                      }
-                    >
-                      <option>LEKKI</option>
-                      <option>VI</option>
-                      <option>MAINLAND</option>
-                    </select>
-                  </label>
-                  <label>
-                    Kind
-                    <select
-                      value={edit.kind}
-                      onChange={(e) =>
-                        field("kind", e.target.value as Edit["kind"])
-                      }
-                    >
-                      <option>MAIN</option>
-                      <option>LIGHT</option>
-                      <option>FULL_DAY</option>
-                    </select>
-                  </label>
-                  <label>
-                    Rate (integer kobo)
-                    <input
-                      required
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={edit.rateMinor}
-                      onChange={(e) =>
-                        field("rateMinor", Number(e.target.value))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Minimum minutes
-                    <input
-                      required
-                      type="number"
-                      min={30}
-                      max={420}
-                      value={edit.durationMinMinutes}
-                      onChange={(e) =>
-                        field("durationMinMinutes", Number(e.target.value))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Maximum minutes
-                    <input
-                      required
-                      type="number"
-                      min={30}
-                      max={480}
-                      value={edit.durationMaxMinutes}
-                      onChange={(e) =>
-                        field("durationMaxMinutes", Number(e.target.value))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Demo capacity per slot
-                    <input
-                      required
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={edit.capacityPerSlot}
-                      onChange={(e) =>
-                        field("capacityPerSlot", Number(e.target.value))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      value={edit.status}
-                      onChange={(e) =>
-                        field("status", e.target.value as Edit["status"])
-                      }
-                    >
-                      <option>DRAFT</option>
-                      <option>RESEARCHED</option>
-                      <option>DEMO_VERIFIED</option>
-                      <option>DEMO_PUBLISHED</option>
-                      <option>PAUSED</option>
-                    </select>
-                  </label>
-                </div>
-                <h3>Fictional review checklist</h3>
-                {(Object.keys(emptyReview) as (keyof typeof emptyReview)[]).map(
-                  (key) => (
-                    <label className="check" key={key}>
-                      <input
-                        type="checkbox"
-                        checked={edit.review[key]}
-                        onChange={(e) =>
-                          field("review", {
-                            ...edit.review,
-                            [key]: e.target.checked,
-                          })
-                        }
-                      />
-                      {key} reviewed for demo testing
-                    </label>
-                  ),
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={busy}
+                  onClick={remove}
+                >
+                  Delete listing
+                </button>
+              </div>
+            )}
+            {problems.length > 0 && (
+              <ul className="field-error admin-problems" role="alert">
+                {problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            )}
+            <div className="admin-savebar">
+              <p role="status" className="muted">
+                {dirty ? "Unsaved changes. " : ""}
+                {status}
+              </p>
+              <div className="admin-save-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!dirty || busy}
+                  onClick={() => {
+                    setEdit(JSON.parse(baseline));
+                    setProblems([]);
+                  }}
+                >
+                  Discard
+                </button>
+                <button className="secondary" disabled={!dirty || busy}>
+                  Save changes
+                </button>
+                {current?.status === "DEMO_PUBLISHED" ? (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => save("UNPUBLISH")}
+                  >
+                    Unpublish
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => save("PUBLISH")}
+                  >
+                    {dirty ? "Save & publish" : "Publish"}
+                  </button>
                 )}
-                <p className="muted">
-                  To publish a draft: review every field, save DEMO_VERIFIED,
-                  then save DEMO_PUBLISHED. Pausing stops new selections; saved
-                  drafts retain their existing references.
-                </p>
-                <button>Save audited changes</button>
-              </fieldset>
-            </form>
-          ) : (
-            <>
-              <h2>Choose a record to review.</h2>
-              <p>No live supplier records can be published here.</p>
-            </>
-          )}
-          <p role="status" className="muted">
-            {status}
-          </p>
-          <button
-            className="secondary"
-            onClick={() => load().catch((e) => setStatus(e.message))}
-          >
-            Reload catalogue
-          </button>
-        </div>
+              </div>
+            </div>
+          </form>
+        ) : (
+          <div className="admin-editor-empty">
+            <h2>Choose a listing to edit</h2>
+            <p className="muted">
+              Select a listing to update its details, pricing or publication
+              status.
+            </p>
+            <p role="status" className="muted">
+              {status}
+            </p>
+            <button
+              className="secondary"
+              onClick={() => load().catch((e) => setStatus(e.message))}
+            >
+              Reload catalogue
+            </button>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

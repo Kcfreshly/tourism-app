@@ -17,8 +17,21 @@ import {
   placementMessage,
   availableStarts,
   assistanceFor,
+  pastBookingCutoff,
+  guideTooLate,
+  dayTransport,
+  nightGroup,
+  fitCar,
+  carCovers,
 } from "@/modules/trips/domain/planner";
+import {
+  defaultTransportSettings,
+  longestDayBlock,
+  type TransportSettings,
+} from "@/modules/trips/domain/transport-settings";
+import { stayLabel } from "@/modules/trips/domain/profile";
 import type { Experience } from "@/modules/catalogue/domain/experience";
+import { clockLabel, shortestVisit } from "@/modules/catalogue/domain/schedule";
 import { ClearBucket } from "./bucket";
 import { useBucket } from "@/hooks/use-bucket";
 import Icon from "./icons";
@@ -27,13 +40,13 @@ import {
   displayName,
   formatDuration,
   formatMoney,
-  zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
 import {
   eventDates,
   eventDay,
   eventWhen,
   isEvent,
+  lagosToday,
 } from "@/modules/catalogue/domain/events";
 import categories from "../../tourism-v1-handoff/data/categories.json";
 import rules from "../../tourism-v1-handoff/data/pricing.demo.json";
@@ -58,6 +71,10 @@ type Proposal = {
   diff: { added: Item[]; removed: Item[] };
 };
 const money = (n: number) => formatMoney(n, n % 100 ? 2 : 0);
+// A time typed into a 24-hour input keeps the side of midnight the field was
+// already on: an end of 27:00 edited to 04:00 becomes 28:00.
+const sameSide = (current: string, typed: string) =>
+  time((minutes(current) >= 1440 ? 1440 : 0) + minutes(typed));
 function shortDate(date: string) {
   return new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", {
     weekday: "short",
@@ -74,6 +91,15 @@ function friendlyIssue(message: string, days: string[]) {
       : `${shortDate(date)}: `,
   );
 }
+const driverCodes = new Set([
+  "MISSING_WINDOW",
+  "SERVICE_WINDOW",
+  "LATE_RETURN",
+  "NIGHT_UNUSED",
+  "GUIDE_NOTICE",
+  "GUIDE_WINDOW",
+  "ROUTE_UNSUPPORTED",
+]);
 function statusTone(status: string, blocked: boolean) {
   if (blocked) return "warn";
   if (/^Saved/.test(status)) return "ok";
@@ -118,7 +144,15 @@ export default function Planner({
     [category, setCategory] = useState(""),
     [editing, setEditing] = useState<Item | null>(null),
     [proposal, setProposal] = useState<Proposal | null>(null),
-    [past, setPast] = useState<{ items: Item[]; services: Services }[]>([]);
+    [past, setPast] = useState<{ items: Item[]; services: Services }[]>([]),
+    [settings, setSettings] = useState<TransportSettings>(
+      defaultTransportSettings,
+    ),
+    // Where the traveller is staying, while they fill it in from a warning.
+    [base, setBase] = useState<{
+      accommodation: string;
+      zoneId: Profile["zoneId"];
+    } | null>(null);
   // Which guide add-ons are switched on; null follows the saved services.
   const [guideModes, setGuideModes] = useState<{
     activity: boolean;
@@ -126,6 +160,7 @@ export default function Planner({
   } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null),
     library = useRef<HTMLDialogElement>(null);
+  const pendingAdd = useRef<string | null>(null);
   const libraryDismiss = useBackdropDismiss(library),
     editDismiss = useBackdropDismiss(dialog);
   useEffect(() => {
@@ -145,16 +180,29 @@ export default function Planner({
     api(`${root}/workspace`)
       .then((data) => {
         if (!active) return;
+        // A paid trip is read-only: show its booking instead of an editor
+        // whose saves would be refused.
+        if (data.booking) {
+          window.location.replace(
+            `/trips/${encodeURIComponent(data.trip.id)}/checkout`,
+          );
+          return;
+        }
         receive(data);
         setOffers(data.offers);
-        // A link may open a particular day, e.g. from the checkout prompt.
-        const requested = new URLSearchParams(window.location.search).get(
-          "day",
-        );
+        if (data.settings) setSettings(data.settings);
+        // A link may open a particular day, e.g. from the checkout prompt,
+        // and ask to add an activity, e.g. from "Add to trip".
+        const query = new URLSearchParams(window.location.search);
+        const requested = query.get("day");
+        pendingAdd.current = query.get("add");
+        const days = tripDays(data.trip.profile);
+        // Open on today or later, so a trip already under way doesn't land
+        // on a day that has passed.
         setDay(
-          requested && tripDays(data.trip.profile).includes(requested)
+          requested && days.includes(requested)
             ? requested
-            : data.trip.profile.startDate,
+            : (days.find((d) => d >= lagosToday()) ?? days[0]),
         );
         setStatus("Saved · nothing is booked yet");
       })
@@ -165,6 +213,17 @@ export default function Planner({
       active = false;
     };
   }, [root, receive]);
+  useEffect(() => {
+    const offerId = pendingAdd.current;
+    if (!offerId || !day || !services) return;
+    pendingAdd.current = null;
+    window.history.replaceState(null, "", window.location.pathname);
+    const offer = offers.find((o) => o.offer.id === offerId);
+    if (offer) add(offer);
+    else setStatus("That activity is no longer listed.");
+    // Runs once the plan and its offers have loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day, services, offers]);
   const save = useCallback(async () => {
     if (!trip || !services) return false;
     setBusy(true);
@@ -203,8 +262,49 @@ export default function Planner({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-  function change(nextItems: Item[], nextServices = services) {
-    if (!services || !nextServices || !trip || busy) return false;
+  // A car-for-the-day that is missing or no longer covers the day's
+  // activities is refitted to them; one that still works is left alone.
+  function refitCars(nextItems: Item[], base: Services) {
+    if (!trip) return base;
+    let next = base;
+    for (const date of tripDays(trip.profile)) {
+      if (dayTransport(trip.profile, next, date) !== "CAR") continue;
+      const dated = nextItems
+        .filter(
+          (i) =>
+            i.localDate === date &&
+            i.kind === "EXPERIENCE" &&
+            offers.some((o) => o.offer.id === i.offerId),
+        )
+        .sort((a, b) => a.startTime.localeCompare(b.startTime));
+      const night = nightGroup(dated, next, date, settings);
+      const daytime = dated.filter((i) => !night.includes(i));
+      if (!daytime.length) continue;
+      const offerFor = (itemId: string) =>
+        offers.find(
+          (o) => o.offer.id === dated.find((i) => i.id === itemId)?.offerId,
+        )!;
+      const current = next.vehicleWindows[date];
+      if (current && carCovers(trip.profile.zoneId, daytime, offerFor, current))
+        continue;
+      const fit = fitCar(trip.profile.zoneId, daytime, offerFor, settings);
+      if (fit || !current)
+        next = {
+          ...next,
+          vehicleWindows: {
+            ...next.vehicleWindows,
+            [date]: fit ?? {
+              startTime: "08:00",
+              hours: longestDayBlock(settings),
+            },
+          },
+        };
+    }
+    return next;
+  }
+  function change(nextItems: Item[], given = services, autoFit = true) {
+    if (!services || !given || !trip || busy) return false;
+    const nextServices = autoFit ? refitCars(nextItems, given) : given;
     const issue = placementIssues(
       trip.profile,
       nextItems,
@@ -227,19 +327,70 @@ export default function Planner({
     setStatus("Unsaved changes · updating estimate…");
     return true;
   }
+  async function saveBase() {
+    if (!trip || !base || dirty || busy) return;
+    setBusy(true);
+    try {
+      await api(root, "PATCH", {
+        expectedVersion: trip.version,
+        profile: {
+          ...trip.profile,
+          accommodation: base.accommodation.trim(),
+          zoneId: base.zoneId,
+        },
+      });
+      const data = await api(`${root}/workspace`);
+      receive(data);
+      setOffers(data.offers);
+      if (data.settings) setSettings(data.settings);
+      setBase(null);
+      setStatus(
+        base.accommodation.trim()
+          ? `Saved · pickups from ${base.accommodation.trim()}`
+          : "Saved · area updated",
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  }
   function openItem(item: Item) {
     setEditing(item);
   }
+  // A dated event goes on a day it runs, so the traveller never has to find
+  // that day: this day if it runs and fits, otherwise its first trip date
+  // that fits. Replacing keeps the block's own day.
+  function placementDay(offer: Experience) {
+    if (!trip || !services || !isEvent(offer) || replacing) return day;
+    const dates = eventDates(
+      offer,
+      trip.profile.startDate,
+      trip.profile.endDate,
+    );
+    if (!dates.length) return day;
+    const ordered = dates.includes(day)
+      ? [day, ...dates.filter((d) => d !== day)]
+      : dates;
+    return (
+      ordered.find(
+        (d) =>
+          availableStarts(trip.profile, offer, d, items, services, offers)
+            .length > 0,
+      ) ?? ordered[0]
+    );
+  }
   function add(offer?: Experience) {
     library.current?.close();
-    const scheduled = items.filter((i) => i.localDate === day);
+    const date = offer ? placementDay(offer) : day;
+    const scheduled = items.filter((i) => i.localDate === date);
     const last = Math.max(
       540,
       ...scheduled.map((i) => minutes(i.endTime) + 45),
     );
     const session =
       offer?.schedulingType === "FIXED"
-        ? offer.sessions?.find((s) => !s.dates || s.dates.includes(day))
+        ? offer.sessions?.find((s) => !s.dates || s.dates.includes(date))
         : undefined;
     const start = session
       ? minutes(session.startTime)
@@ -251,7 +402,7 @@ export default function Planner({
         ? availableStarts(
             trip.profile,
             offer,
-            day,
+            date,
             items,
             services,
             offers,
@@ -260,14 +411,18 @@ export default function Planner({
         : [];
     if (offer && !available.length) {
       setStatus(
-        "This experience can’t fit this day. Its opening hours, sessions, length or travel time clash with your plans — try another day.",
+        offer && isEvent(offer) && date !== day
+          ? `This event runs on ${eventDay(date)}, but it clashes with your plans there. Move something on that day to make room.`
+          : "This experience can’t fit this day. Its opening hours, sessions, length or travel time clash with your plans — try another day.",
       );
       return;
     }
+    // Show the day the event went on.
+    if (date !== day) setDay(date);
     openItem({
       ...(available[0] ?? {}),
       id: replacing?.id ?? crypto.randomUUID(),
-      localDate: day,
+      localDate: date,
       startTime: available[0]?.startTime ?? time(Math.min(start, 1380)),
       endTime:
         available[0]?.endTime ??
@@ -275,7 +430,8 @@ export default function Planner({
           Math.min(
             start +
               (session?.durationMinutes ?? offer?.durationMinMinutes ?? 60),
-            1439,
+            // The service day runs to 06:00 the next morning.
+            1800,
           ),
         ),
       kind: offer ? "EXPERIENCE" : "CUSTOM",
@@ -317,12 +473,14 @@ export default function Planner({
         e.name.toLowerCase().includes(search.toLowerCase()),
     )
     .map((e, index) => {
+      // Events are checked on the day Add would put them.
+      const target = placementDay(e);
       const starts =
         trip && services
           ? availableStarts(
               trip.profile,
               e,
-              day,
+              target,
               items,
               services,
               offers,
@@ -347,7 +505,7 @@ export default function Planner({
             offers.find((o) => o.offer.id === i.offerId)?.zoneId === e.zoneId,
         );
       const score =
-        Number(starts.length > 0) * 100 +
+        Number(starts.length > 0) * (target === day ? 100 : 50) +
         Number(nearby) * 4 +
         Number(
           trip.profile.interests.includes(
@@ -372,12 +530,14 @@ export default function Planner({
                 )
               ? "Matches your interests"
               : undefined;
-      const note = starts.length
-        ? [reason, `fits from ${starts[0].startTime}`]
-            .filter(Boolean)
-            .join(" · ")
-            .replace(/^f/, "F")
-        : undefined;
+      const note = !starts.length
+        ? undefined
+        : target !== day
+          ? `Adds to ${eventDay(target)} at ${starts[0].startTime}`
+          : [reason, `fits from ${starts[0].startTime}`]
+              .filter(Boolean)
+              .join(" · ")
+              .replace(/^f/, "F");
       const when = runsOn.length
         ? eventWhen(e, trip.profile.startDate, trip.profile.endDate)
         : undefined;
@@ -415,7 +575,7 @@ export default function Planner({
       (existing
         ? minutes(existing.endTime) - minutes(existing.startTime)
         : offer!.durationMinMinutes);
-    if (at < 0 || at + duration >= 1440) return null;
+    if (at < 0 || at + duration > 1800) return null;
     return {
       ...existing,
       id: payload.id,
@@ -440,23 +600,14 @@ export default function Planner({
   }
   function commitCandidate(candidate: Item) {
     if (!services) return false;
-    let nextServices = services;
-    if (
-      candidate.kind === "EXPERIENCE" &&
-      !services.vehicleWindows[candidate.localDate]
-    )
-      nextServices = {
-        ...services,
-        vehicleWindows: {
-          ...services.vehicleWindows,
-          [candidate.localDate]: { startTime: "08:00", hours: 8 },
-        },
-      };
     return change(
       [...items.filter((item) => item.id !== candidate.id), candidate],
-      nextServices,
+      services,
     );
   }
+  // Days before today can't take bookings; today is judged per experience by
+  // its own booking cutoff.
+  const dayClosed = day < lagosToday();
   const libraryContents = (
     <div className="library-shell compact-library">
       <div className="library-controls">
@@ -467,7 +618,7 @@ export default function Planner({
               aria-pressed={view === "bucket"}
               onClick={() => setView("bucket")}
             >
-              My Bucket <span className="count">{bucket.length}</span>
+              Saved <span className="count">{bucket.length}</span>
             </button>
             <button
               type="button"
@@ -520,6 +671,16 @@ export default function Planner({
             </select>
           </label>
         </div>
+        {dayClosed && (
+          <p className="notice" role="status">
+            {trip && trip.profile.endDate < lagosToday()
+              ? "These trip dates have passed, so nothing can be booked for them."
+              : "This day has passed, so nothing can be booked for it."}{" "}
+            <Link className="text-link" href={`/trips/${id}/profile`}>
+              Change trip dates
+            </Link>
+          </p>
+        )}
         {view === "bucket" ? (
           <div className="bucket-navigation">
             <Link
@@ -565,7 +726,7 @@ export default function Planner({
             <Icon name={view === "bucket" ? "bookmark" : "search"} size={26} />
             <h3>
               {view === "bucket" && !bucket.length
-                ? "Your bucket is empty."
+                ? "No saved activities yet."
                 : "No matching experiences"}
             </h3>
             <p>
@@ -603,6 +764,15 @@ export default function Planner({
             busy={busy}
             available={!!starts.length}
             note={note}
+            unavailableReason={
+              dayClosed
+                ? "This day has passed."
+                : pastBookingCutoff(e, day)
+                  ? e.offer.bookingCutoffHours
+                    ? `Too late for this day: book at least ${e.offer.bookingCutoffHours} hours ahead.`
+                    : "Too late to book for this day."
+                  : undefined
+            }
             when={when}
             otherDay={
               !starts.length && otherDay
@@ -638,6 +808,7 @@ export default function Planner({
     `Day ${days.indexOf(date) + 1} · ${shortDate(date)}`;
   const issues = price ? [...price.blockers, ...price.warnings] : [];
   const tone = statusTone(status, blocked);
+  const pickupDue = !!price?.warnings.some((w) => w.code === "PICKUP_ADDRESS");
   // Days with something to sort out, marked on the day ribbon.
   const issueDays = new Set(
     issues.flatMap((issue) => {
@@ -652,33 +823,115 @@ export default function Planner({
     fullDay: services.guideDays.length > 0,
   };
   const guidedDay = services.guideDays.includes(day);
+  const ownTransport = trip.profile.transport === "OWN";
+  const mode = dayTransport(trip.profile, services, day);
+  const dayCar = mode === "CAR";
+  // Booked experiences on this day, split between the day and a night car.
+  const dayExperiences = dayItems.filter(
+    (i) =>
+      i.kind === "EXPERIENCE" && offers.some((o) => o.offer.id === i.offerId),
+  );
+  const offerFor = (itemId: string) =>
+    offers.find(
+      (o) => o.offer.id === dayItems.find((i) => i.id === itemId)?.offerId,
+    )!;
+  const nightWindow = services.nightWindows?.[day];
+  const nightItems = nightGroup(dayExperiences, services, day, settings);
+  const daytime = dayExperiences.filter((i) => !nightItems.includes(i));
+  // Night activities a night car could cover, whether or not it's added.
+  const lateStarts = dayExperiences.filter(
+    (i) => i.startTime >= settings.night.startsFrom,
+  );
+  const lateFinishes =
+    mode === "OWN"
+      ? daytime.filter((i) => i.endTime >= settings.lateReturnFrom)
+      : [];
+  const dayWindow = services.vehicleWindows[day];
+  // A full-day guide starts with the day car, or at the first activity.
+  const firstActivity = dayItems.find((i) => i.kind === "EXPERIENCE");
+  const dayGuideStart =
+    (dayCar && daytime.length && dayWindow?.startTime) ||
+    firstActivity?.startTime;
+  const noticeHours = settings.guideNoticeHours;
+  const dayGuideTooLate =
+    !!dayGuideStart &&
+    guideTooLate(day, dayGuideStart, Date.now(), noticeHours);
+  const fitDay = () => fitCar(trip.profile.zoneId, daytime, offerFor, settings);
+  const fitNight = () =>
+    fitCar(trip.profile.zoneId, lateStarts, offerFor, settings, "NIGHT");
   function setGuides(
     next: Partial<Pick<Services, "guideDays" | "guideItemIds">>,
   ) {
     const merged = { ...services!, ...next };
     return change(items, { ...merged, assistance: assistanceFor(merged) });
   }
+  function setDayMode(next: "CAR" | "OWN") {
+    const overrides = { ...services!.dayTransport };
+    // Matching the trip's choice needs no override.
+    if (next === (ownTransport ? "OWN" : "CAR")) delete overrides[day];
+    else overrides[day] = next;
+    change(items, { ...services!, dayTransport: overrides });
+  }
+  function setDayWindow(window: { startTime: string; hours: number }) {
+    change(
+      items,
+      {
+        ...services!,
+        vehicleWindows: { ...services!.vehicleWindows, [day]: window },
+      },
+      false,
+    );
+  }
+  function setNightCar(on: boolean) {
+    const nights = { ...services!.nightWindows };
+    if (on)
+      nights[day] = {
+        startTime: fitNight()?.startTime ?? settings.night.startsFrom,
+      };
+    else delete nights[day];
+    change(items, { ...services!, nightWindows: nights });
+  }
+  function setOwnWayBack(itemId: string, on: boolean) {
+    const ids = services!.ownWayBack ?? [];
+    change(items, {
+      ...services!,
+      ownWayBack: on ? [...ids, itemId] : ids.filter((i) => i !== itemId),
+    });
+  }
+  const planHref = `/trips/${id}/plan?day=${day}`;
   const serviceControls = (
     <>
+      <Link className="text-link back-link services-back" href={planHref}>
+        <Icon name="arrowLeft" size={16} />
+        Back to your plan
+      </Link>
       <div className="services-intro">
         <h2>Your support</h2>
         <p className="muted">
-          A driver comes with every day that has activities. Add guides on top,
-          in any mix. Personal time is never supervised, and there’s no 24-hour
-          hosting.
+          Choose a car and driver or your own way for each day. Add guides on
+          top, in any mix, at least {noticeHours} hours before they start.
+          Personal time is never supervised, and there’s no 24-hour hosting.
         </p>
       </div>
       <fieldset className="assistance-options" disabled={busy}>
         <legend className="sr-only">Support for your trip</legend>
-        <label className="assistance-card" data-selected="true">
-          <input type="checkbox" checked disabled />
+        {/* The trip's default; each day can differ below. */}
+        <div className="assistance-card" data-selected="true">
           <Icon name="car" size={24} />
-          <strong>Driver and vehicle</strong>
+          <strong>
+            {ownTransport ? "Your own way, usually" : "Car and driver, usually"}
+          </strong>
           <span>
-            Always included on activity days: pickup, waiting time and your
-            return. Choose the hours for each day below.
+            {ownTransport
+              ? "No car to pay for unless you add one to a day."
+              : "Pickup, waiting time and your return on activity days."}{" "}
+            Change any day below, or{" "}
+            <Link className="text-link" href={`/trips/${id}/profile`}>
+              the whole trip
+            </Link>
+            .
           </span>
-        </label>
+        </div>
         <label className="assistance-card" data-selected={modes.activity}>
           <input
             type="checkbox"
@@ -707,8 +960,8 @@ export default function Planner({
           <Icon name="sun" size={24} />
           <strong>Full-day guide</strong>
           <span>
-            An 8-hour guide from your vehicle start time, on the days you tick.{" "}
-            {money(rules.guideDayBlock.rateMinor)} per day.
+            An 8-hour guide from your car’s start time, or your first activity
+            on own-way days. {money(rules.guideDayBlock.rateMinor)} per day.
           </span>
         </label>
       </fieldset>
@@ -723,62 +976,166 @@ export default function Planner({
         <h3>{dayLabel(day)}</h3>
         {hasActivities ? (
           <>
-            <div className="field-grid">
-              <label>
-                Vehicle from
-                <input
-                  disabled={busy}
-                  type="time"
-                  value={services.vehicleWindows[day]?.startTime ?? "08:00"}
-                  onChange={(e) =>
-                    change(items, {
-                      ...services,
-                      vehicleWindows: {
-                        ...services.vehicleWindows,
-                        [day]: {
-                          startTime: e.target.value,
-                          hours: services.vehicleWindows[day]?.hours ?? 8,
-                        },
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Reserved hours
-                <select
-                  disabled={busy}
-                  value={services.vehicleWindows[day]?.hours ?? ""}
-                  onChange={(e) =>
-                    change(items, {
-                      ...services,
-                      vehicleWindows: {
-                        ...services.vehicleWindows,
-                        [day]: {
-                          startTime:
-                            services.vehicleWindows[day]?.startTime ?? "08:00",
-                          hours: Number(e.target.value) as 4 | 8,
-                        },
-                      },
-                    })
-                  }
-                >
-                  <option value="" disabled>
-                    Select a block
-                  </option>
-                  <option value={4}>4 hours</option>
-                  <option value={8}>8 hours</option>
-                </select>
-              </label>
+            <div
+              className="segmented"
+              role="group"
+              aria-label="Getting around on this day"
+            >
+              <button
+                type="button"
+                disabled={busy}
+                aria-pressed={dayCar}
+                onClick={() => setDayMode("CAR")}
+              >
+                Car and driver
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                aria-pressed={!dayCar}
+                onClick={() => setDayMode("OWN")}
+              >
+                Our own way
+              </button>
             </div>
-            <p className="muted">
-              Covers pickup, waiting time between activities and your return. Up
-              to 8 hours a day. Travel times are estimates.
-            </p>
+            {!dayCar ? (
+              <p className="muted">
+                You’re getting yourselves to each activity on this day. Allow
+                the travel times shown in your plan.
+              </p>
+            ) : !daytime.length ? (
+              <p className="muted">
+                Only night activities today: the night car below covers them.
+              </p>
+            ) : (
+              <>
+                <div className="field-grid">
+                  <label>
+                    Car from
+                    <input
+                      disabled={busy}
+                      type="time"
+                      value={dayWindow?.startTime ?? "08:00"}
+                      onChange={(e) =>
+                        setDayWindow({
+                          startTime: e.target.value,
+                          hours: dayWindow?.hours ?? longestDayBlock(settings),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Hours
+                    <select
+                      disabled={busy}
+                      value={dayWindow?.hours ?? ""}
+                      onChange={(e) =>
+                        setDayWindow({
+                          startTime: dayWindow?.startTime ?? "08:00",
+                          hours: Number(e.target.value),
+                        })
+                      }
+                    >
+                      <option value="" disabled>
+                        Choose hours
+                      </option>
+                      {settings.dayBlocks.map((b) => (
+                        <option key={b.hours} value={b.hours}>
+                          {b.hours} hours · {money(b.rateMinor)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p className="muted">
+                  {dayWindow
+                    ? `Until ${clockLabel(time(minutes(dayWindow.startTime) + dayWindow.hours * 60))}. `
+                    : ""}
+                  Covers pickup, waiting between activities and your return.
+                  Travel times are estimates.{" "}
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy || !fitDay()}
+                    onClick={() => {
+                      const fit = fitDay();
+                      if (fit) setDayWindow(fit);
+                    }}
+                  >
+                    Fit to my plan
+                  </button>
+                  {!fitDay() &&
+                    ` This day is longer than ${longestDayBlock(settings)} hours: add a night car for the evening, or make your own way for part of it.`}
+                </p>
+              </>
+            )}
+            {lateFinishes.map((i) => (
+              <label key={i.id} className="check">
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  checked={services.ownWayBack?.includes(i.id) ?? false}
+                  onChange={(e) => setOwnWayBack(i.id, e.target.checked)}
+                />
+                I’ll arrange our own way back from {displayName(i.title)} (ends{" "}
+                {clockLabel(i.endTime)})
+              </label>
+            ))}
+            {(lateStarts.length > 0 || nightWindow) && (
+              <div className="night-car">
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    disabled={busy}
+                    checked={!!nightWindow}
+                    onChange={(e) => setNightCar(e.target.checked)}
+                  />
+                  Night car: a separate driver for {settings.night.hours} hours
+                  from {settings.night.startsFrom} or later, waits and brings
+                  you back. {money(settings.night.rateMinor)} per car.
+                </label>
+                {nightWindow && (
+                  <label>
+                    Night car from
+                    <input
+                      disabled={busy}
+                      type="time"
+                      min={settings.night.startsFrom}
+                      value={nightWindow.startTime}
+                      onChange={(e) =>
+                        change(
+                          items,
+                          {
+                            ...services,
+                            nightWindows: {
+                              ...services.nightWindows,
+                              [day]: { startTime: e.target.value },
+                            },
+                          },
+                          false,
+                        )
+                      }
+                    />
+                    <small className="form-hint">
+                      Until{" "}
+                      {clockLabel(
+                        time(
+                          minutes(nightWindow.startTime) +
+                            settings.night.hours * 60,
+                        ),
+                      )}
+                      . Covers {nightItems.length}{" "}
+                      {nightItems.length === 1 ? "activity" : "activities"}{" "}
+                      starting from {settings.night.startsFrom}.
+                    </small>
+                  </label>
+                )}
+              </div>
+            )}
             {modes.fullDay && (
               <label className="check">
                 <input
-                  disabled={busy}
+                  disabled={busy || (dayGuideTooLate && !guidedDay)}
                   type="checkbox"
                   checked={guidedDay}
                   onChange={(e) =>
@@ -789,7 +1146,13 @@ export default function Planner({
                     })
                   }
                 />
-                Full-day guide on this day (8 hours from vehicle start time)
+                Full-day guide on this day (8 hours from{" "}
+                {dayCar && daytime.length
+                  ? "the car’s start time"
+                  : "your first activity"}
+                )
+                {dayGuideTooLate &&
+                  ` · too late: book at least ${noticeHours} hours ahead`}
               </label>
             )}
             {modes.activity &&
@@ -798,16 +1161,21 @@ export default function Planner({
                 .map((i) => {
                   const included = offers.find((e) => e.offer.id === i.offerId)
                     ?.offer.hostIncluded;
+                  const chosen = services.guideItemIds.includes(i.id);
+                  const tooLate = guideTooLate(
+                    i.localDate,
+                    i.startTime,
+                    Date.now(),
+                    noticeHours,
+                  );
                   return (
                     <label key={i.id} className="check">
                       <input
                         type="checkbox"
-                        disabled={busy || included || guidedDay}
-                        checked={
-                          included ||
-                          guidedDay ||
-                          services.guideItemIds.includes(i.id)
+                        disabled={
+                          busy || included || guidedDay || (tooLate && !chosen)
                         }
+                        checked={included || guidedDay || chosen}
                         onChange={(e) =>
                           setGuides({
                             guideItemIds: e.target.checked
@@ -823,14 +1191,16 @@ export default function Planner({
                         ? " · host already included"
                         : guidedDay
                           ? " · covered by the full-day guide"
-                          : ""}
+                          : tooLate
+                            ? ` · too late: book at least ${noticeHours} hours ahead`
+                            : ""}
                     </label>
                   );
                 })}
           </>
         ) : (
           <p className="muted">
-            No vehicle needed — this day has only personal or free time.
+            No car needed — this day has only personal or free time.
           </p>
         )}
       </section>
@@ -840,6 +1210,16 @@ export default function Planner({
           Airport pickup and arrival help aren’t available to add yet.
         </p>
       </section>
+      <div className="services-done">
+        <p className="muted">
+          Changes save as you go. Your driver and guide costs are in the trip
+          cost.
+        </p>
+        <Link className="button" href={planHref}>
+          <Icon name="arrowLeft" size={16} />
+          Back to {dayLabel(day)} plan
+        </Link>
+      </div>
     </>
   );
   const editingOffer = offers.find(
@@ -858,8 +1238,71 @@ export default function Planner({
         )
       : [];
   const editingExists = !!editing && items.some((i) => i.id === editing.id);
+  const dayEnd = dayWindow
+    ? minutes(dayWindow.startTime) + dayWindow.hours * 60
+    : 0;
+  const nightStart = nightWindow ? minutes(nightWindow.startTime) : 0;
+  const nightEnd = nightStart + settings.night.hours * 60;
+  const coverage = [
+    ...(dayCar && daytime.length && dayWindow
+      ? [
+          {
+            kind: "day" as const,
+            label: `Driver ${clockLabel(dayWindow.startTime)}–${clockLabel(time(dayEnd))}`,
+            from: minutes(dayWindow.startTime),
+            to: dayEnd,
+          },
+        ]
+      : []),
+    ...(nightWindow
+      ? [
+          {
+            kind: "night" as const,
+            label: `Night car ${clockLabel(nightWindow.startTime)}–${clockLabel(time(nightEnd))}`,
+            from: nightStart,
+            to: nightEnd,
+          },
+        ]
+      : []),
+  ];
+  const transportLine = hasActivities && (
+    <p className="day-transport">
+      <Icon name="car" size={16} />
+      <span>
+        {!dayCar ? (
+          "Making your own way today"
+        ) : !daytime.length ? (
+          "No daytime driver needed"
+        ) : dayWindow ? (
+          <>
+            <strong>
+              Driver {clockLabel(dayWindow.startTime)}–
+              {clockLabel(time(dayEnd))}
+            </strong>{" "}
+            · {dayWindow.hours} hours
+          </>
+        ) : (
+          "Driver time not chosen yet"
+        )}
+        {nightWindow && (
+          <>
+            {" · "}
+            <strong>
+              Night car {clockLabel(nightWindow.startTime)}–
+              {clockLabel(time(nightEnd))}
+            </strong>
+          </>
+        )}
+      </span>
+      <Link className="text-link" href={`/trips/${id}/services?day=${day}`}>
+        Change
+      </Link>
+    </p>
+  );
   const scheduleContents = (
     <PlannerTimeline
+      transport={transportLine}
+      coverage={coverage}
       day={day}
       items={dayItems}
       offers={offers}
@@ -908,7 +1351,11 @@ export default function Planner({
             <dt>Activities</dt>
             <dd>{money(price.activitiesMinor)}</dd>
             <dt>Transport</dt>
-            <dd>{money(price.transportMinor)}</dd>
+            <dd>
+              {trip.profile.transport === "OWN"
+                ? "Your own"
+                : money(price.transportMinor)}
+            </dd>
             <dt>Guides & hosting</dt>
             <dd>{money(price.hostingMinor)}</dd>
             <dt>Service fee</dt>
@@ -947,7 +1394,9 @@ export default function Planner({
         <div className="planner-title">
           <h1>
             My trip planner
-            {servicesOnly && <span className="planner-mode">Services</span>}
+            {servicesOnly && (
+              <span className="planner-mode">Driver & guides</span>
+            )}
           </h1>
           <ul className="trip-facts">
             <li>
@@ -961,10 +1410,7 @@ export default function Planner({
             </li>
             <li>
               <Icon name="pin" size={15} />
-              {trip.profile.accommodation ||
-                (trip.profile.zoneId !== "UNDECIDED"
-                  ? zoneLabel(trip.profile.zoneId)
-                  : "Base not set")}
+              {stayLabel(trip.profile)}
             </li>
           </ul>
           <div className="planner-status">
@@ -985,13 +1431,15 @@ export default function Planner({
             {issues.length > 0 && (
               <details
                 className="planner-validation"
-                data-blocking={!!price?.blockers.length}
+                data-blocking={!!price?.blockers.length || pickupDue}
               >
                 <summary>
                   <Icon name="alert" size={14} />
                   {price?.blockers.length
                     ? `${price.blockers.length} ${price.blockers.length === 1 ? "thing" : "things"} to sort out before booking`
-                    : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
+                    : pickupDue
+                      ? "Pickup address needed"
+                      : `${issues.length} planning ${issues.length === 1 ? "tip" : "tips"}`}
                   <Icon name="chevronDown" size={14} />
                 </summary>
                 <ul>
@@ -999,16 +1447,134 @@ export default function Planner({
                     const target = items.find(
                       (item) => item.id === issue.itemId,
                     );
+                    const date =
+                      target?.localDate ??
+                      /^(\d{4}-\d{2}-\d{2}):/.exec(issue.message)?.[1];
+                    const dayName = date
+                      ? `Day ${days.indexOf(date) + 1}`
+                      : "your trip";
+                    if (
+                      issue.code === "MISSING_BASE" ||
+                      issue.code === "PICKUP_ADDRESS"
+                    )
+                      return (
+                        <li key={index} className="issue-base">
+                          {friendlyIssue(issue.message, days)}
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              saveBase();
+                            }}
+                          >
+                            {trip.profile.accommodationBy !== "FASTLIFE" && (
+                              <label>
+                                Where you’re staying
+                                <input
+                                  required={issue.code === "PICKUP_ADDRESS"}
+                                  maxLength={300}
+                                  placeholder="Hotel name, or street and area"
+                                  value={
+                                    base?.accommodation ??
+                                    trip.profile.accommodation
+                                  }
+                                  onChange={(e) =>
+                                    setBase({
+                                      zoneId:
+                                        base?.zoneId ?? trip.profile.zoneId,
+                                      accommodation: e.target.value,
+                                    })
+                                  }
+                                />
+                              </label>
+                            )}
+                            <label>
+                              Area
+                              <select
+                                required
+                                value={base?.zoneId ?? trip.profile.zoneId}
+                                onChange={(e) =>
+                                  setBase({
+                                    accommodation:
+                                      base?.accommodation ??
+                                      trip.profile.accommodation,
+                                    zoneId: e.target.value as Profile["zoneId"],
+                                  })
+                                }
+                              >
+                                <option value="UNDECIDED" disabled>
+                                  Choose an area
+                                </option>
+                                <option value="LEKKI">Lekki</option>
+                                <option value="VI">Victoria Island</option>
+                                <option value="MAINLAND">Mainland</option>
+                              </select>
+                            </label>
+                            <button
+                              type="submit"
+                              disabled={
+                                busy ||
+                                dirty ||
+                                (issue.code === "PICKUP_ADDRESS" &&
+                                  !(
+                                    base?.accommodation ??
+                                    trip.profile.accommodation
+                                  ).trim()) ||
+                                (base?.zoneId ?? trip.profile.zoneId) ===
+                                  "UNDECIDED"
+                              }
+                            >
+                              {issue.code === "PICKUP_ADDRESS"
+                                ? "Save address"
+                                : "Save area"}
+                            </button>
+                            {dirty && (
+                              <small className="form-hint">
+                                Your latest changes are still saving.
+                              </small>
+                            )}
+                          </form>
+                        </li>
+                      );
                     return (
                       <li key={index}>
                         {friendlyIssue(issue.message, days)}
-                        {target && target.localDate !== day && (
-                          <button
-                            className="text-button"
-                            onClick={() => setDay(target.localDate)}
+                        {issue.code === "FLIGHT_DETAILS" ? (
+                          <Link
+                            className="text-link"
+                            href={`/trips/${id}/profile#arrival`}
                           >
-                            Show {dayLabel(target.localDate)}
-                          </button>
+                            Add flight details
+                          </Link>
+                        ) : driverCodes.has(issue.code) ? (
+                          servicesOnly ? (
+                            date &&
+                            date !== day && (
+                              <button
+                                className="text-button"
+                                onClick={() => setDay(date)}
+                              >
+                                Show {dayName}
+                              </button>
+                            )
+                          ) : (
+                            <Link
+                              className="text-link"
+                              href={`/trips/${id}/services${date ? `?day=${date}` : ""}`}
+                            >
+                              Fix in Driver & guides
+                              {date ? ` for ${dayName}` : ""}
+                            </Link>
+                          )
+                        ) : (
+                          target &&
+                          target.localDate !== day && (
+                            <button
+                              className="text-button"
+                              onClick={() => setDay(target.localDate)}
+                            >
+                              Show {dayLabel(target.localDate)}
+                            </button>
+                          )
                         )}
                       </li>
                     );
@@ -1033,9 +1599,9 @@ export default function Planner({
             {priceSummary}
             <Link
               className={servicesOnly ? "button secondary" : "button"}
-              href={`/trips/${id}/${servicesOnly ? "plan" : "services"}`}
+              href={`/trips/${id}/${servicesOnly ? "plan" : "services"}?day=${day}`}
             >
-              {servicesOnly ? "Back to planner" : "Review services"}
+              {servicesOnly ? "Back to planner" : "Driver & guides"}
               {!servicesOnly && <Icon name="arrowRight" size={16} />}
             </Link>
           </div>
@@ -1211,7 +1777,7 @@ export default function Planner({
               className="suggest-button"
               disabled={busy || dirty}
               onClick={generate}
-              title="Kemi drafts a plan from your bucket. You review every change first."
+              title="Kemi drafts a plan from your saved activities. You review every change first."
             >
               <Icon name="sparkle" size={16} />
               Suggest a plan
@@ -1238,6 +1804,7 @@ export default function Planner({
                 const data = await api(`${root}/workspace`);
                 receive(data);
                 setOffers(data.offers);
+                if (data.settings) setSettings(data.settings);
                 setPast([]);
                 setProposal(null);
               } catch (error) {
@@ -1306,7 +1873,8 @@ export default function Planner({
                   {proposal.diff.added.map((i) => (
                     <li key={i.id} data-change="add">
                       <span>
-                        {shortDate(i.localDate)} · {i.startTime}–{i.endTime}
+                        {shortDate(i.localDate)} · {clockLabel(i.startTime)}–
+                        {clockLabel(i.endTime)}
                       </span>
                       {i.title}
                     </li>
@@ -1409,23 +1977,11 @@ export default function Planner({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              let nextServices = services;
-              if (
-                editing.kind === "EXPERIENCE" &&
-                !services.vehicleWindows[editing.localDate]
-              )
-                nextServices = {
-                  ...services,
-                  vehicleWindows: {
-                    ...services.vehicleWindows,
-                    [editing.localDate]: { startTime: "08:00", hours: 8 },
-                  },
-                };
               const accepted = change(
                 editingExists
                   ? items.map((i) => (i.id === editing.id ? editing : i))
                   : [...items, editing],
-                nextServices,
+                services,
               );
               if (accepted) {
                 dialog.current?.close();
@@ -1472,9 +2028,10 @@ export default function Planner({
                     {replacing.title} → {editing.title}
                   </h3>
                   <p>
-                    {replacing.startTime}–{replacing.endTime} becomes{" "}
-                    {editing.startTime}–{editing.endTime}. Activity price
-                    change:{" "}
+                    {clockLabel(replacing.startTime)}–
+                    {clockLabel(replacing.endTime)} becomes{" "}
+                    {clockLabel(editing.startTime)}–
+                    {clockLabel(editing.endTime)}. Activity price change:{" "}
                     {money(
                       (offers.find((e) => e.offer.id === editing.offerId)?.offer
                         .rateMinor ?? 0) *
@@ -1496,6 +2053,8 @@ export default function Planner({
                         items.map((i) => (i.id === replacing.id ? editing : i)),
                         services,
                         offers,
+                        undefined,
+                        settings,
                       ).totalMinor,
                     )}
                     .
@@ -1577,9 +2136,12 @@ export default function Planner({
                     type="time"
                     step={900}
                     disabled={editingOffer?.schedulingType === "FIXED"}
-                    value={editing.startTime}
+                    value={time(minutes(editing.startTime) % 1440)}
                     onChange={(e) =>
-                      setEditing({ ...editing, startTime: e.target.value })
+                      setEditing({
+                        ...editing,
+                        startTime: sameSide(editing.startTime, e.target.value),
+                      })
                     }
                   />
                 </label>
@@ -1590,18 +2152,41 @@ export default function Planner({
                     type="time"
                     step={900}
                     disabled={editingOffer?.schedulingType === "FIXED"}
-                    value={editing.endTime}
+                    value={time(minutes(editing.endTime) % 1440)}
                     onChange={(e) =>
-                      setEditing({ ...editing, endTime: e.target.value })
+                      setEditing({
+                        ...editing,
+                        endTime: sameSide(editing.endTime, e.target.value),
+                      })
                     }
                   />
                 </label>
               </div>
+              {editingOffer?.schedulingType !== "FIXED" && (
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={minutes(editing.endTime) >= 1440}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        endTime: time(
+                          (minutes(editing.endTime) % 1440) +
+                            (e.target.checked ? 1440 : 0),
+                        ),
+                      })
+                    }
+                  />
+                  Ends after midnight (the next morning)
+                </label>
+              )}
               {editing.kind === "EXPERIENCE" && editingOffer && (
                 <p className="form-hint">
                   {editingOffer.schedulingType === "FIXED"
                     ? "Session times are set by the host and can’t be changed."
-                    : `Lasts ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)}. Open ${editingOffer.availabilityLocal.opensAt}–${editingOffer.availabilityLocal.closesAt}, Lagos time. The whole visit must fit.`}
+                    : // The stay range is the hard limit; the usual length
+                      // is only a guide.
+                      `Stay ${formatDuration(shortestVisit(editingOffer), editingOffer.durationMaxMinutes)}${shortestVisit(editingOffer) < editingOffer.durationMinMinutes ? ` (most visits are ${formatDuration(editingOffer.durationMinMinutes, editingOffer.durationMaxMinutes)})` : ""}. Open ${editingOffer.availabilityLocal.opensAt}–${clockLabel(editingOffer.availabilityLocal.closesAt)}, Lagos time. This block: ${formatDuration(Math.max(0, minutes(editing.endTime) - minutes(editing.startTime)))}.`}
                 </p>
               )}
               <label className="check">

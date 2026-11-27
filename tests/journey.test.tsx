@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import Intake from "../src/components/intake";
+import { lagosToday } from "../src/modules/catalogue/domain/events";
 import { BucketButton } from "../src/components/bucket";
 import { extractProfile } from "../src/modules/trips/domain/intake";
 import type { Profile } from "../src/modules/trips/domain/profile";
@@ -45,15 +46,15 @@ describe("trip journey", () => {
     render(
       <>
         <BucketButton id="offer-gallery" />
-        <Intake mode="chat" fresh />
+        <Intake mode="chat" kemi fresh />
       </>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Add to bucket/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Save activity/ }));
     expect(screen.queryByLabelText("Arrival date")).toBeNull();
     fireEvent.change(screen.getByLabelText("Your trip, in your own words"), {
       target: {
         value:
-          "2026-11-10 to 2026-11-16, 3 adults. We love art and nature. Budget: NGN 500000.",
+          "2027-11-10 to 2027-11-16, 3 adults. We love art and nature. Budget: NGN 500000.",
       },
     });
     fireEvent.click(
@@ -128,8 +129,31 @@ describe("trip journey", () => {
     ).toHaveLength(2);
   });
 
-  it("allows manual onboarding and reports unavailable voice without losing the conversation", () => {
+  it("starts on the form with Kemi greyed out while Kemi is switched off", () => {
     render(<Intake mode="chat" fresh />);
+    const manual = screen.getByRole("button", {
+      name: "Enter details manually",
+    });
+    const kemi = screen.getByRole("button", { name: /Plan with Kemi/ });
+    expect(manual.getAttribute("aria-pressed")).toBe("true");
+    expect((kemi as HTMLButtonElement).disabled).toBe(true);
+    expect(kemi.textContent).toContain("Coming soon");
+    // Manual comes first.
+    expect(
+      manual.compareDocumentPosition(kemi) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Arrival date")).toBeTruthy();
+    expect(screen.queryByLabelText("Your trip, in your own words")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Next: check summary" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Ask Kemi to edit" }),
+    ).toBeNull();
+  });
+
+  it("allows manual onboarding and reports unavailable voice without losing the conversation", () => {
+    render(<Intake mode="chat" kemi fresh />);
     fireEvent.click(screen.getByRole("button", { name: "Use voice" }));
     expect(screen.getByRole("status").textContent).toContain(
       "Voice is unavailable",
@@ -147,6 +171,52 @@ describe("trip journey", () => {
     expect(writes).toHaveLength(0);
   });
 
+  it("opens on upcoming dates and refuses an arrival that has passed", async () => {
+    render(<Intake mode="chat" kemi fresh />);
+    // Dates from the conversation skip the form's date picker.
+    fireEvent.change(screen.getByLabelText("Your trip, in your own words"), {
+      target: { value: "2020-01-01 to 2020-01-03, 2 adults. We love art." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review my trip summary" }),
+    );
+    expect(
+      await screen.findByText(/That arrival date has passed/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Save/ }));
+    expect(writes.some((w) => w.path === "/api/v1/trips")).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit details manually" }),
+    );
+    const arrival = screen.getByLabelText("Arrival date") as HTMLInputElement;
+    const today = lagosToday();
+    expect(arrival.min).toBe(today);
+    fireEvent.change(arrival, { target: { value: "2020-01-01" } });
+    expect(arrival.validity.rangeUnderflow).toBe(true);
+  });
+
+  it("explains each way of getting around and carries it to the summary", () => {
+    render(<Intake mode="chat" kemi fresh />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Enter details manually" }),
+    );
+    const getting = screen.getByLabelText("Getting around");
+    expect(screen.getByText(/A private car and driver/)).toBeTruthy();
+    fireEvent.change(getting, { target: { value: "OWN" } });
+    expect(screen.getByText(/no transport charge/)).toBeTruthy();
+    expect(
+      Array.from(
+        (screen.getByLabelText("Local guide") as HTMLSelectElement).options,
+        (o) => o.text,
+      ),
+    ).toEqual(["No guide", "Guide for selected activities", "Full-day guide"]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Next: check summary" }),
+    );
+    expect(screen.getByText("We’ll make our own way")).toBeTruthy();
+    expect(screen.getByText("No guide")).toBeTruthy();
+  });
+
   it("synchronises selected bucket controls and restores their default state on removal", () => {
     render(
       <>
@@ -154,19 +224,21 @@ describe("trip journey", () => {
         <BucketButton id="offer-gallery" />
       </>,
     );
-    const buttons = screen.getAllByRole("button", { name: /Add to bucket/ });
+    const buttons = screen.getAllByRole("button", { name: /Save activity/ });
     fireEvent.click(buttons[0]);
     expect(
       screen
-        .getAllByRole("button", { name: /Remove from bucket/ })
+        .getAllByRole("button", { name: /Remove from saved activities/ })
         .every((button) => button.getAttribute("aria-pressed") === "true"),
     ).toBe(true);
     fireEvent.click(
-      screen.getAllByRole("button", { name: /Remove from bucket/ })[1],
+      screen.getAllByRole("button", {
+        name: /Remove from saved activities/,
+      })[1],
     );
     expect(
       screen
-        .getAllByRole("button", { name: /Add to bucket/ })
+        .getAllByRole("button", { name: /Save activity/ })
         .every((button) => button.getAttribute("aria-pressed") === "false"),
     ).toBe(true);
     expect(localStorage.getItem("tourism.bucket.v1")).toBe("[]");

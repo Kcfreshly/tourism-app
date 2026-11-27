@@ -8,7 +8,7 @@ export class DrizzleActorRepository implements ActorRepository {
 
   async findAccount(id: string) {
     const [record] = await this.db()
-      .select({ id: user.id, role: user.role })
+      .select({ id: user.id, role: user.role, email: user.email })
       .from(user)
       .where(eq(user.id, id));
     return record ?? null;

@@ -1,0 +1,354 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import fixture from "../tourism-v1-handoff/data/experiences.demo.json";
+import PartnerListings from "../src/components/partner-listings";
+import PartnerDashboard from "../src/components/partner-dashboard";
+import PartnerPortal from "../src/components/partner-portal";
+import AdminPartners from "../src/components/admin-partners";
+import AdminPartnerInvites from "../src/components/admin-partner-invites";
+import PartnerBookings from "../src/components/partner-bookings";
+
+const market = fixture.experiences.find((e) => e.id === "local-market")!;
+const draftId = "1b9e6a8e-3c1d-4c51-9f00-7d0c9a2b5e21";
+const submission = {
+  id: draftId,
+  productType: "EXPERIENCE",
+  productId: null,
+  name: "Lagoon kayak morning — DEMO",
+  proposed: {
+    ...market,
+    name: "Lagoon kayak morning — DEMO",
+    details: {
+      operator: "Lagoon Paddlers",
+      venue: "Jetty 3, Lekki Phase 1",
+      arrival: "SELF",
+      pickupRateMinor: 0,
+      childRateMinor: 0,
+      confirmation: "PARTNER",
+      partnerHours: 24,
+      freeCancellationHours: 48,
+    },
+  },
+  status: "DRAFT",
+  reason: "Add the jetty number",
+  version: 2,
+  updatedAt: "2026-11-21T10:00:00Z",
+};
+
+const waitingBooking = {
+  id: "5e0c1b2a-3d4e-4f5a-8b6c-7d8e9f0a1b2c",
+  version: 1,
+  orderReference: "FL-7K3Q9P",
+  partnerId: "p1",
+  businessName: "Lagoon Paddlers",
+  productType: "EXPERIENCE",
+  title: "Lagoon kayak morning",
+  date: "2026-12-05",
+  startTime: "07:00",
+  line: { kind: "EXPERIENCE", adults: 2, children: 0 },
+  status: "AWAITING_PARTNER",
+  partnerDeadline: "2026-11-27T09:00:00Z",
+  totalMinor: 5250000,
+  partnerShareMinor: 4250000,
+  commissionBps: 1500,
+  guest: { name: "Ada Obi", phone: "+234 801 234 5678", email: "a@x.test" },
+  reason: null,
+  createdAt: "2026-11-26T09:00:00Z",
+};
+
+const calls: { url: string; method: string; body?: Record<string, unknown> }[] =
+  [];
+function respond(data: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => ({ data }) };
+}
+beforeEach(() => {
+  calls.length = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, method, body });
+      if (url === "/api/v1/partner/listings")
+        return respond([
+          {
+            productType: "EXPERIENCE",
+            productId: null,
+            name: submission.name,
+            live: null,
+            submission,
+          },
+        ]);
+      if (url === "/api/v1/partner/submissions" && method === "PATCH")
+        return respond({
+          ...submission,
+          status: body.submit ? "PENDING" : "DRAFT",
+          reason: body.submit ? null : submission.reason,
+          version: submission.version + 1,
+        });
+      if (url === "/api/v1/partner/dashboard")
+        return respond({
+          period: { from: "2026-10-24", to: "2026-11-22", days: 30 },
+          totals: {
+            views: 12,
+            viewsBefore: 6,
+            visitors: 9,
+            visitorsBefore: 0,
+            saves: 3,
+            tripPlans: 2,
+            live: 1,
+            inReview: 1,
+            changesRequested: 0,
+            drafts: 0,
+          },
+          daily: [{ day: "2026-11-22", views: 12 }],
+          listings: [
+            {
+              productType: "EXPERIENCE",
+              productId: "x",
+              name: "Lagoon kayak morning — DEMO",
+              status: "DEMO_PUBLISHED",
+              slug: "partner-x",
+              views: 12,
+              visitors: 9,
+              saves: 3,
+              tripPlans: 2,
+            },
+          ],
+          sales: null,
+        });
+      if (url === "/api/v1/admin/submissions" && method === "GET")
+        return respond([
+          {
+            ...submission,
+            status: "PENDING",
+            businessName: "Lagoon Paddlers",
+            partnerId: "p1",
+            submittedAt: "2026-11-21T10:00:00Z",
+            live: null,
+          },
+        ]);
+      if (url === "/api/v1/admin/partners" && method === "GET")
+        return respond([
+          {
+            id: "2c4e6a8b-0d1f-4a3b-8c5d-7e9f0a1b2c3d",
+            businessName: "Obudu Escapes",
+            contactEmail: "trips@obudu.example",
+            phone: "+234 801 000 0000",
+            offering: "Three-day trips to Obudu every month",
+            status: "PENDING",
+            decisionReason: null,
+            version: 1,
+            createdAt: "2026-11-20T10:00:00Z",
+          },
+        ]);
+      if (url === "/api/v1/partner/bookings" && method === "GET")
+        return respond([waitingBooking]);
+      if (url === "/api/v1/partner/bookings" && method === "PATCH")
+        return respond({
+          ...waitingBooking,
+          status: body.action === "CONFIRM" ? "CONFIRMED" : "DECLINED",
+          reason: body.reason ?? null,
+          version: 2,
+        });
+      if (url === "/api/v1/admin/partner-invites" && method === "GET")
+        return respond([]);
+      if (url === "/api/v1/admin/partner-invites" && method === "POST")
+        return respond(
+          {
+            invite: {
+              ...body,
+              id: "9b1d2c3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
+              status: "OPEN",
+              createdAt: "2026-11-26T10:00:00Z",
+              expiresAt: "2026-12-10T10:00:00Z",
+            },
+            url: "http://app.test/partner/invite/abc123",
+          },
+          201,
+        );
+      if (method === "PATCH") return respond({ ...body, status: "VERIFIED" });
+      return respond(null, 404);
+    }),
+  );
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe("partner portal", () => {
+  it("shows staff feedback and submits a draft for review", async () => {
+    render(<PartnerListings />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Lagoon kayak morning/ }),
+    );
+    expect(screen.getByText("Add the jetty number")).toBeTruthy();
+    // Staff-only controls are not offered to partners.
+    expect(screen.queryByRole("button", { name: "History" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(screen.getByText("Ready to submit?")).toBeTruthy();
+    expect(screen.queryByText(/Other statuses/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Submit for review" }));
+    await screen.findByText(/Submitted\. Fastlife will review it/);
+    const patch = calls.find((c) => c.method === "PATCH")!;
+    expect(patch.body).toMatchObject({
+      id: draftId,
+      expectedVersion: 2,
+      submit: true,
+    });
+    expect(patch.body?.experience).toBeDefined();
+    expect(screen.getByText(/In review\./)).toBeTruthy();
+  });
+
+  it("shows views, visitors and interest for each listing", async () => {
+    render(<PartnerDashboard onOpenListings={() => {}} />);
+    const stats = await screen.findByRole("list", { name: "Key figures" });
+    expect(within(stats).getByText("12")).toBeTruthy();
+    expect(within(stats).getByText(/▲ 100%/)).toBeTruthy();
+    expect(within(stats).getByText("In trip plans")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Lagoon kayak morning/ }),
+    ).toBeTruthy();
+  });
+
+  it("opens analytics and booking actions from the dashboard", async () => {
+    render(<PartnerPortal />);
+    expect(
+      await screen.findByRole("list", { name: "Listing status" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "View analytics" }));
+    expect(
+      screen.getByRole("heading", { name: "Listing performance" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Analytics", pressed: true }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Answer now" }));
+    expect(
+      await screen.findByRole("button", { name: "Confirm booking" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("staff review of partners", () => {
+  it("needs a reason to send back, and approves submissions", async () => {
+    render(<AdminPartners />);
+    const review = (
+      await screen.findByRole("heading", {
+        name: /Lagoon kayak morning/,
+      })
+    ).closest("li")!;
+    const back = within(review).getByRole("button", { name: "Send back" });
+    expect((back as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(
+      within(review).getByRole("button", { name: "Approve & publish" }),
+    );
+    await waitFor(() =>
+      expect(
+        calls.find(
+          (c) => c.url === "/api/v1/admin/submissions" && c.method === "PATCH",
+        )?.body,
+      ).toMatchObject({ id: draftId, expectedVersion: 2, decision: "APPROVE" }),
+    );
+  });
+
+  it("verifies a partner application", async () => {
+    render(<AdminPartners />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Verify partner" }),
+    );
+    await waitFor(() =>
+      expect(
+        calls.find(
+          (c) => c.url === "/api/v1/admin/partners" && c.method === "PATCH",
+        )?.body,
+      ).toMatchObject({ status: "VERIFIED", expectedVersion: 1 }),
+    );
+  });
+});
+
+describe("partner invitations in admin", () => {
+  it("checks the details, then shows the link once to send", async () => {
+    render(<AdminPartnerInvites />);
+    await screen.findByText("No invitations yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Invite a partner" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create invitation link" }),
+    );
+    expect(screen.getByRole("alert").textContent).toMatch(/what you run/i);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+
+    fireEvent.change(screen.getByLabelText("Business name"), {
+      target: { value: "Obudu Escapes" },
+    });
+    fireEvent.change(screen.getByLabelText("Contact email"), {
+      target: { value: "trips@obudu.example" },
+    });
+    fireEvent.change(screen.getByLabelText("Phone"), {
+      target: { value: "+234 802 000 0000" },
+    });
+    fireEvent.change(screen.getByLabelText("What they run"), {
+      target: { value: "Three-day trips to Obudu every month" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create invitation link" }),
+    );
+    const link = (await screen.findByLabelText(
+      "Invitation link",
+    )) as HTMLInputElement;
+    expect(link.value).toBe("http://app.test/partner/invite/abc123");
+    expect(screen.getByText("Send this link to Obudu Escapes")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Cancel invitation" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("partner bookings", () => {
+  it("confirms a paid booking", async () => {
+    const counts: number[] = [];
+    render(<PartnerBookings onCount={(n) => counts.push(n)} />);
+    const card = (
+      await screen.findByRole("heading", { name: "Lagoon kayak morning" })
+    ).closest("li")!;
+    expect(within(card).getByText("Needs your answer")).toBeTruthy();
+    expect(within(card).getByText(/after 15% commission/)).toBeTruthy();
+    expect(within(card).getByText(/Answer by/)).toBeTruthy();
+    fireEvent.click(
+      within(card).getByRole("button", { name: "Confirm booking" }),
+    );
+    await screen.findByText("Confirmed");
+    expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+      action: "CONFIRM",
+      expectedVersion: 1,
+    });
+    expect(counts).toEqual([1, 0]);
+  });
+
+  it("needs a reason before declining", async () => {
+    render(<PartnerBookings />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Can’t take it" }),
+    );
+    const decline = screen.getByRole("button", { name: "Decline and refund" });
+    expect((decline as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Why can’t you take it/), {
+      target: { value: "Boat out of service" },
+    });
+    fireEvent.click(decline);
+    await screen.findByText(/Declined · traveller refunded/);
+    expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+      action: "DECLINE",
+      reason: "Boat out of service",
+    });
+  });
+});

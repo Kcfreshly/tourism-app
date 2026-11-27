@@ -244,7 +244,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await library.getByRole("button", { name: /My Bucket/ }).click();
   await library.locator(".activity-card-content h3 button").first().click();
-  await modal.getByRole("button", { name: /Remove from bucket/ }).click();
+  await modal.getByRole("button", { name: /Remove from Bucket/ }).click();
   await expect(modal).toBeVisible();
   await settled();
   await page.keyboard.press("Escape");

@@ -46,16 +46,17 @@ browser components and hooks can import module domain code only.
 
 ## Ownership
 
-| Module    | Owns                                                                      |
-| --------- | ------------------------------------------------------------------------- |
-| identity  | Accounts, sessions, roles, legacy guest drafts, origin checks, throttling |
-| catalogue | Listings, review and publishing workflow, events, photos                  |
-| trips     | Trip profile, itinerary, services, pricing, intake, proposals             |
-| bucket    | Saved activities per account                                              |
-| audit     | Audit event table, written by other modules inside their transactions     |
+| Module    | Owns                                                                        |
+| --------- | --------------------------------------------------------------------------- |
+| identity  | Accounts, sessions, roles, legacy guest drafts, origin checks, throttling   |
+| catalogue | Listings, review and publishing workflow, events, photos                    |
+| trips     | Trip profile, itinerary, services, pricing, intake, proposals               |
+| bucket    | Saved activities per account                                                |
+| audit     | Audit event table, written by other modules inside their transactions       |
+| kemi      | BFF proxy to the Kemi service (`services/kemi`), behind `KEMI_ENABLED`      |
+| bookings  | Cart, line checks and pricing, holds, checkouts, payments, orders, bookings |
+| partners  | Partner businesses, members, listing submissions, views, dashboards         |
 
 Cross-module needs go through a port owned by the consuming module (for
 example `trips/application/ports/offer-catalogue.ts`), wired up in the
 container.
-
-Bookings and payments will be added as new modules in this structure.

@@ -1,0 +1,17 @@
+# Keep the build context small and free of local data and secrets.
+.git
+node_modules
+.next
+.local
+.env*
+!.env.example
+*.tsbuildinfo
+test-results
+playwright-report
+artifacts
+fastlife
+services/kemi/node_modules
+services/kemi/dist
+services/kemi/.env
+Dockerfile
+docker-compose*.yml

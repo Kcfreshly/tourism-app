@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import PhotoCredit from "@/components/photo-credit";
 import Link from "next/link";
-import { BucketButton, PlanTrip } from "@/components/bucket";
+import BookingPanel from "@/components/booking-panel";
+import ViewBeacon from "@/components/view-beacon";
 import Icon from "@/components/icons";
 import { notFound } from "next/navigation";
 import { pages } from "@/bootstrap/container";
@@ -9,12 +10,21 @@ import {
   categoryShortLabels,
   displayName,
   formatDuration,
-  formatMoney,
   kindLabels,
-  priceBasisLabel,
   storyFor,
+  wheelchairLabel,
   zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
+import {
+  ageLabel,
+  arrivalLabel,
+  cancellationLabel,
+  confirmationLabel,
+  listingDetails,
+} from "@/modules/catalogue/domain/listing-details";
+import { lagosToday } from "@/modules/catalogue/domain/events";
+import { safeExploreHref } from "@/modules/catalogue/domain/explore-link";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
 export const dynamic = "force-dynamic";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 async function find(slug: string) {
@@ -32,35 +42,71 @@ export async function generateMetadata({
 }
 export default async function Detail({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{
+    date?: string;
+    edit?: string;
+    book?: string;
+    from?: string;
+    to?: string;
+    back?: string;
+  }>;
 }) {
   const { slug } = await params;
+  const { date, edit, book, from, to, back } = await searchParams;
   const e = await find(slug);
   if (!e) notFound();
-  const story = storyFor(e.seedKey, e.categoryId);
+  const story = storyFor(e);
+  const details = listingDetails(e);
   return (
     <section className="detail-page">
-      <Link className="text-link back-link" href="/explore">
-        <Icon name="arrowLeft" size={16} /> All experiences
+      <ViewBeacon productType="EXPERIENCE" productId={e.id} />
+      <Link className="text-link back-link" href={safeExploreHref(back)}>
+        <Icon name="arrowLeft" size={16} /> Things to do
       </Link>
       <div className="detail">
         <div className="detail-content">
-          <figure className="detail-media">
-            <img
-              src={e.imagePath}
-              alt={e.inspirationPhoto?.title ?? displayName(e.name)}
-            />
-            {e.inspirationPhoto && (
-              <span className="image-label">Destination inspiration</span>
-            )}
-          </figure>
+          {e.photos && e.photos.length > 1 ? (
+            // The whole catalogue of photos, primary first and largest.
+            <ul className="detail-gallery" aria-label="Activity photos">
+              {e.photos.map((src, i) => (
+                <li key={src}>
+                  <img
+                    src={src}
+                    alt={
+                      e.photoAlts?.[i] ||
+                      `${displayName(e.name)}, photo ${i + 1}`
+                    }
+                    loading={i ? "lazy" : undefined}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <figure className="detail-media">
+              <img
+                src={e.imagePath}
+                alt={
+                  e.photoAlts?.[0] ||
+                  (e.inspirationPhoto?.title ?? displayName(e.name))
+                }
+              />
+              {e.inspirationPhoto && (
+                <span className="image-label">Destination inspiration</span>
+              )}
+            </figure>
+          )}
           <div className="detail-text">
             <p className="eyebrow">
               {categoryShortLabels[e.categoryId]} · {zoneLabel(e.zoneId)} ·{" "}
               {kindLabels[e.kind]}
             </p>
             <h1>{displayName(e.name)}</h1>
+            <p className="detail-operator">
+              Run by <strong>{details.operator}</strong>
+            </p>
             <p className="experience-introduction">{story.summary}</p>
             <dl className="fact-grid">
               <div>
@@ -81,23 +127,38 @@ export default async function Detail({
                     : e.availabilityLocal.days
                         .map((d) => dayNames[d])
                         .join(", ")}
-                  , {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt}
+                  , {e.availabilityLocal.opensAt}–
+                  {clockLabel(e.availabilityLocal.closesAt)}
                 </dd>
               </div>
               <div>
                 <dt>
-                  <Icon name="users" size={16} /> Group size
+                  <Icon name="users" size={16} /> Who it suits
                 </dt>
                 <dd>
-                  {e.offer.minParty}–{e.offer.maxParty} adults ({e.offer.minAge}
-                  +)
+                  {ageLabel(details)} · up to {e.offer.maxParty} guests
                 </dd>
               </div>
               <div>
                 <dt>
-                  <Icon name="pin" size={16} /> Area
+                  <Icon name="pin" size={16} /> Where
                 </dt>
-                <dd>{zoneLabel(e.zoneId)}, Lagos</dd>
+                <dd>
+                  {details.venue}
+                  {details.arrival === "PICKUP_REQUIRED" ? "" : ", Lagos"}
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <Icon name="car" size={16} /> Getting there
+                </dt>
+                <dd>{arrivalLabel(details)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <Icon name="check" size={16} /> Confirmation
+                </dt>
+                <dd>{confirmationLabel(details)}</dd>
               </div>
             </dl>
             {story.why && (
@@ -113,7 +174,7 @@ export default async function Detail({
                   ? `Runs at set times: ${e.sessions?.map((s) => s.startTime).join(", ")}. Session times can’t be changed.`
                   : e.kind === "FULL_DAY"
                     ? "Takes up the main part of your day."
-                    : `Choose your own start time. The whole visit must finish by ${e.availabilityLocal.closesAt}, Lagos time.`}
+                    : `Choose your own start time. The whole visit must finish by ${clockLabel(e.availabilityLocal.closesAt)}, Lagos time.`}
               </p>
             </section>
             <div className="inclusion-columns">
@@ -144,32 +205,30 @@ export default async function Detail({
               <h2>Good to know</h2>
               <ul className="plain-list">
                 <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
-                <li>Wheelchair access: not confirmed.</li>
+                <li>{wheelchairLabel(e.mobility.wheelchairAccess)}</li>
                 {e.offer.hostIncluded && <li>A local host joins you.</li>}
+                <li>{cancellationLabel(details)} (sample policy).</li>
                 <li>
-                  Free cancellation up to 48 hours before (sample policy).
+                  Exact meeting point and contact sent with your confirmation.
                 </li>
-                <li>Meeting point shared once booked.</li>
               </ul>
             </section>
             {e.inspirationPhoto && <PhotoCredit photo={e.inspirationPhoto} />}
           </div>
         </div>
-        <aside className="card detail-aside">
-          <p className="card-price">
-            <strong>{formatMoney(e.offer.rateMinor)}</strong>
-            <span>{priceBasisLabel(e.offer.priceBasis)}</span>
-          </p>
-          <div className="actions">
-            <BucketButton id={e.offer.id} />
-            <PlanTrip />
-          </div>
-          <p className="sample-note">
-            <Icon name="info" size={16} />
-            Sample listing. Saving adds it to your bucket only — it isn’t booked
-            and has no time yet.
-          </p>
-        </aside>
+        <BookingPanel
+          experience={e}
+          details={details}
+          today={lagosToday()}
+          // A force-dynamic server page renders once per request.
+          // eslint-disable-next-line react-hooks/purity
+          now={Date.now()}
+          lateReturnFrom={(await pages.transportSettings()).lateReturnFrom}
+          initialDate={date}
+          visit={from && to ? { from, to } : undefined}
+          editId={edit}
+          startOpen={book === "1"}
+        />
       </div>
     </section>
   );

@@ -1,6 +1,18 @@
 import { z } from "zod";
-import type { Profile } from "./profile";
+import { airports, type Profile } from "./profile";
 import type { Experience } from "../../catalogue/domain/experience";
+import {
+  clockLabel,
+  lagosInstant,
+  serviceDayEnd,
+  shortDay,
+  shortestVisit,
+} from "../../catalogue/domain/schedule";
+import { formatDuration } from "../../catalogue/domain/experience-content";
+import {
+  defaultTransportSettings,
+  type TransportSettings,
+} from "./transport-settings";
 import rules from "../../../../tourism-v1-handoff/data/pricing.demo.json";
 const date = z
   .string()
@@ -10,7 +22,11 @@ const date = z
       !Number.isNaN(Date.parse(v)) &&
       new Date(v).toISOString().slice(0, 10) === v,
   );
-export const localTime = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+// 00:00 to 30:00: times past 24:00 are the early hours of the next morning,
+// kept on the day the night out started.
+export const localTime = z
+  .string()
+  .regex(/^(?:([01][0-9]|2[0-9]):[0-5][0-9]|30:00)$/);
 export const itemSchema = z
   .object({
     id: z.uuid(),
@@ -32,12 +48,21 @@ export const servicesSchema = z
       z
         .object({
           startTime: localTime,
-          hours: z.union([z.literal(4), z.literal(8)]),
+          // One of the car blocks in the transport settings.
+          hours: z.number().int().min(1).max(16),
         })
         .strict(),
     ),
     guideItemIds: z.array(z.uuid()).max(240),
     guideDays: z.array(date).max(30),
+    // Days that differ from the trip's transport choice.
+    dayTransport: z.record(date, z.enum(["CAR", "OWN"])).optional(),
+    // A night car on a day, for the configured night block.
+    nightWindows: z
+      .record(date, z.object({ startTime: localTime }).strict())
+      .optional(),
+    // Late activities the traveller will get back from on their own.
+    ownWayBack: z.array(z.uuid()).max(240).optional(),
   })
   .strict();
 export type Item = z.infer<typeof itemSchema>;
@@ -48,6 +73,177 @@ export const defaultServices: Services = {
   guideItemIds: [],
   guideDays: [],
 };
+// A day's transport: a car for the day or the traveller's own way. The trip
+// sets the default; each day can differ.
+export function dayTransport(
+  profile: Pick<Profile, "transport">,
+  services: Pick<Services, "dayTransport">,
+  day: string,
+): "CAR" | "OWN" {
+  return (
+    services.dayTransport?.[day] ??
+    (profile.transport === "OWN" ? "OWN" : "CAR")
+  );
+}
+function zonePair(from: string, to: string) {
+  return rules.travelMatrixMinutes.find(
+    (r) => (r.from === from && r.to === to) || (r.from === to && r.to === from),
+  );
+}
+// The activities a night car covers: those starting from the night start
+// time, on a day that has a night car. Everything else is the day's.
+export function nightGroup<T extends Pick<Item, "startTime">>(
+  schedule: T[],
+  services: Pick<Services, "nightWindows">,
+  day: string,
+  settings: TransportSettings,
+) {
+  return services.nightWindows?.[day]
+    ? schedule.filter(
+        (i) => minutes(i.startTime) >= minutes(settings.night.startsFrom),
+      )
+    : [];
+}
+// The car that covers a run of activities: pickup in time for the first in
+// traffic, and the trip back after the last. A day car uses the shortest
+// block that fits; a night car starts no earlier than the night start time.
+// Null when nothing fits or a route isn't configured.
+export function fitCar(
+  base: string,
+  schedule: Pick<Item, "id" | "startTime" | "endTime">[],
+  offerFor: (itemId: string) => Pick<Experience, "zoneId">,
+  settings: TransportSettings,
+  kind: "DAY" | "NIGHT" = "DAY",
+) {
+  if (!schedule.length) return null;
+  const first = schedule[0],
+    last = schedule.at(-1)!;
+  const out = zonePair(base, offerFor(first.id).zoneId);
+  const back = travelMinutes(
+    offerFor(last.id).zoneId,
+    base,
+    minutes(last.endTime),
+  );
+  if (!out || back === null) return null;
+  const pickup = minutes(first.startTime) - Math.max(out.peak, out.offPeak);
+  const end = minutes(last.endTime) + back;
+  if (end > minutes(serviceDayEnd)) return null;
+  if (kind === "NIGHT") {
+    const start = Math.max(
+      Math.floor(pickup / 15) * 15,
+      minutes(settings.night.startsFrom),
+    );
+    return start <= pickup && end <= start + settings.night.hours * 60
+      ? { startTime: time(start), hours: settings.night.hours }
+      : null;
+  }
+  const start = Math.max(0, Math.floor(pickup / 15) * 15);
+  const block = settings.dayBlocks.find((b) => start + b.hours * 60 >= end);
+  return block ? { startTime: time(start), hours: block.hours } : null;
+}
+// Whether a car window covers pickup for the first activity in traffic and
+// the trip back after the last. Unconfigured routes are reported elsewhere.
+export function carCovers(
+  base: string,
+  schedule: Pick<Item, "id" | "startTime" | "endTime">[],
+  offerFor: (itemId: string) => Pick<Experience, "zoneId">,
+  window: { startTime: string; hours: number },
+) {
+  if (!schedule.length) return true;
+  const first = schedule[0],
+    last = schedule.at(-1)!;
+  const out = zonePair(base, offerFor(first.id).zoneId);
+  const back = travelMinutes(
+    offerFor(last.id).zoneId,
+    base,
+    minutes(last.endTime),
+  );
+  if (!out || back === null) return true;
+  const from = minutes(window.startTime);
+  return (
+    from + Math.max(out.peak, out.offPeak) <= minutes(first.startTime) &&
+    minutes(last.endTime) + back <= from + window.hours * 60
+  );
+}
+// When a traveller who books their own stay still owes us a pickup address:
+// the first car pickup of the trip, less the configured notice. Null when no
+// car is booked, Fastlife books the stay, or the address is in.
+export function pickupReminder(
+  profile: Pick<
+    Profile,
+    "accommodation" | "accommodationBy" | "transport" | "startDate" | "endDate"
+  >,
+  items: Pick<Item, "localDate" | "startTime" | "kind">[],
+  services: Pick<Services, "dayTransport" | "vehicleWindows" | "nightWindows">,
+  settings: TransportSettings,
+  now = Date.now(),
+) {
+  if (profile.accommodationBy === "FASTLIFE" || profile.accommodation.trim())
+    return null;
+  for (const day of tripDays(profile)) {
+    const activities = items
+      .filter((i) => i.localDate === day && i.kind === "EXPERIENCE")
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const night = services.nightWindows?.[day]?.startTime;
+    const car =
+      dayTransport(profile, services, day) === "CAR" && activities.length
+        ? (services.vehicleWindows[day]?.startTime ?? activities[0].startTime)
+        : undefined;
+    const pickup = [car, night].filter((t): t is string => !!t).sort()[0];
+    if (!pickup) continue;
+    const dueAt =
+      lagosInstant(day, pickup) - settings.pickupAddressNoticeHours * 3600000;
+    const lagos = new Date(dueAt + 3600000).toISOString();
+    const due = `${shortDay(lagos.slice(0, 10))}, ${lagos.slice(11, 16)}`;
+    return {
+      dueAt,
+      overdue: now >= dueAt,
+      message:
+        now >= dueAt
+          ? `Add your pickup address now: your first pickup is on ${shortDay(day)} at ${clockLabel(pickup)}.`
+          : `Add your pickup address by ${due}, ${settings.pickupAddressNoticeHours} hours before your first pickup. You can book now and add it later.`,
+    };
+  }
+  return null;
+}
+// When a traveller with an airport pickup still owes us their flight number
+// or landing time: reminded like the pickup address, until that notice
+// before the landing day starts. Null when nothing is missing.
+export function flightReminder(
+  profile: Pick<Profile, "airportPickup">,
+  settings: Pick<TransportSettings, "pickupAddressNoticeHours">,
+  now = Date.now(),
+) {
+  const pickup = profile.airportPickup;
+  if (!pickup || (pickup.flight && pickup.landingTime)) return null;
+  const dueAt =
+    lagosInstant(pickup.landingDate, "00:00") -
+    settings.pickupAddressNoticeHours * 3600000;
+  const lagos = new Date(dueAt + 3600000).toISOString();
+  const due = `${shortDay(lagos.slice(0, 10))}, ${lagos.slice(11, 16)}`;
+  const missing = !pickup.flight ? "flight number" : "landing time";
+  return {
+    dueAt,
+    overdue: now >= dueAt,
+    message:
+      now >= dueAt
+        ? `Add your ${missing} now: your driver needs it to meet you on ${shortDay(pickup.landingDate)}.`
+        : `Add your ${missing} by ${due}, so your driver can meet you at the airport. You can book now and add it later.`,
+  };
+}
+// Guides are arranged with a local partner, so they need notice before the
+// activity (or the start of a full-day guide's day).
+export function guideTooLate(
+  day: string,
+  startTime: string,
+  now = Date.now(),
+  noticeHours = defaultTransportSettings.guideNoticeHours,
+) {
+  return lagosInstant(day, startTime) - now < noticeHours * 3600000;
+}
+export function guideNoticeMessage(noticeHours: number) {
+  return `Guides need booking at least ${noticeHours} hours ahead.`;
+}
 // Guides are add-ons that combine freely: full-day guides on chosen days and
 // activity guides on chosen experiences. The legacy single choice is derived
 // so saved profiles and planner proposals keep a sensible summary.
@@ -60,6 +256,16 @@ export function assistanceFor(
       ? "ACTIVITY_GUIDE"
       : "DRIVER_ONLY";
 }
+// How full a suggested day gets at each pace: activities per day, the
+// earliest start (minutes after midnight) and the breather between activities.
+export const paceRules: Record<
+  Profile["pace"],
+  { main: number; light: number; start: number; gap: number; label: string }
+> = {
+  RELAXED: { main: 1, light: 1, start: 600, gap: 60, label: "relaxed" },
+  BALANCED: { main: 2, light: 1, start: 540, gap: 30, label: "balanced" },
+  FULL: { main: 3, light: 2, start: 510, gap: 15, label: "full" },
+};
 export type Issue = { code: string; message: string; itemId?: string };
 export type PriceLine = {
   key: string;
@@ -142,6 +348,7 @@ export function assess(
   services: Services,
   offers: Experience[],
   now = Date.now(),
+  settings: TransportSettings = defaultTransportSettings,
 ) {
   const blockers: Issue[] = [],
     warnings: Issue[] = [],
@@ -157,11 +364,7 @@ export function assess(
       add("OUTSIDE_TRIP", "Move this item within your trip dates.", item.id);
     const duration = minutes(item.endTime) - minutes(item.startTime);
     if (duration <= 0)
-      add(
-        "INVALID_TIME",
-        "End time must be after start time on the same day.",
-        item.id,
-      );
+      add("INVALID_TIME", "End time must be after start time.", item.id);
     if (item.kind !== "EXPERIENCE") {
       if (item.offerId !== null)
         add(
@@ -201,11 +404,19 @@ export function assess(
       );
     if (offer.cityId !== profile.cityId)
       add("CITY_MISMATCH", "Choose an experience in your trip city.", item.id);
-    if (
-      duration < offer.durationMinMinutes ||
-      duration > offer.durationMaxMinutes
-    )
-      add("DURATION", "Duration is outside the offer limits.", item.id);
+    // Say what is allowed and how long the block is, so the fix is obvious.
+    if (duration > offer.durationMaxMinutes)
+      add(
+        "DURATION",
+        `This can last up to ${formatDuration(offer.durationMaxMinutes)}, and this block is ${formatDuration(duration)}. Start later or end earlier.`,
+        item.id,
+      );
+    else if (duration > 0 && duration < shortestVisit(offer))
+      add(
+        "DURATION",
+        `Stay at least ${formatDuration(shortestVisit(offer))}; this block is ${formatDuration(duration)}.`,
+        item.id,
+      );
     if (
       profile.adults < offer.offer.minParty ||
       profile.adults > offer.offer.maxParty
@@ -223,10 +434,16 @@ export function assess(
         item.id,
       );
     if (
-      Date.parse(`${item.localDate}T${item.startTime}:00+01:00`) - now <
+      lagosInstant(item.localDate, item.startTime) - now <
       offer.offer.bookingCutoffHours * 3600000
     )
-      add("CUTOFF", "This experience is inside its booking cutoff.", item.id);
+      add(
+        "CUTOFF",
+        offer.offer.bookingCutoffHours
+          ? `This experience needs booking at least ${offer.offer.bookingCutoffHours} hours before it starts.`
+          : "This start time has already passed.",
+        item.id,
+      );
     const quantity =
       offer.offer.priceBasis === "PER_ADULT" ? profile.adults : 1;
     if (
@@ -249,8 +466,8 @@ export function assess(
       rule: `offer:${offer.offer.id}; demo-48h`,
     });
   }
-  const vehicles = Math.ceil(profile.adults / rules.vehiclePassengerCapacity);
-  for (const day of days) {
+  const cars = Math.ceil(profile.adults / settings.seatsPerCar);
+  for (const [index, day] of days.entries()) {
     const schedule = items
       .filter((i) => i.localDate === day)
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -261,6 +478,17 @@ export function assess(
             "OVERLAP",
             `Overlaps with “${schedule[a].title}”.`,
             schedule[b].id,
+          );
+    // A night out from the day before may still be running this morning.
+    for (const night of items.filter(
+      (i) => i.localDate === days[index - 1] && minutes(i.endTime) > 1440,
+    ))
+      for (const block of schedule)
+        if (minutes(night.endTime) - 1440 > minutes(block.startTime))
+          add(
+            "OVERLAP",
+            `Overlaps with “${night.title}” from the night before.`,
+            block.id,
           );
     const experiences = schedule.filter((i) => resolved.has(i.id));
     if (
@@ -307,101 +535,179 @@ export function assess(
           after.id,
         );
     }
+    const pace = paceRules[profile.pace];
     if (
-      experiences.filter((i) => resolved.get(i.id)!.kind === "MAIN").length > 2
+      experiences.filter((i) => resolved.get(i.id)!.kind === "MAIN").length >
+      pace.main
     )
       warnings.push({
         code: "DENSITY",
-        message: `${day}: more than two main experiences. Consider a lighter day.`,
+        message: `${day}: busier than your ${pace.label} pace. Consider a lighter day.`,
       });
     const first = experiences[0],
       last = experiences.at(-1)!;
-    if (profile.zoneId === "UNDECIDED" || !profile.accommodation.trim())
-      add(
-        "MISSING_BASE",
-        "Confirm your accommodation and service zone before reserving transport.",
-      );
-    const outbound = travelMinutes(
-        profile.zoneId,
-        resolved.get(first.id)!.zoneId,
-        minutes(first.startTime) - 60,
-      ),
-      inbound = travelMinutes(
-        resolved.get(last.id)!.zoneId,
-        profile.zoneId,
-        minutes(last.endTime),
-      );
-    if (outbound === null || inbound === null)
-      add(
-        "ROUTE_UNSUPPORTED",
-        `${day}: the accommodation route is not configured.`,
-      );
-    const window = services.vehicleWindows[day];
-    if (!window) {
-      add(
-        "MISSING_WINDOW",
-        `${day}: select a 4-hour or 8-hour dedicated vehicle window.`,
-      );
-      continue;
-    }
-    const start = minutes(window.startTime),
-      end = start + window.hours * 60;
-    if (end > 1440)
-      add(
-        "SERVICE_WINDOW",
-        `${day}: vehicle coverage cannot extend beyond the service day.`,
-      );
-    // Use the greater peak/off-peak buffer to avoid optimistic pickup estimates.
-    const outPair = rules.travelMatrixMinutes.find(
-      (r) =>
-        (r.from === profile.zoneId &&
-          r.to === resolved.get(first.id)!.zoneId) ||
-        (r.to === profile.zoneId && r.from === resolved.get(first.id)!.zoneId),
-    );
-    const out = outPair ? Math.max(outPair.peak, outPair.offPeak) : 0;
+    const offerFor = (id: string) => resolved.get(id)!;
+    const mode = dayTransport(profile, services, day);
+    const night = nightGroup(experiences, services, day, settings);
+    const daytime = experiences.filter((i) => !night.includes(i));
+    const nightWindow = services.nightWindows?.[day];
+    const dayWindow =
+      mode === "CAR" && daytime.length
+        ? services.vehicleWindows[day]
+        : undefined;
+    // A full-day guide starts with the day car, or at the first activity.
+    const start = dayWindow
+      ? minutes(dayWindow.startTime)
+      : minutes(first.startTime);
     if (
-      start + out > minutes(first.startTime) ||
-      (inbound !== null && minutes(last.endTime) + inbound > end)
+      ((mode === "CAR" && daytime.length) || nightWindow) &&
+      profile.zoneId === "UNDECIDED"
     )
       add(
-        "SERVICE_WINDOW",
-        `${day}: coverage must include pickup, all gaps and return travel. More than 8 hours needs an unavailable overtime product.`,
+        "MISSING_BASE",
+        profile.accommodationBy === "FASTLIFE"
+          ? "Choose the area you’d like to stay in, so we can book your stay and time your pickups."
+          : "Choose the area you’re staying in, so we can time your pickups.",
       );
-    lines.push({
-      key: `vehicle:${day}`,
-      label: `${day} · ${vehicles} vehicle(s) · ${window.startTime}–${time(Math.min(end, 1439))}`,
-      group: "transport",
-      quantity: vehicles,
-      unitRateMinor: rules.vehicleBlocks.find((b) => b.hours === window.hours)!
-        .rateMinor,
-      totalMinor:
-        vehicles *
-        rules.vehicleBlocks.find((b) => b.hours === window.hours)!.rateMinor,
-      rule: `${rules.version}:vehicle-${window.hours}h`,
-    });
-    const zones = new Set([
-      profile.zoneId,
-      ...experiences.map((i) => resolved.get(i.id)!.zoneId),
-    ]);
-    if (zones.size > 1)
+    if (mode === "CAR" && daytime.length && !dayWindow)
+      add(
+        "MISSING_WINDOW",
+        `${day}: choose when your driver starts and for how many hours.`,
+      );
+    // Checks one car against the activities it covers, then prices it.
+    const cover = (
+      group: Item[],
+      window: { startTime: string; hours: number },
+      label: string,
+      key: "vehicle" | "night",
+      rateMinor: number | undefined,
+    ) => {
+      if (rateMinor === undefined) {
+        add(
+          "SERVICE_WINDOW",
+          `${day}: a ${window.hours}-hour ${label} isn’t offered. Choose another length.`,
+        );
+        return;
+      }
+      const from = minutes(window.startTime),
+        to = from + window.hours * 60;
+      if (to > minutes(serviceDayEnd))
+        add("SERVICE_WINDOW", `${day}: your ${label} can’t run past 06:00.`);
+      if (group.length) {
+        const out = zonePair(profile.zoneId, offerFor(group[0].id).zoneId);
+        const back = travelMinutes(
+          offerFor(group.at(-1)!.id).zoneId,
+          profile.zoneId,
+          minutes(group.at(-1)!.endTime),
+        );
+        if (!out || back === null)
+          add(
+            "ROUTE_UNSUPPORTED",
+            `${day}: the accommodation route is not configured.`,
+          );
+        // Use the greater peak/off-peak buffer to avoid optimistic pickups.
+        else if (
+          from + Math.max(out.peak, out.offPeak) >
+            minutes(group[0].startTime) ||
+          minutes(group.at(-1)!.endTime) + back > to
+        )
+          add(
+            "SERVICE_WINDOW",
+            `${day}: your ${label} doesn’t cover the pickup, the time between activities and the trip back. Use “Fit to my plan”.`,
+          );
+      }
+      // Cost lines start a sentence: "Car for the day", "Night car".
+      const title = label[0].toUpperCase() + label.slice(1);
       lines.push({
-        key: `cross-zone:${day}`,
-        label: `${day} · cross-zone vehicle surcharge`,
+        key: `${key}:${day}`,
+        label: `${day} · ${title} · ${cars} ${cars === 1 ? "car" : "cars"} · ${clockLabel(window.startTime)}–${clockLabel(time(to))}`,
         group: "transport",
-        quantity: vehicles,
-        unitRateMinor: rules.crossZoneSurchargePerVehicleMinor,
-        totalMinor: vehicles * rules.crossZoneSurchargePerVehicleMinor,
-        rule: `${rules.version}:cross-zone`,
+        quantity: cars,
+        unitRateMinor: rateMinor,
+        totalMinor: cars * rateMinor,
+        rule: `transport-settings:${key}-${window.hours}h`,
       });
+      const zones = new Set([
+        profile.zoneId,
+        ...group.map((i) => offerFor(i.id).zoneId),
+      ]);
+      if (zones.size > 1)
+        lines.push({
+          key: `${key === "vehicle" ? "cross-zone" : "night-cross-zone"}:${day}`,
+          label: `${day} · ${title} cross-area surcharge`,
+          group: "transport",
+          quantity: cars,
+          unitRateMinor: settings.crossZoneSurchargeMinor,
+          totalMinor: cars * settings.crossZoneSurchargeMinor,
+          rule: "transport-settings:cross-zone",
+        });
+    };
+    if (dayWindow)
+      cover(
+        daytime,
+        dayWindow,
+        "car for the day",
+        "vehicle",
+        settings.dayBlocks.find((b) => b.hours === dayWindow.hours)?.rateMinor,
+      );
+    if (nightWindow) {
+      if (minutes(nightWindow.startTime) < minutes(settings.night.startsFrom))
+        add(
+          "SERVICE_WINDOW",
+          `${day}: the night car starts from ${settings.night.startsFrom}.`,
+        );
+      if (!night.length)
+        warnings.push({
+          code: "NIGHT_UNUSED",
+          message: `${day}: your night car has no activities starting from ${settings.night.startsFrom}.`,
+        });
+      cover(
+        night,
+        { startTime: nightWindow.startTime, hours: settings.night.hours },
+        "night car",
+        "night",
+        settings.night.rateMinor,
+      );
+    }
+    // Making their own way: late finishes need a night car or the
+    // traveller's word that they'll arrange the trip back.
+    if (mode === "OWN")
+      for (const item of daytime)
+        if (
+          minutes(item.endTime) >= minutes(settings.lateReturnFrom) &&
+          !services.ownWayBack?.includes(item.id)
+        )
+          add(
+            "LATE_RETURN",
+            `“${item.title}” ends at ${clockLabel(item.endTime)}. Add a night car, or confirm you’ll arrange your own way back.`,
+            item.id,
+          );
+    if (
+      !dayWindow &&
+      services.guideDays.includes(day) &&
+      minutes(last.endTime) > start + 480
+    )
+      add(
+        "GUIDE_WINDOW",
+        `${day}: a full-day guide covers 8 hours from your first activity.`,
+      );
     const guidedDay = services.guideDays.includes(day);
-    if (guidedDay) {
+    if (
+      guidedDay &&
+      guideTooLate(day, time(start), now, settings.guideNoticeHours)
+    )
+      add(
+        "GUIDE_NOTICE",
+        `${day}: ${guideNoticeMessage(settings.guideNoticeHours)} Remove the full-day guide.`,
+      );
+    else if (guidedDay) {
       const fullyHosted = experiences.every(
         (i) => resolved.get(i.id)!.offer.hostIncluded,
       );
       if (!fullyHosted)
         lines.push({
           key: `guide:${day}`,
-          label: `${day} · full-day guide · ${window.startTime}–${time(Math.min(start + 480, 1439))}`,
+          label: `${day} · full-day guide · ${clockLabel(time(start))}–${clockLabel(time(start + 480))}`,
           group: "hosting",
           quantity: 1,
           unitRateMinor: rules.guideDayBlock.rateMinor,
@@ -427,7 +733,13 @@ export function assess(
         });
         continue;
       }
-      if (
+      if (guideTooLate(day, item.startTime, now, settings.guideNoticeHours))
+        add(
+          "GUIDE_NOTICE",
+          `${guideNoticeMessage(settings.guideNoticeHours)} Remove the guide for “${item.title}”.`,
+          item.id,
+        );
+      else if (
         minutes(item.endTime) - minutes(item.startTime) + 30 >
         rules.activityGuideBlock.hours * 60
       )
@@ -448,6 +760,18 @@ export function assess(
         });
     }
   }
+  // A flat price per pickup, whatever the flight.
+  const arrival = profile.airportPickup;
+  if (arrival)
+    lines.push({
+      key: `airport:${arrival.landingDate}`,
+      label: `${arrival.landingDate} · Airport pickup · ${airports[arrival.airport]}`,
+      group: "transport",
+      quantity: 1,
+      unitRateMinor: settings.airportPickupMinor,
+      totalMinor: settings.airportPickupMinor,
+      rule: "transport-settings:airport-pickup",
+    });
   const activitiesMinor = lines
       .filter((l) => l.group === "activities")
       .reduce((n, l) => n + l.totalMinor, 0),
@@ -464,6 +788,12 @@ export function assess(
   const budget =
     profile.budgetMinor *
     (profile.budgetBasis === "PERSON" ? profile.adults : 1);
+  // Not a blocker: they can book now, and are reminded until it's added.
+  const pickup = pickupReminder(profile, items, services, settings, now);
+  if (pickup)
+    warnings.push({ code: "PICKUP_ADDRESS", message: pickup.message });
+  const flight = flightReminder(profile, settings, now);
+  if (flight) warnings.push({ code: "FLIGHT_DETAILS", message: flight.message });
   if (budget > 0 && totalMinor > budget)
     warnings.push({
       code: "BUDGET",
@@ -520,6 +850,28 @@ export function placementMessage(issue: Issue) {
     : issue.message;
 }
 
+// True when every start an experience could have on `day` is already inside
+// its booking cutoff: the day is too soon, rather than too full.
+export function pastBookingCutoff(
+  offer: Experience,
+  day: string,
+  now = Date.now(),
+) {
+  const latest = (
+    offer.schedulingType === "FIXED"
+      ? (offer.sessions ?? [])
+          .filter((s) => !s.dates || s.dates.includes(day))
+          .map((s) => s.startTime)
+      : [time(minutes(offer.availabilityLocal.closesAt) - shortestVisit(offer))]
+  )
+    .sort()
+    .at(-1);
+  return (
+    !!latest &&
+    lagosInstant(day, latest) - now < offer.offer.bookingCutoffHours * 3600000
+  );
+}
+
 export function availableStarts(
   profile: Profile,
   offer: Experience,
@@ -544,15 +896,23 @@ export function availableStarts(
               Math.floor(
                 (minutes(offer.availabilityLocal.closesAt) -
                   minutes(offer.availabilityLocal.opensAt) -
-                  offer.durationMinMinutes) /
+                  shortestVisit(offer)) /
                   15,
               ) + 1,
             ),
           },
-          (_, i) => ({
-            start: minutes(offer.availabilityLocal.opensAt) + i * 15,
-            duration: offer.durationMinMinutes,
-          }),
+          // Late arrivals at a drop-in listing get a shorter visit that
+          // still ends by closing time.
+          (_, i) => {
+            const start = minutes(offer.availabilityLocal.opensAt) + i * 15;
+            return {
+              start,
+              duration: Math.min(
+                offer.durationMinMinutes,
+                minutes(offer.availabilityLocal.closesAt) - start,
+              ),
+            };
+          },
         );
   return options
     .map((option) => ({

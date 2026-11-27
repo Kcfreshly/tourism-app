@@ -7,5 +7,12 @@ export default async function Profile({
 }) {
   const { id } = await params;
   await pages.requireSignedIn(`/trips/${encodeURIComponent(id)}/profile`);
-  return <Intake id={id} />;
+  const { airportPickupMinor } = await pages.transportSettings();
+  return (
+    <Intake
+      id={id}
+      kemi={pages.kemiEnabled()}
+      airportPickupMinor={airportPickupMinor}
+    />
+  );
 }

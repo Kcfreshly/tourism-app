@@ -1,7 +1,8 @@
 /* Ọ̀nà design tokens.
    Palette: adire indigo (primary), danfo yellow (highlight, never body text),
-   clay (editorial accent) and lagoon green (personal time / success) on warm
-   sand paper. Text colours meet WCAG AA on --c-paper and --c-surface. */
+   clay (editorial accent) and lagoon green (personal time / success) on a
+   clean white page, so photos and cards stand out. Text colours meet WCAG AA
+   on --c-paper and --c-surface. */
 @font-face {
   font-family: "Bricolage Grotesque";
   font-style: normal;
@@ -36,7 +37,7 @@
     U+1EA0-1EF9, U+20AB;
 }
 :root {
-  --c-paper: #fcfbf8;
+  --c-paper: #ffffff;
   --c-surface: #ffffff;
   --c-sunken: #efe8da;
   --c-line: #ebe5da;

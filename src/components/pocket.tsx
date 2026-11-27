@@ -15,6 +15,15 @@ import {
 } from "@/modules/catalogue/domain/experience-content";
 import ExperienceOverlay from "./experience-overlay";
 import Icon from "./icons";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
+import type { OrderView } from "@/modules/bookings/domain/checkout";
+import {
+  arrangedFor,
+  daysUntil,
+  fulfilmentRows,
+  fulfilmentSettled,
+} from "@/modules/bookings/domain/fulfilment";
+import { FulfilmentTracker } from "./bookings";
 
 type Trip = {
   id: string;
@@ -22,9 +31,11 @@ type Trip = {
   items: Item[];
   services: Services;
 };
+// The trip day runs 06:00 to 06:00, so at 02:00 a night out that began the
+// evening before is still "today".
 function lagosToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(
-    new Date(),
+    new Date(Date.now() - 6 * 3600000),
   );
 }
 function gapLabel(total: number) {
@@ -48,6 +59,13 @@ export default function Pocket({ id }: { id: string }) {
   const [offers, setOffers] = useState<Experience[]>([]);
   const [day, setDay] = useState("");
   const [error, setError] = useState("");
+  // The pickup address reminder, while the traveller still owes one.
+  const [pickup, setPickup] = useState("");
+  const [flight, setFlight] = useState("");
+  // The order that paid for the trip: what we arranged, and its status.
+  const [order, setOrder] = useState<OrderView | null>(null);
+  // Before the trip starts, the tracker shows until they preview the days.
+  const [preview, setPreview] = useState(false);
   useEffect(() => {
     fetch(`/api/v1/trips/${id}/workspace`)
       .then(async (r) => {
@@ -56,7 +74,22 @@ export default function Pocket({ id }: { id: string }) {
         const days = tripDays(body.data.trip.profile);
         setTrip(body.data.trip);
         setOffers(body.data.offers);
+        const warning = (code: string) =>
+          body.data.price?.warnings?.find(
+            (w: { code: string }) => w.code === code,
+          )?.message ?? "";
+        setPickup(warning("PICKUP_ADDRESS"));
+        setFlight(warning("FLIGHT_DETAILS"));
         setDay(days.includes(lagosToday()) ? lagosToday() : days[0]);
+        const reference = body.data.booking?.orderReference;
+        if (reference)
+          return fetch(`/api/v1/orders/${encodeURIComponent(reference)}`).then(
+            async (r) => {
+              const order = await r.json();
+              // The day view still works from the plan if this fails.
+              if (r.ok) setOrder(order.data);
+            },
+          );
       })
       .catch((e) => setError(e.message));
   }, [id]);
@@ -93,7 +126,8 @@ export default function Pocket({ id }: { id: string }) {
           .format(new Date())
           .split(":")
           .map(Number);
-        return h * 60 + m;
+        // After midnight the clock continues the service day: 02:00 is 26:00.
+        return (h < 6 ? h + 24 : h) * 60 + m;
       })()
     : -1;
   const dayItems = trip.items
@@ -102,8 +136,61 @@ export default function Pocket({ id }: { id: string }) {
   const next =
     dayItems.find((item) => minutes(item.endTime) > now) ?? dayItems[0];
   const nextOffer = offers.find((o) => o.offer.id === next?.offerId);
-  const vehicle = trip.services.vehicleWindows[day];
+  const vehicle =
+    trip.profile.transport === "OWN"
+      ? undefined
+      : trip.services.vehicleWindows[day];
   const index = days.indexOf(day);
+  const today = lagosToday();
+  const until = daysUntil(trip.profile.startDate, today);
+  const arranged = order ? arrangedFor(day, order) : [];
+  if (order && until > 0 && !preview) {
+    const settled = fulfilmentSettled(fulfilmentRows(order, new Date()));
+    return (
+      <section className="pocket">
+        <header className="pocket-top">
+          <Link
+            className="icon-button"
+            href={`/trips/${id}/plan`}
+            aria-label="Back to planner"
+          >
+            <Icon name="chevronLeft" size={22} />
+          </Link>
+          <div className="pocket-countdown">
+            <p className="eyebrow">Order {order.reference}</p>
+            <h1>
+              Your trip starts in {until} {until === 1 ? "day" : "days"}
+            </h1>
+          </div>
+        </header>
+        <p className="pocket-notice">
+          <Icon name={settled ? "check" : "clock"} size={16} />
+          {settled
+            ? "Everything is arranged. Your days open here when the trip starts."
+            : "We’re still arranging some things. Each one updates here, and we email you when it changes."}
+        </p>
+        <FulfilmentTracker order={order} paymentsEnabled />
+        <div className="actions">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setPreview(true);
+              setDay(days[0]);
+            }}
+          >
+            Preview your days
+          </button>
+          <Link
+            className="button secondary"
+            href={`/bookings/${order.reference}`}
+          >
+            Booking details
+          </Link>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="pocket">
       <header className="pocket-top">
@@ -141,17 +228,70 @@ export default function Pocket({ id }: { id: string }) {
           </button>
         </div>
       </header>
-      <p className="pocket-notice">
-        <Icon name="info" size={16} />
-        This is your planned day. Nothing is booked yet, so driver and guide
-        details aren’t assigned.
-      </p>
+      {pickup && (
+        <p className="pocket-notice pickup-reminder" role="status">
+          <Icon name="pin" size={16} />
+          <span>
+            {pickup}{" "}
+            <Link href={`/trips/${id}/profile#accommodation`}>Add it now</Link>
+          </span>
+        </p>
+      )}
+      {flight && (
+        <p className="pocket-notice pickup-reminder" role="status">
+          <Icon name="car" size={16} />
+          <span>
+            {flight}{" "}
+            <Link href={`/trips/${id}/profile#arrival`}>Add it now</Link>
+          </span>
+        </p>
+      )}
+      {order ? (
+        until > 0 && (
+          <p className="pocket-notice">
+            <Icon name="info" size={16} />A preview of your booked trip.{" "}
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setPreview(false)}
+            >
+              Back to what we’re arranging
+            </button>
+          </p>
+        )
+      ) : (
+        <p className="pocket-notice">
+          <Icon name="info" size={16} />
+          This is your planned day. Nothing is booked yet, so driver and guide
+          details aren’t assigned.
+        </p>
+      )}
+      {arranged.length > 0 && (
+        <section aria-labelledby="pocket-arranged">
+          <h2 id="pocket-arranged" className="pocket-section-title">
+            Arranged for you
+          </h2>
+          <ol className="pocket-arranged">
+            {arranged.map((a) => (
+              <li key={a.key}>
+                <time>{a.time ? clockLabel(a.time) : "Then"}</time>
+                <div>
+                  <strong>{a.title}</strong>
+                  {a.lines.map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       {next ? (
         <article className="next-up" aria-label="Next up">
           <p className="eyebrow">{isToday ? "Next up" : "First up"}</p>
           <p className="next-time">
             {next.startTime}
-            <span>until {next.endTime}</span>
+            <span>until {clockLabel(next.endTime)}</span>
           </p>
           <h2>{displayName(next.title)}</h2>
           <ul className="trip-facts">
@@ -237,7 +377,7 @@ export default function Pocket({ id }: { id: string }) {
                         )}
                       </strong>
                       <span>
-                        {item.startTime}–{item.endTime}
+                        {clockLabel(item.startTime)}–{clockLabel(item.endTime)}
                         {offer
                           ? ` · ${zoneLabel(offer.zoneId)}${offer.schedulingType === "FIXED" ? " · Set session" : ""}`
                           : " · Personal time"}
@@ -254,10 +394,20 @@ export default function Pocket({ id }: { id: string }) {
         <h2 id="pocket-help" className="pocket-section-title">
           Help
         </h2>
-        <p>
-          Once your trip is booked, you’ll be able to reach trip support and see
-          your driver and guide here.
-        </p>
+        {order ? (
+          <p>
+            Your drivers, guides and bookings are in{" "}
+            <Link href={`/bookings/${order.reference}`}>
+              order {order.reference}
+            </Link>
+            .
+          </p>
+        ) : (
+          <p>
+            Once your trip is booked, you’ll be able to reach trip support and
+            see your driver and guide here.
+          </p>
+        )}
         <p className="muted">
           For immediate danger, contact local emergency services.
         </p>

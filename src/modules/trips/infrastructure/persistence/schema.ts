@@ -5,6 +5,7 @@ import {
   integer,
   jsonb,
   timestamp,
+  boolean,
 } from "drizzle-orm/pg-core";
 export const trips = pgTable("trips", {
   id: uuid().primaryKey(),
@@ -30,4 +31,25 @@ export const proposals = pgTable("planner_proposals", {
   payload: jsonb().notNull(),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   appliedAt: timestamp({ withTimezone: true }),
+});
+// One row ("default") of staff-editable transport and guide rules. No row
+// means the defaults in transport-settings.ts apply.
+export const transportSettings = pgTable("transport_settings", {
+  id: text().primaryKey(),
+  settings: jsonb().notNull(),
+  version: integer().notNull().default(1),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+// Places to stay, entered by staff. See migrations/0016.
+export const hotels = pgTable("hotels", {
+  id: uuid().primaryKey(),
+  name: text().notNull(),
+  aliases: text().array().notNull().default([]),
+  zoneId: text().notNull(),
+  type: text().notNull(),
+  address: text().notNull(),
+  active: boolean().notNull().default(true),
+  version: integer().notNull().default(1),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });

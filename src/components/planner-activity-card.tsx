@@ -19,6 +19,7 @@ export default function PlannerActivityCard({
   busy,
   available,
   note,
+  unavailableReason,
   when,
   otherDay,
   onAdd,
@@ -29,6 +30,7 @@ export default function PlannerActivityCard({
   busy: boolean;
   available: boolean;
   note?: string;
+  unavailableReason?: string;
   // Dated events: when they run, and a shortcut to a day they run on.
   when?: string;
   otherDay?: { label: string; go: () => void };
@@ -140,7 +142,8 @@ export default function PlannerActivityCard({
                 </button>
               </>
             ) : (
-              "Doesn’t fit this day. Try another day or session."
+              (unavailableReason ??
+              "Doesn’t fit this day. Try another day or session.")
             )}
           </p>
         )}

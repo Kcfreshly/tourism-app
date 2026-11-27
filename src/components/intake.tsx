@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   initialProfile,
   profileSchema,
+  stayLabel,
+  upcomingTrip,
   type Profile,
 } from "@/modules/trips/domain/profile";
+import { lagosToday } from "@/modules/catalogue/domain/events";
 import {
   formatMoney,
   zoneLabel,
@@ -16,6 +19,8 @@ import { useBucket } from "@/hooks/use-bucket";
 import { activateTrip } from "@/hooks/use-active-trip";
 import Icon from "./icons";
 import { TripEvents } from "./whats-on";
+import ArrivalFields, { arrivalSummary } from "./intake-arrival";
+import StayFields from "./intake-stay";
 
 type Saved = { id: string; version: number; profile: Profile };
 type Stage = "details" | "review" | "saved";
@@ -42,8 +47,14 @@ const paceLabels: Record<Profile["pace"], string> = {
   BALANCED: "balanced",
   FULL: "full",
 };
+const pastArrival =
+  "That arrival date has passed. Edit the details to choose today or later.";
+const transportLabels: Record<NonNullable<Profile["transport"]>, string> = {
+  DEDICATED: "Car and driver for the day",
+  OWN: "We’ll make our own way",
+};
 const assistanceLabels: Record<Profile["assistance"], string> = {
-  DRIVER_ONLY: "Driver only",
+  DRIVER_ONLY: "No guide",
   ACTIVITY_GUIDE: "Guide for selected activities",
   FULL_DAY_GUIDE: "Full-day guide",
 };
@@ -60,29 +71,46 @@ function longDate(value: string) {
 }
 export default function Intake({
   id,
-  mode: entry = "chat",
+  mode: entry = "form",
+  kemi = false,
   offer,
   fresh = false,
   embedded = false,
+  seed,
   onContinue,
   onSaved,
+  airportPickupMinor,
 }: {
   id?: string;
   mode?: string;
+  // Whether Kemi is switched on (KEMI_ENABLED). Off in v1: the chat option
+  // shows greyed out and the form is the only way in.
+  kemi?: boolean;
   offer?: string;
   fresh?: boolean;
   embedded?: boolean;
+  // Starts a custom plan from a ready-made trip's dates and name.
+  seed?: {
+    title: string;
+    draftName: string;
+    startDate: string;
+    endDate: string;
+  };
   onContinue?: () => void;
   onSaved?: (id: string) => void;
+  // From transport settings, to show the pickup price.
+  airportPickupMinor?: number;
 }) {
   const router = useRouter();
   const { ids: bucket } = useBucket();
   const [profile, setProfile] = useState<Profile>({
     ...initialProfile,
-    draftName: "",
+    ...upcomingTrip(lagosToday()),
+    draftName: seed?.draftName ?? "",
+    ...(seed && { startDate: seed.startDate, endDate: seed.endDate }),
     selectedOfferIds: offer ? [offer] : [],
   });
-  const [mode, setMode] = useState(entry === "form" ? "form" : "chat");
+  const [mode, setMode] = useState(kemi && entry === "chat" ? "chat" : "form");
   const [stage, setStage] = useState<Stage>(id ? "review" : "details");
   const [saved, setSaved] = useState<Saved | null>(null);
   const [busy, setBusy] = useState(!!id);
@@ -102,6 +130,19 @@ export default function Intake({
     if (mounted.current) heading.current?.focus();
     mounted.current = true;
   }, [stage]);
+  // Set to the field's hash when a reminder link opens this page; focuses
+  // the address or flight field once the loaded form is enabled.
+  const focusStay = useRef("");
+  useEffect(() => {
+    if (!focusStay.current || busy || stage !== "details") return;
+    // The pickup address, or the first flight detail (else the question).
+    const field =
+      document.querySelector<HTMLElement>(`${focusStay.current} input`) ??
+      document.querySelector<HTMLElement>(`${focusStay.current} button`);
+    field?.focus({ preventScroll: true });
+    field?.scrollIntoView({ block: "center" });
+    focusStay.current = "";
+  }, [busy, stage]);
   useEffect(() => {
     let active = true;
     if (id) {
@@ -113,6 +154,13 @@ export default function Intake({
             setSaved(body.data);
             setProfile(body.data.profile);
             setStatus("");
+            // Reminders link here to add the pickup address: open the form
+            // at that field.
+            if (["#accommodation", "#arrival"].includes(window.location.hash)) {
+              setMode("form");
+              setStage("details");
+              focusStay.current = window.location.hash;
+            }
           }
         })
         .catch((error) => {
@@ -131,6 +179,8 @@ export default function Intake({
           if (active && draft.success)
             setProfile({
               ...draft.data,
+              ...(draft.data.startDate < lagosToday() &&
+                upcomingTrip(lagosToday())),
               draftName: "",
               selectedOfferIds: offer
                 ? [...new Set([...draft.data.selectedOfferIds, offer])]
@@ -166,6 +216,19 @@ export default function Intake({
     const result = profileSchema.safeParse(profile);
     if (!result.success) {
       setStatus(result.error.issues.map((issue) => issue.message).join(" "));
+      return;
+    }
+    if (profile.startDate < lagosToday()) {
+      setStatus(pastArrival);
+      return;
+    }
+    if (
+      profile.accommodationBy === "FASTLIFE" &&
+      profile.zoneId === "UNDECIDED"
+    ) {
+      setStatus(
+        "Choose the area you’d like to stay in, so we know where to look.",
+      );
       return;
     }
     recognition.current?.stop();
@@ -235,9 +298,11 @@ export default function Intake({
       setHasReviewed(true);
       setStage("review");
       setStatus(
-        body.data.changes.length
-          ? "Kemi updated your summary. Check every detail before saving."
-          : "Kemi didn’t find new details. Review the summary or edit it yourself.",
+        body.data.profile.startDate < lagosToday()
+          ? pastArrival
+          : body.data.changes.length
+            ? "Kemi updated your summary. Check every detail before saving."
+            : "Kemi didn’t find new details. Review the summary or edit it yourself.",
       );
       setNote("");
     } catch (error) {
@@ -251,6 +316,10 @@ export default function Intake({
     }
   }
   async function save(asNew = false) {
+    if (profile.startDate < lagosToday()) {
+      setStatus(pastArrival);
+      return;
+    }
     setBusy(true);
     setStatus("Saving your trip…");
     try {
@@ -315,13 +384,22 @@ export default function Intake({
     ],
     ["Travellers", `${profile.adults} adults`],
     [
+      "Arriving",
+      arrivalSummary(profile) ?? "Not answered yet",
+      arrivalSummary(profile) === null,
+    ],
+    [
       "Staying in",
-      profile.accommodation
-        ? `${profile.accommodation}${profile.zoneId !== "UNDECIDED" ? ` · ${zoneLabel(profile.zoneId)}` : ""}`
-        : profile.zoneId !== "UNDECIDED"
-          ? zoneLabel(profile.zoneId)
-          : "Not decided yet",
-      !profile.accommodation && profile.zoneId === "UNDECIDED",
+      profile.accommodationBy === "FASTLIFE"
+        ? stayLabel(profile)
+        : profile.accommodation
+          ? `${profile.accommodation}${profile.zoneId !== "UNDECIDED" ? ` · ${zoneLabel(profile.zoneId)}` : ""}`
+          : profile.zoneId !== "UNDECIDED"
+            ? `${zoneLabel(profile.zoneId)} · pickup address to add later`
+            : "Not decided yet",
+      !profile.accommodation &&
+        profile.accommodationBy !== "FASTLIFE" &&
+        profile.zoneId === "UNDECIDED",
     ],
     [
       "Interests",
@@ -337,12 +415,7 @@ export default function Intake({
       `${formatMoney(profile.budgetMinor)} ${profile.budgetBasis === "PERSON" ? "per person" : "for the whole party"}`,
     ],
     ["Pace", paceLabels[profile.pace]],
-    [
-      "Transport",
-      profile.transport === "OWN"
-        ? "Own transport (request)"
-        : "Dedicated vehicle",
-    ],
+    ["Getting around", transportLabels[profile.transport ?? "DEDICATED"]],
     ["Guide", assistanceLabels[profile.assistance]],
     ["Dietary needs", profile.dietary || "None", !profile.dietary],
     ["Accessibility", profile.accessibility || "None", !profile.accessibility],
@@ -385,12 +458,21 @@ export default function Intake({
         </h1>
         <p className="lede">
           {stage === "saved"
-            ? "Nothing is booked. Add more ideas to your bucket, or start arranging your days."
+            ? "Nothing is booked. Save more activities, or start arranging your days."
             : stage === "review"
-              ? "This is the profile Kemi and the planner will use. Correct anything that isn’t right."
+              ? "This is the profile the planner will use. Correct anything that isn’t right."
               : "Your dates, who’s coming and what you love. You’ll check a summary before anything is saved."}
         </p>
       </div>
+      {seed && stage === "details" && (
+        <div className="notice intake-seed">
+          <Icon name="compass" size={16} />
+          <p>
+            Starting from <strong>{seed.title}</strong>: same dates and length.
+            Change anything you like.
+          </p>
+        </div>
+      )}
       {stage === "details" && (
         <div className="intake-workspace">
           <div
@@ -400,19 +482,21 @@ export default function Intake({
           >
             <button
               type="button"
-              aria-pressed={mode === "chat"}
-              onClick={() => chooseMode("chat")}
-            >
-              <Icon name="chat" size={18} />
-              Talk to Kemi
-            </button>
-            <button
-              type="button"
               aria-pressed={mode === "form"}
               onClick={() => chooseMode("form")}
             >
               <Icon name="list" size={18} />
               Enter details manually
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === "chat"}
+              disabled={!kemi}
+              onClick={() => chooseMode("chat")}
+            >
+              <Icon name="chat" size={18} />
+              Plan with Kemi, your personal AI agent
+              {!kemi && <span className="soon-tag">Coming soon</span>}
             </button>
           </div>
           {mode === "chat" ? (
@@ -555,6 +639,7 @@ export default function Intake({
                     <input
                       required
                       type="date"
+                      min={lagosToday()}
                       value={profile.startDate}
                       onChange={(e) => update("startDate", e.target.value)}
                     />
@@ -564,6 +649,7 @@ export default function Intake({
                     <input
                       required
                       type="date"
+                      min={profile.startDate}
                       value={profile.endDate}
                       onChange={(e) => update("endDate", e.target.value)}
                     />
@@ -589,6 +675,21 @@ export default function Intake({
                 <p className="form-hint">
                   Trips of 1–30 days. All times are Lagos time.
                 </p>
+                <ArrivalFields
+                  profile={profile}
+                  priceMinor={airportPickupMinor}
+                  onChange={(arrival) =>
+                    setProfile((previous) => {
+                      const next = { ...previous, ...arrival };
+                      if (!id)
+                        localStorage.setItem(
+                          "tourism.profile",
+                          JSON.stringify(next),
+                        );
+                      return next;
+                    })
+                  }
+                />
                 <TripEvents start={profile.startDate} end={profile.endDate} />
               </fieldset>
               <fieldset className="form-section" disabled={busy}>
@@ -626,9 +727,11 @@ export default function Intake({
                         update("pace", e.target.value as Profile["pace"])
                       }
                     >
-                      <option value="RELAXED">Relaxed</option>
-                      <option value="BALANCED">Balanced</option>
-                      <option value="FULL">Full</option>
+                      <option value="RELAXED">
+                        Relaxed · 1 main activity a day, from 10am
+                      </option>
+                      <option value="BALANCED">Balanced · up to 2 a day</option>
+                      <option value="FULL">Full · up to 3 a day</option>
                     </select>
                   </label>
                   <label>
@@ -645,16 +748,46 @@ export default function Intake({
                 <legend>Where you’re staying and getting around</legend>
                 <div className="field-grid">
                   <label>
-                    Accommodation or starting area (optional)
-                    <input
-                      maxLength={300}
-                      placeholder="Not decided yet"
-                      value={profile.accommodation}
-                      onChange={(e) => update("accommodation", e.target.value)}
-                    />
+                    Accommodation
+                    <select
+                      value={profile.accommodationBy ?? "SELF"}
+                      onChange={(e) => {
+                        const by = e.target.value as Profile["accommodationBy"];
+                        update("accommodationBy", by);
+                        // Fastlife needs a type and a choice; "recommend"
+                        // until they say otherwise.
+                        update(
+                          "stay",
+                          by === "FASTLIFE"
+                            ? (profile.stay ?? {
+                                type: "HOTEL",
+                                choice: { kind: "RECOMMEND" },
+                              })
+                            : undefined,
+                        );
+                      }}
+                    >
+                      <option value="SELF">I’ll book my own stay</option>
+                      <option value="FASTLIFE">Book it for me</option>
+                    </select>
                   </label>
+                  {profile.accommodationBy !== "FASTLIFE" && (
+                    <label id="accommodation">
+                      Pickup address (optional for now)
+                      <input
+                        maxLength={300}
+                        placeholder="Hotel name, or street and area"
+                        value={profile.accommodation}
+                        onChange={(e) =>
+                          update("accommodation", e.target.value)
+                        }
+                      />
+                    </label>
+                  )}
                   <label>
-                    Area
+                    {profile.accommodationBy === "FASTLIFE"
+                      ? "Preferred area"
+                      : "Area"}
                     <select
                       value={profile.zoneId}
                       onChange={(e) =>
@@ -668,7 +801,7 @@ export default function Intake({
                     </select>
                   </label>
                   <label>
-                    Transport preference
+                    Getting around
                     <select
                       value={profile.transport ?? "DEDICATED"}
                       onChange={(e) =>
@@ -678,12 +811,15 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="DEDICATED">Dedicated vehicle</option>
-                      <option value="OWN">Own transport (request)</option>
+                      {(["DEDICATED", "OWN"] as const).map((t) => (
+                        <option key={t} value={t}>
+                          {transportLabels[t]}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
-                    Guide preference
+                    Local guide
                     <select
                       value={profile.assistance}
                       onChange={(e) =>
@@ -693,7 +829,7 @@ export default function Intake({
                         )
                       }
                     >
-                      <option value="DRIVER_ONLY">Driver only</option>
+                      <option value="DRIVER_ONLY">No guide</option>
                       <option value="ACTIVITY_GUIDE">
                         Guide for selected activities
                       </option>
@@ -701,6 +837,20 @@ export default function Intake({
                     </select>
                   </label>
                 </div>
+                {profile.accommodationBy === "FASTLIFE" && (
+                  <StayFields
+                    profile={profile}
+                    onChange={(stay) => update("stay", stay)}
+                  />
+                )}
+                <p className="form-hint">
+                  {profile.accommodationBy === "FASTLIFE"
+                    ? "After you pay for your trip, we send you places to approve and pay for in the app. "
+                    : "Your driver picks you up here. You can book without it and add it later; we’ll remind you before your first pickup. "}
+                  {profile.transport === "OWN"
+                    ? "You get yourselves between activities, so there’s no transport charge. Allow the travel times shown in your plan."
+                    : "A private car and driver on each day with activities, covering pickup, waiting time and your return. You can choose your own way on any day in the planner."}
+                </p>
               </fieldset>
               <fieldset className="form-section" disabled={busy}>
                 <legend>Budget and needs</legend>
@@ -845,14 +995,16 @@ export default function Intake({
                 <Icon name="edit" size={16} />
                 Edit details manually
               </button>
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() => edit("chat")}
-              >
-                <Icon name="chat" size={16} />
-                Ask Kemi to edit
-              </button>
+              {kemi && (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => edit("chat")}
+                >
+                  <Icon name="chat" size={16} />
+                  Ask Kemi to edit
+                </button>
+              )}
             </div>
           </div>
           <aside className="review-next">
@@ -910,7 +1062,7 @@ export default function Intake({
               </span>
               <h2>Explore experiences</h2>
               <p>
-                Browse Lagos and add favourites to your bucket. Saving doesn’t
+                Browse Lagos and save the activities you like. Saving doesn’t
                 book an activity or give it a time.
               </p>
               <Link
@@ -962,9 +1114,13 @@ export default function Intake({
               className="text-button"
               onClick={() => {
                 setSaved(null);
-                setProfile({ ...initialProfile, draftName: "" });
+                setProfile({
+                  ...initialProfile,
+                  ...upcomingTrip(lagosToday()),
+                  draftName: "",
+                });
                 setHasReviewed(false);
-                setMode("chat");
+                setMode(kemi ? "chat" : "form");
                 setStage("details");
                 setStatus("");
                 localStorage.removeItem("tourism.profile");

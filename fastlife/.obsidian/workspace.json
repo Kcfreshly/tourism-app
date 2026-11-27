@@ -1,0 +1,225 @@
+{
+  "main": {
+    "id": "930532571137e3fb",
+    "type": "split",
+    "children": [
+      {
+        "id": "98afe6a928c99a11",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4452bc9015e79362",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "User Journey.canvas",
+                "viewState": {
+                  "x": 724.550248907282,
+                  "y": 3127.3452609668007,
+                  "zoom": -0.47504687345453495
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "User Journey"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "33b1f9d116d578b7",
+    "type": "split",
+    "children": [
+      {
+        "id": "b00d702b5559ad24",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7289ed517c534c37",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "1d9a2f597625e60a",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "cdc2be1df9c9e558",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "a180cb75437e8052",
+    "type": "split",
+    "children": [
+      {
+        "id": "2946a5ac41f88151",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "52790e453eb463e3",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "User Journey.canvas",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "f714bfda07c20142",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "User Journey.canvas",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "ed4beb69c0f1b001",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "bd5c4c8d5219101f",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "f6506bd468397fd5",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "User Journey.canvas",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "4452bc9015e79362",
+  "lastOpenFiles": [
+    "User Journey/B17 Planner › load workspace.md",
+    "User Journey/B16 Plan page › Plan.md",
+    "User Journey/B15 My plans › MyTrips.md",
+    "User Journey/B14 Active trip › activateTrip.md",
+    "User Journey/B13 Trip repository › create.md",
+    "User Journey/B12 OfferSelection › keepPublished.md",
+    "User Journey/B11 CreateTrip › execute.md",
+    "User Journey/B10 Trips API › createCreateTripController.md",
+    "User Journey/B09 Trip details › save.md",
+    "User Journey/B08 Trip details › review.md",
+    "User Journey/B07 intake › extractProfile.md",
+    "User Journey/B06 SuggestProfile › execute.md",
+    "User Journey/B05 Intake API › createIntakeController.md",
+    "User Journey/B04 Trip details › askKemi.md",
+    "User Journey.md",
+    "Welcome.md",
+    "User Journey/S11 planner › pickupReminder.md",
+    "User Journey/S10 Transport settings › get.md",
+    "User Journey/S09 GetWorkspace › execute.md",
+    "User Journey/S08 Owned trip › createOwnedTripLoader.md",
+    "User Journey/S07 Workspace API › createGetWorkspaceController.md",
+    "User Journey/S06 planner › placementIssues.md",
+    "User Journey/S05 planner › assess.md",
+    "User Journey/S04 experience › toPublishedExperience.md",
+    "User Journey/S03 Catalogue repository › listPublished.md",
+    "User Journey/S02 ListPublishedExperiences › execute.md",
+    "User Journey.canvas",
+    "User Journey"
+  ]
+}

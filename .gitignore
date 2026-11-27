@@ -1,7 +1,9 @@
-node_modules/
+node_modules
+.claude/worktrees/
 .next/
 .env*
 !.env.example
+!.env.production.example
 .local/
 *.tsbuildinfo
 test-results/

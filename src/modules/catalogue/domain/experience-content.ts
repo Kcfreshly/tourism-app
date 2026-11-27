@@ -1,6 +1,7 @@
 // Customer-facing presentation for catalogue records. The catalogue remains the
-// source of truth for prices, hours, sessions and capacity; this module only
-// supplies readable labels and sample copy for the fictional demo listings.
+// source of truth for prices, hours, sessions, capacity and staff-written
+// copy; this module supplies readable labels, plus sample copy for demo
+// listings nobody has written a story for yet.
 
 export const zoneLabels: Record<string, string> = {
   LEKKI: "Lekki",
@@ -25,6 +26,17 @@ export const categoryShortLabels: Record<string, string> = {
   recreation: "Recreation",
   shopping: "Shopping & style",
 };
+
+export const wheelchairLabels: Record<string, string> = {
+  UNKNOWN: "Wheelchair access: not confirmed.",
+  NONE: "Not wheelchair accessible.",
+  PARTIAL: "Partly wheelchair accessible. Ask us about your needs.",
+  FULL: "Wheelchair accessible.",
+};
+
+export function wheelchairLabel(access: string) {
+  return wheelchairLabels[access] ?? wheelchairLabels.UNKNOWN;
+}
 
 export function displayName(name: string) {
   return name.replace(/\s*[—-]\s*DEMO$/, "");
@@ -173,14 +185,21 @@ const stories: Record<string, Story> = {
   },
 };
 
-export function storyFor(
-  seedKey: string | undefined,
-  categoryId: string,
-): Story {
+// Shown until staff write a summary; a listing with it can't be published.
+export const placeholderSummary =
+  "Details for this experience are being prepared.";
+
+export function storyFor(e: {
+  seedKey?: string;
+  categoryId: string;
+  story?: Story;
+}): Story {
+  const { seedKey, categoryId } = e;
   return (
+    e.story ??
     (seedKey ? stories[seedKey] : undefined) ?? {
       teaser: `A ${categoryShortLabels[categoryId]?.toLowerCase() ?? "local"} experience in Lagos.`,
-      summary: "Details for this experience are being prepared.",
+      summary: placeholderSummary,
       why: "",
     }
   );

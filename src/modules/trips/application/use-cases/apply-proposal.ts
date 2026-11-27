@@ -10,10 +10,12 @@ import {
 import {
   assertPlannerContract,
   lockedItemsUnchanged,
-} from "../../domain/proposal";
+} from "../services/proposal";
 import type { OfferCatalogue } from "../ports/offer-catalogue";
 import type { ProposalRepository } from "../ports/proposal-repository";
+import type { TransportSettingsRepository } from "../ports/transport-settings-repository";
 import type { TripContext } from "./load-owned-trip";
+import { assertNotBooked } from "../services/booked-trip";
 
 const payloadSchema = z
   .object({ items: z.array(itemSchema).max(240), services: servicesSchema })
@@ -25,12 +27,14 @@ export class ApplyProposal {
   constructor(
     private readonly proposals: ProposalRepository,
     private readonly offers: OfferCatalogue,
+    private readonly transport: TransportSettingsRepository,
   ) {}
 
   async execute(
     context: TripContext,
     input: { proposalId: string; expectedVersion: number },
   ) {
+    assertNotBooked(context);
     const offers = await this.offers.listPublished();
     let applied: z.infer<typeof payloadSchema> | undefined;
     const result = await this.proposals.apply(
@@ -82,7 +86,14 @@ export class ApplyProposal {
       );
     return {
       trip: result.trip,
-      price: assess(context.profile, applied.items, applied.services, offers),
+      price: assess(
+        context.profile,
+        applied.items,
+        applied.services,
+        offers,
+        undefined,
+        (await this.transport.get()).settings,
+      ),
     };
   }
 }

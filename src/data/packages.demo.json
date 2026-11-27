@@ -1,0 +1,223 @@
+{
+  "warning": "FICTIONAL READY-MADE TRIPS FOR INTERFACE TESTING. Not real operators, departures, prices, flights or accommodation.",
+  "packages": [
+    {
+      "slug": "southwest-heritage",
+      "isDemo": true,
+      "title": "Southwest heritage road trip",
+      "summary": "Four unhurried days from Lagos through Abeokuta's rocks and Ibadan's old city, with a guide and a driver throughout.",
+      "operator": "Heritage Roads (sample operator)",
+      "operatorNote": "Licensed tour operator (sample). Runs the trip and books the hotels.",
+      "startCity": "Lagos",
+      "nights": 3,
+      "route": [
+        {
+          "day": 1,
+          "place": "Lagos → Abeokuta",
+          "plan": "Morning departure by air-conditioned minibus. Afternoon climb at Olumo Rock."
+        },
+        {
+          "day": 2,
+          "place": "Abeokuta",
+          "plan": "Adire dye workshop and market walk. Evening at leisure."
+        },
+        {
+          "day": 3,
+          "place": "Abeokuta → Ibadan",
+          "plan": "Drive to Ibadan. Old city walk and Bower's Tower at sunset."
+        },
+        {
+          "day": 4,
+          "place": "Ibadan → Lagos",
+          "plan": "University botanical garden, then the return drive to Lagos."
+        }
+      ],
+      "departures": [
+        { "date": "2026-12-04", "seats": "OPEN" },
+        { "date": "2026-12-18", "seats": "LIMITED" },
+        { "date": "2027-01-15", "seats": "OPEN" }
+      ],
+      "priceMinor": 28000000,
+      "priceBasis": "PER_PERSON_TWIN",
+      "singleSupplementMinor": 6000000,
+      "inclusions": [
+        {
+          "item": "ACCOMMODATION",
+          "status": "INCLUDED",
+          "detail": "3 nights in mid-range hotels, twin rooms"
+        },
+        {
+          "item": "FLIGHTS",
+          "status": "NOT_INCLUDED",
+          "detail": "Road trip from Lagos"
+        },
+        {
+          "item": "GROUND_TRANSPORT",
+          "status": "INCLUDED",
+          "detail": "Minibus and driver for all four days, from a Lagos meeting point"
+        },
+        {
+          "item": "GUIDE",
+          "status": "INCLUDED",
+          "detail": "English-speaking guide throughout"
+        },
+        {
+          "item": "MEALS",
+          "status": "PARTIAL",
+          "detail": "Breakfast daily and two dinners"
+        },
+        {
+          "item": "ENTRY_FEES",
+          "status": "INCLUDED",
+          "detail": "All listed sites and the dye workshop"
+        }
+      ],
+      "bookingTerms": [
+        "Pay in full to book (sample terms).",
+        "Full refund up to 21 days before departure; 50% from 20 to 8 days; no refund after that.",
+        "The operator may change the order of visits for weather or access."
+      ]
+    },
+    {
+      "slug": "calabar-carnival",
+      "isDemo": true,
+      "title": "Calabar carnival week",
+      "summary": "Fly from Lagos for five days of carnival season in Calabar, with a reserved viewing stand on parade day.",
+      "operator": "Cross River Journeys (sample operator)",
+      "operatorNote": "Licensed tour operator (sample). Books the flights and hotel in your names.",
+      "startCity": "Lagos",
+      "nights": 4,
+      "route": [
+        {
+          "day": 1,
+          "place": "Lagos → Calabar",
+          "plan": "Morning flight. Airport transfer and check-in."
+        },
+        {
+          "day": 2,
+          "place": "Calabar",
+          "plan": "Old Residency museum and the marina. Evening street party."
+        },
+        {
+          "day": 3,
+          "place": "Calabar",
+          "plan": "Carnival parade from the reserved stand."
+        },
+        {
+          "day": 4,
+          "place": "Calabar",
+          "plan": "Free day. Optional drill ranch trip (extra)."
+        },
+        {
+          "day": 5,
+          "place": "Calabar → Lagos",
+          "plan": "Airport transfer and return flight."
+        }
+      ],
+      "departures": [{ "date": "2026-12-26", "seats": "LIMITED" }],
+      "priceMinor": 65000000,
+      "priceBasis": "PER_PERSON_TWIN",
+      "singleSupplementMinor": 12000000,
+      "inclusions": [
+        {
+          "item": "ACCOMMODATION",
+          "status": "INCLUDED",
+          "detail": "4 nights in a city-centre hotel, twin rooms"
+        },
+        {
+          "item": "FLIGHTS",
+          "status": "INCLUDED",
+          "detail": "Return economy flights Lagos–Calabar, 20 kg bag"
+        },
+        {
+          "item": "GROUND_TRANSPORT",
+          "status": "INCLUDED",
+          "detail": "Airport transfers and parade-day transport"
+        },
+        {
+          "item": "GUIDE",
+          "status": "INCLUDED",
+          "detail": "Local host on days 2 and 3"
+        },
+        { "item": "MEALS", "status": "PARTIAL", "detail": "Breakfast daily" },
+        {
+          "item": "ENTRY_FEES",
+          "status": "INCLUDED",
+          "detail": "Reserved stand seat and museum entry"
+        }
+      ],
+      "bookingTerms": [
+        "Pay in full to book (sample terms).",
+        "Flights are non-refundable once issued; other parts refundable up to 30 days before departure.",
+        "Name changes depend on the airline's rules and fees."
+      ]
+    },
+    {
+      "slug": "badagry-coast-escape",
+      "isDemo": true,
+      "title": "Badagry coast escape",
+      "summary": "Three quiet days at a beach resort west of Lagos, with history close by if you want it.",
+      "operator": "Coastal Stays (sample operator)",
+      "operatorNote": "Resort partner (sample). Provides the room and meals; transport on request.",
+      "startCity": "Lagos",
+      "nights": 2,
+      "route": [
+        {
+          "day": 1,
+          "place": "Lagos → Badagry",
+          "plan": "Make your way to the resort, or ask the operator to arrange a car."
+        },
+        {
+          "day": 2,
+          "place": "Badagry",
+          "plan": "Beach day. Optional heritage museum and Point of No Return visit."
+        },
+        {
+          "day": 3,
+          "place": "Badagry → Lagos",
+          "plan": "Late breakfast and check-out."
+        }
+      ],
+      "departures": [
+        { "date": "2026-11-27", "seats": "OPEN" },
+        { "date": "2026-12-11", "seats": "OPEN" },
+        { "date": "2027-01-08", "seats": "OPEN" }
+      ],
+      "priceMinor": 14500000,
+      "priceBasis": "PER_PERSON_TWIN",
+      "singleSupplementMinor": 4000000,
+      "inclusions": [
+        {
+          "item": "ACCOMMODATION",
+          "status": "INCLUDED",
+          "detail": "2 nights in a beach chalet, twin or double"
+        },
+        { "item": "FLIGHTS", "status": "NOT_INCLUDED", "detail": "Not needed" },
+        {
+          "item": "GROUND_TRANSPORT",
+          "status": "ON_REQUEST",
+          "detail": "Car from Lagos arranged by the operator, priced separately"
+        },
+        {
+          "item": "GUIDE",
+          "status": "NOT_INCLUDED",
+          "detail": "Heritage guide can be added at the resort"
+        },
+        {
+          "item": "MEALS",
+          "status": "PARTIAL",
+          "detail": "Breakfast and dinner"
+        },
+        {
+          "item": "ENTRY_FEES",
+          "status": "NOT_INCLUDED",
+          "detail": "Museum entry paid locally"
+        }
+      ],
+      "bookingTerms": [
+        "Pay in full to book (sample terms).",
+        "Full refund up to 7 days before arrival; no refund after that."
+      ]
+    }
+  ]
+}

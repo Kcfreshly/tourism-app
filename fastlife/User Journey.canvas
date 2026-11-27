@@ -1,0 +1,1323 @@
+{
+  "nodes": [
+    {
+      "id": "lane-0",
+      "type": "text",
+      "text": "## Story 1 \u00b7 Book one activity",
+      "x": 0,
+      "y": -140,
+      "width": 420,
+      "height": 90
+    },
+    {
+      "id": "lane-560",
+      "type": "text",
+      "text": "## Shared steps",
+      "x": 560,
+      "y": -140,
+      "width": 420,
+      "height": 90
+    },
+    {
+      "id": "lane-1120",
+      "type": "text",
+      "text": "## Story 2 \u00b7 Plan and book a trip",
+      "x": 1120,
+      "y": -140,
+      "width": 420,
+      "height": 90
+    },
+    {
+      "id": "A01",
+      "type": "file",
+      "file": "User Journey/A01 Home page \u203a Home.md",
+      "x": 0,
+      "y": 0,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "A02",
+      "type": "file",
+      "file": "User Journey/A02 Explore page \u203a Explore.md",
+      "x": 0,
+      "y": 220,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "A03",
+      "type": "file",
+      "file": "User Journey/A03 Catalogue browser \u203a CatalogueBrowser.md",
+      "x": 0,
+      "y": 440,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A04",
+      "type": "file",
+      "file": "User Journey/A04 Experience overlay \u203a ExperienceOverlay.md",
+      "x": 0,
+      "y": 660,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A05",
+      "type": "file",
+      "file": "User Journey/A05 Experience page \u203a Detail.md",
+      "x": 0,
+      "y": 880,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "A06",
+      "type": "file",
+      "file": "User Journey/A06 Booking panel \u203a Panel.md",
+      "x": 0,
+      "y": 1100,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A07",
+      "type": "file",
+      "file": "User Journey/A07 schedule \u203a startTimesOn.md",
+      "x": 0,
+      "y": 1320,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "A08",
+      "type": "file",
+      "file": "User Journey/A08 bookings cart \u203a experienceLinePrice.md",
+      "x": 0,
+      "y": 1540,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "A09",
+      "type": "file",
+      "file": "User Journey/A09 Booking panel \u203a bookNow.md",
+      "x": 0,
+      "y": 1760,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A10",
+      "type": "file",
+      "file": "User Journey/A10 use-cart \u203a useCart.add.md",
+      "x": 0,
+      "y": 1980,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A16",
+      "type": "file",
+      "file": "User Journey/A16 Cart page \u203a CartPage.md",
+      "x": 0,
+      "y": 2200,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A11",
+      "type": "file",
+      "file": "User Journey/A11 Checkout page \u203a Checkout.md",
+      "x": 0,
+      "y": 2420,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "A12",
+      "type": "file",
+      "file": "User Journey/A12 Checkout review \u203a CheckoutReview.md",
+      "x": 0,
+      "y": 2640,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A13",
+      "type": "file",
+      "file": "User Journey/A13 Cart \u203a useCartView.md",
+      "x": 0,
+      "y": 2860,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "A14",
+      "type": "file",
+      "file": "User Journey/A14 bookings cart \u203a cartTotals.md",
+      "x": 0,
+      "y": 3080,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "A15",
+      "type": "file",
+      "file": "User Journey/A15 Checkout review \u203a Pay (preview).md",
+      "x": 0,
+      "y": 3300,
+      "width": 420,
+      "height": 150,
+      "color": "4"
+    },
+    {
+      "id": "B01",
+      "type": "file",
+      "file": "User Journey/B01 Home page \u203a Plan with Kemi.md",
+      "x": 1120,
+      "y": 0,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "B02",
+      "type": "file",
+      "file": "User Journey/B02 New plan page \u203a NewPlan.md",
+      "x": 1120,
+      "y": 220,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "B03",
+      "type": "file",
+      "file": "User Journey/B03 Trip details \u203a Intake.md",
+      "x": 1120,
+      "y": 440,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B04",
+      "type": "file",
+      "file": "User Journey/B04 Trip details \u203a askKemi.md",
+      "x": 1120,
+      "y": 660,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B05",
+      "type": "file",
+      "file": "User Journey/B05 Intake API \u203a createIntakeController.md",
+      "x": 1120,
+      "y": 880,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B06",
+      "type": "file",
+      "file": "User Journey/B06 SuggestProfile \u203a execute.md",
+      "x": 1120,
+      "y": 1100,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B07",
+      "type": "file",
+      "file": "User Journey/B07 intake \u203a extractProfile.md",
+      "x": 1120,
+      "y": 1320,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "B08",
+      "type": "file",
+      "file": "User Journey/B08 Trip details \u203a review.md",
+      "x": 1120,
+      "y": 1540,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B09",
+      "type": "file",
+      "file": "User Journey/B09 Trip details \u203a save.md",
+      "x": 1120,
+      "y": 1760,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B10",
+      "type": "file",
+      "file": "User Journey/B10 Trips API \u203a createCreateTripController.md",
+      "x": 1120,
+      "y": 1980,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B11",
+      "type": "file",
+      "file": "User Journey/B11 CreateTrip \u203a execute.md",
+      "x": 1120,
+      "y": 2200,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B12",
+      "type": "file",
+      "file": "User Journey/B12 OfferSelection \u203a keepPublished.md",
+      "x": 1120,
+      "y": 2420,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B13",
+      "type": "file",
+      "file": "User Journey/B13 Trip repository \u203a create.md",
+      "x": 1120,
+      "y": 2640,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B14",
+      "type": "file",
+      "file": "User Journey/B14 Active trip \u203a activateTrip.md",
+      "x": 1120,
+      "y": 2860,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B15",
+      "type": "file",
+      "file": "User Journey/B15 My plans \u203a MyTrips.md",
+      "x": 1120,
+      "y": 3080,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B16",
+      "type": "file",
+      "file": "User Journey/B16 Plan page \u203a Plan.md",
+      "x": 1120,
+      "y": 3300,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "B17",
+      "type": "file",
+      "file": "User Journey/B17 Planner \u203a load workspace.md",
+      "x": 1120,
+      "y": 3520,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B18",
+      "type": "file",
+      "file": "User Journey/B18 Activity card \u203a PlannerActivityCard.md",
+      "x": 1120,
+      "y": 3740,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B19",
+      "type": "file",
+      "file": "User Journey/B19 Planner \u203a add.md",
+      "x": 1120,
+      "y": 3960,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B20",
+      "type": "file",
+      "file": "User Journey/B20 planner \u203a availableStarts.md",
+      "x": 1120,
+      "y": 4180,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "B21",
+      "type": "file",
+      "file": "User Journey/B21 Planner \u203a commitCandidate.md",
+      "x": 1120,
+      "y": 4400,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B22",
+      "type": "file",
+      "file": "User Journey/B22 Planner \u203a change.md",
+      "x": 1120,
+      "y": 4620,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B23",
+      "type": "file",
+      "file": "User Journey/B23 planner \u203a fitCar.md",
+      "x": 1120,
+      "y": 4840,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "B24",
+      "type": "file",
+      "file": "User Journey/B24 Planner \u203a save (autosave).md",
+      "x": 1120,
+      "y": 5060,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B25",
+      "type": "file",
+      "file": "User Journey/B25 Workspace API \u203a createSaveWorkspaceController.md",
+      "x": 1120,
+      "y": 5280,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B26",
+      "type": "file",
+      "file": "User Journey/B26 SaveWorkspace \u203a execute.md",
+      "x": 1120,
+      "y": 5500,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B27",
+      "type": "file",
+      "file": "User Journey/B27 Trip repository \u203a update.md",
+      "x": 1120,
+      "y": 5720,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B28",
+      "type": "file",
+      "file": "User Journey/B28 Driver & guides page \u203a ServicesPage.md",
+      "x": 1120,
+      "y": 5940,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "B29",
+      "type": "file",
+      "file": "User Journey/B29 Planner \u203a day transport controls.md",
+      "x": 1120,
+      "y": 6160,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B30",
+      "type": "file",
+      "file": "User Journey/B30 Planner \u203a saveBase.md",
+      "x": 1120,
+      "y": 6380,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B31",
+      "type": "file",
+      "file": "User Journey/B31 UpdateTripProfile \u203a execute.md",
+      "x": 1120,
+      "y": 6600,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B32",
+      "type": "file",
+      "file": "User Journey/B32 Checkout prompt \u203a proceed.md",
+      "x": 1120,
+      "y": 6820,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "B33",
+      "type": "file",
+      "file": "User Journey/B33 Trip checkout page \u203a CheckoutPage.md",
+      "x": 1120,
+      "y": 7040,
+      "width": 420,
+      "height": 150,
+      "color": "5"
+    },
+    {
+      "id": "B34",
+      "type": "file",
+      "file": "User Journey/B34 Trip checkout \u203a Checkout.md",
+      "x": 1120,
+      "y": 7260,
+      "width": 420,
+      "height": 150,
+      "color": "4"
+    },
+    {
+      "id": "S01",
+      "type": "file",
+      "file": "User Journey/S01 Page guards \u203a requireSignedIn.md",
+      "x": 560,
+      "y": 1980,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S02",
+      "type": "file",
+      "file": "User Journey/S02 ListPublishedExperiences \u203a execute.md",
+      "x": 560,
+      "y": 440,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S03",
+      "type": "file",
+      "file": "User Journey/S03 Catalogue repository \u203a listPublished.md",
+      "x": 560,
+      "y": 660,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S04",
+      "type": "file",
+      "file": "User Journey/S04 experience \u203a toPublishedExperience.md",
+      "x": 560,
+      "y": 880,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "S05",
+      "type": "file",
+      "file": "User Journey/S05 planner \u203a assess.md",
+      "x": 560,
+      "y": 4840,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "S06",
+      "type": "file",
+      "file": "User Journey/S06 planner \u203a placementIssues.md",
+      "x": 560,
+      "y": 5280,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    },
+    {
+      "id": "S07",
+      "type": "file",
+      "file": "User Journey/S07 Workspace API \u203a createGetWorkspaceController.md",
+      "x": 560,
+      "y": 3740,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S08",
+      "type": "file",
+      "file": "User Journey/S08 Owned trip \u203a createOwnedTripLoader.md",
+      "x": 560,
+      "y": 3960,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S09",
+      "type": "file",
+      "file": "User Journey/S09 GetWorkspace \u203a execute.md",
+      "x": 560,
+      "y": 4180,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S10",
+      "type": "file",
+      "file": "User Journey/S10 Transport settings \u203a get.md",
+      "x": 560,
+      "y": 4400,
+      "width": 420,
+      "height": 150
+    },
+    {
+      "id": "S11",
+      "type": "file",
+      "file": "User Journey/S11 planner \u203a pickupReminder.md",
+      "x": 560,
+      "y": 5720,
+      "width": 420,
+      "height": 150,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "A01-A02-0",
+      "fromNode": "A01",
+      "fromSide": "bottom",
+      "toNode": "A02",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "link /explore"
+    },
+    {
+      "id": "A02-S02-0",
+      "fromNode": "A02",
+      "fromSide": "right",
+      "toNode": "S02",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "pages.listPublishedExperiences()"
+    },
+    {
+      "id": "A02-A03-1",
+      "fromNode": "A02",
+      "fromSide": "bottom",
+      "toNode": "A03",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders"
+    },
+    {
+      "id": "A03-A04-0",
+      "fromNode": "A03",
+      "fromSide": "bottom",
+      "toNode": "A04",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "opens card"
+    },
+    {
+      "id": "A03-A05-1",
+      "fromNode": "A03",
+      "fromSide": "bottom",
+      "toNode": "A05",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Book for <day>"
+    },
+    {
+      "id": "A04-A05-0",
+      "fromNode": "A04",
+      "fromSide": "bottom",
+      "toNode": "A05",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "link ?book=1"
+    },
+    {
+      "id": "A05-S02-0",
+      "fromNode": "A05",
+      "fromSide": "right",
+      "toNode": "S02",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "find() \u2192 listPublishedExperiences"
+    },
+    {
+      "id": "A05-S10-1",
+      "fromNode": "A05",
+      "fromSide": "right",
+      "toNode": "S10",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "pages.transportSettings()"
+    },
+    {
+      "id": "A05-A06-2",
+      "fromNode": "A05",
+      "fromSide": "bottom",
+      "toNode": "A06",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders, startOpen"
+    },
+    {
+      "id": "A06-A07-0",
+      "fromNode": "A06",
+      "fromSide": "bottom",
+      "toNode": "A07",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "startTimesOn(e, date, now)"
+    },
+    {
+      "id": "A06-A08-1",
+      "fromNode": "A06",
+      "fromSide": "bottom",
+      "toNode": "A08",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "experienceLinePrice()"
+    },
+    {
+      "id": "A06-A09-2",
+      "fromNode": "A06",
+      "fromSide": "bottom",
+      "toNode": "A09",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Book now"
+    },
+    {
+      "id": "A09-A10-0",
+      "fromNode": "A09",
+      "fromSide": "bottom",
+      "toNode": "A10",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "cart.add(line)"
+    },
+    {
+      "id": "A09-A11-1",
+      "fromNode": "A09",
+      "fromSide": "bottom",
+      "toNode": "A11",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "router.push /checkout"
+    },
+    {
+      "id": "A09-A16-2",
+      "fromNode": "A09",
+      "fromSide": "bottom",
+      "toNode": "A16",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Add to cart \u2192 View cart"
+    },
+    {
+      "id": "A16-A13-0",
+      "fromNode": "A16",
+      "fromSide": "bottom",
+      "toNode": "A13",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "useCartView()"
+    },
+    {
+      "id": "A16-A11-1",
+      "fromNode": "A16",
+      "fromSide": "bottom",
+      "toNode": "A11",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "link /checkout"
+    },
+    {
+      "id": "A11-S01-0",
+      "fromNode": "A11",
+      "fromSide": "right",
+      "toNode": "S01",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "pages.requireSignedIn()"
+    },
+    {
+      "id": "A11-A12-1",
+      "fromNode": "A11",
+      "fromSide": "bottom",
+      "toNode": "A12",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders"
+    },
+    {
+      "id": "A12-A13-0",
+      "fromNode": "A12",
+      "fromSide": "bottom",
+      "toNode": "A13",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "useCartView()"
+    },
+    {
+      "id": "A12-A15-1",
+      "fromNode": "A12",
+      "fromSide": "bottom",
+      "toNode": "A15",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Pay"
+    },
+    {
+      "id": "A13-S02-0",
+      "fromNode": "A13",
+      "fromSide": "right",
+      "toNode": "S02",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "GET /api/v1/experiences"
+    },
+    {
+      "id": "A13-A14-1",
+      "fromNode": "A13",
+      "fromSide": "bottom",
+      "toNode": "A14",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "view() + cartTotals()"
+    },
+    {
+      "id": "B01-B02-0",
+      "fromNode": "B01",
+      "fromSide": "bottom",
+      "toNode": "B02",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "link /plan/new"
+    },
+    {
+      "id": "B02-S01-0",
+      "fromNode": "B02",
+      "fromSide": "left",
+      "toNode": "S01",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "pages.requireSignedIn()"
+    },
+    {
+      "id": "B02-B03-1",
+      "fromNode": "B02",
+      "fromSide": "bottom",
+      "toNode": "B03",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders"
+    },
+    {
+      "id": "B03-B04-0",
+      "fromNode": "B03",
+      "fromSide": "bottom",
+      "toNode": "B04",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Talk to Kemi"
+    },
+    {
+      "id": "B03-B08-1",
+      "fromNode": "B03",
+      "fromSide": "bottom",
+      "toNode": "B08",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Next: check summary"
+    },
+    {
+      "id": "B04-B05-0",
+      "fromNode": "B04",
+      "fromSide": "bottom",
+      "toNode": "B05",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "POST /api/v1/intake"
+    },
+    {
+      "id": "B05-B06-0",
+      "fromNode": "B05",
+      "fromSide": "bottom",
+      "toNode": "B06",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "suggestProfile.execute()"
+    },
+    {
+      "id": "B06-B07-0",
+      "fromNode": "B06",
+      "fromSide": "bottom",
+      "toNode": "B07",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "extractProfile()"
+    },
+    {
+      "id": "B07-B08-0",
+      "fromNode": "B07",
+      "fromSide": "bottom",
+      "toNode": "B08",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "summary"
+    },
+    {
+      "id": "B08-B09-0",
+      "fromNode": "B08",
+      "fromSide": "bottom",
+      "toNode": "B09",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Save"
+    },
+    {
+      "id": "B09-B10-0",
+      "fromNode": "B09",
+      "fromSide": "bottom",
+      "toNode": "B10",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "POST /api/v1/trips"
+    },
+    {
+      "id": "B10-B11-0",
+      "fromNode": "B10",
+      "fromSide": "bottom",
+      "toNode": "B11",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "createTrip.execute()"
+    },
+    {
+      "id": "B11-B12-0",
+      "fromNode": "B11",
+      "fromSide": "bottom",
+      "toNode": "B12",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "selection.keepPublished()"
+    },
+    {
+      "id": "B11-B13-1",
+      "fromNode": "B11",
+      "fromSide": "bottom",
+      "toNode": "B13",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "trips.create()"
+    },
+    {
+      "id": "B13-B14-0",
+      "fromNode": "B13",
+      "fromSide": "bottom",
+      "toNode": "B14",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "response"
+    },
+    {
+      "id": "B14-B15-0",
+      "fromNode": "B14",
+      "fromSide": "bottom",
+      "toNode": "B15",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "link /trips?saved=<id>"
+    },
+    {
+      "id": "B15-S11-0",
+      "fromNode": "B15",
+      "fromSide": "left",
+      "toNode": "S11",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "pickupReminder()"
+    },
+    {
+      "id": "B15-B16-1",
+      "fromNode": "B15",
+      "fromSide": "bottom",
+      "toNode": "B16",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Open planner"
+    },
+    {
+      "id": "B16-S01-0",
+      "fromNode": "B16",
+      "fromSide": "left",
+      "toNode": "S01",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "pages.requireSignedIn()"
+    },
+    {
+      "id": "B16-B17-1",
+      "fromNode": "B16",
+      "fromSide": "bottom",
+      "toNode": "B17",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders"
+    },
+    {
+      "id": "B17-S07-0",
+      "fromNode": "B17",
+      "fromSide": "left",
+      "toNode": "S07",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "GET /workspace"
+    },
+    {
+      "id": "B18-B19-0",
+      "fromNode": "B18",
+      "fromSide": "bottom",
+      "toNode": "B19",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "onAdd \u2192 add(offer)"
+    },
+    {
+      "id": "B19-B20-0",
+      "fromNode": "B19",
+      "fromSide": "bottom",
+      "toNode": "B20",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "availableStarts()"
+    },
+    {
+      "id": "B19-B21-1",
+      "fromNode": "B19",
+      "fromSide": "bottom",
+      "toNode": "B21",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "dialog submit"
+    },
+    {
+      "id": "B20-S06-0",
+      "fromNode": "B20",
+      "fromSide": "left",
+      "toNode": "S06",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "placementIssues()"
+    },
+    {
+      "id": "B21-B22-0",
+      "fromNode": "B21",
+      "fromSide": "bottom",
+      "toNode": "B22",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "change(items)"
+    },
+    {
+      "id": "B22-B23-0",
+      "fromNode": "B22",
+      "fromSide": "bottom",
+      "toNode": "B23",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "refitCars \u2192 fitCar / carCovers"
+    },
+    {
+      "id": "B22-S06-1",
+      "fromNode": "B22",
+      "fromSide": "left",
+      "toNode": "S06",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "placementIssues()"
+    },
+    {
+      "id": "B22-B24-2",
+      "fromNode": "B22",
+      "fromSide": "bottom",
+      "toNode": "B24",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "dirty \u2192 autosave"
+    },
+    {
+      "id": "B24-B25-0",
+      "fromNode": "B24",
+      "fromSide": "bottom",
+      "toNode": "B25",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "PUT /workspace"
+    },
+    {
+      "id": "B25-S08-0",
+      "fromNode": "B25",
+      "fromSide": "left",
+      "toNode": "S08",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "ownedTrip(id)"
+    },
+    {
+      "id": "B25-B26-1",
+      "fromNode": "B25",
+      "fromSide": "bottom",
+      "toNode": "B26",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "saveWorkspace.execute()"
+    },
+    {
+      "id": "B26-S06-0",
+      "fromNode": "B26",
+      "fromSide": "left",
+      "toNode": "S06",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "placementIssues()"
+    },
+    {
+      "id": "B26-S10-1",
+      "fromNode": "B26",
+      "fromSide": "left",
+      "toNode": "S10",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "transport.get()"
+    },
+    {
+      "id": "B26-S05-2",
+      "fromNode": "B26",
+      "fromSide": "left",
+      "toNode": "S05",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "assess()"
+    },
+    {
+      "id": "B26-B27-3",
+      "fromNode": "B26",
+      "fromSide": "bottom",
+      "toNode": "B27",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "trips.update()"
+    },
+    {
+      "id": "B28-S01-0",
+      "fromNode": "B28",
+      "fromSide": "left",
+      "toNode": "S01",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "pages.requireSignedIn()"
+    },
+    {
+      "id": "B28-B29-1",
+      "fromNode": "B28",
+      "fromSide": "bottom",
+      "toNode": "B29",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders"
+    },
+    {
+      "id": "B29-B22-0",
+      "fromNode": "B29",
+      "fromSide": "bottom",
+      "toNode": "B22",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "change(items, services)"
+    },
+    {
+      "id": "B30-B31-0",
+      "fromNode": "B30",
+      "fromSide": "bottom",
+      "toNode": "B31",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "PATCH /api/v1/trips/<id>"
+    },
+    {
+      "id": "B30-S07-1",
+      "fromNode": "B30",
+      "fromSide": "left",
+      "toNode": "S07",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "reload workspace"
+    },
+    {
+      "id": "B31-S06-0",
+      "fromNode": "B31",
+      "fromSide": "left",
+      "toNode": "S06",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "placementIssues()"
+    },
+    {
+      "id": "B31-B27-1",
+      "fromNode": "B31",
+      "fromSide": "bottom",
+      "toNode": "B27",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "trips.update()"
+    },
+    {
+      "id": "B32-B24-0",
+      "fromNode": "B32",
+      "fromSide": "bottom",
+      "toNode": "B24",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "beforeLeave \u2192 save()"
+    },
+    {
+      "id": "B32-B33-1",
+      "fromNode": "B32",
+      "fromSide": "bottom",
+      "toNode": "B33",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "router.push /trips/<id>/checkout"
+    },
+    {
+      "id": "B33-S01-0",
+      "fromNode": "B33",
+      "fromSide": "left",
+      "toNode": "S01",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "pages.requireSignedIn()"
+    },
+    {
+      "id": "B33-B34-1",
+      "fromNode": "B33",
+      "fromSide": "bottom",
+      "toNode": "B34",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "renders"
+    },
+    {
+      "id": "B34-S07-0",
+      "fromNode": "B34",
+      "fromSide": "left",
+      "toNode": "S07",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "GET /workspace"
+    },
+    {
+      "id": "S02-S03-0",
+      "fromNode": "S02",
+      "fromSide": "bottom",
+      "toNode": "S03",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "catalogue.listPublished()"
+    },
+    {
+      "id": "S02-S04-1",
+      "fromNode": "S02",
+      "fromSide": "bottom",
+      "toNode": "S04",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "map(toPublishedExperience)"
+    },
+    {
+      "id": "S05-S11-0",
+      "fromNode": "S05",
+      "fromSide": "bottom",
+      "toNode": "S11",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "pickupReminder()"
+    },
+    {
+      "id": "S06-S05-0",
+      "fromNode": "S06",
+      "fromSide": "bottom",
+      "toNode": "S05",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "assess()"
+    },
+    {
+      "id": "S07-S08-0",
+      "fromNode": "S07",
+      "fromSide": "bottom",
+      "toNode": "S08",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "ownedTrip(id)"
+    },
+    {
+      "id": "S07-S09-1",
+      "fromNode": "S07",
+      "fromSide": "bottom",
+      "toNode": "S09",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "getWorkspace.execute()"
+    },
+    {
+      "id": "S09-S02-0",
+      "fromNode": "S09",
+      "fromSide": "bottom",
+      "toNode": "S02",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "offers.listPublished()"
+    },
+    {
+      "id": "S09-S10-1",
+      "fromNode": "S09",
+      "fromSide": "bottom",
+      "toNode": "S10",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "transport.get()"
+    },
+    {
+      "id": "S09-S05-2",
+      "fromNode": "S09",
+      "fromSide": "bottom",
+      "toNode": "S05",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "assess()"
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 // regrouped by day so travellers can see what each day costs.
 import { tripDays, type Item, type PriceLine } from "./planner";
 import type { Profile } from "./profile";
+import { clockLabel } from "../../catalogue/domain/schedule";
 
 export function unplannedDays(
   profile: Pick<Profile, "startDate" | "endDate">,
@@ -48,7 +49,9 @@ export function costByDay(
           ...line,
           // Lines already sit under their day heading.
           label: line.label.replace(/^\d{4}-\d{2}-\d{2} · /, ""),
-          time: item ? `${item.startTime}–${item.endTime}` : undefined,
+          time: item
+            ? `${clockLabel(item.startTime)}–${clockLabel(item.endTime)}`
+            : undefined,
         };
       })
       .sort((a, b) => (a.time ?? "99").localeCompare(b.time ?? "99"));

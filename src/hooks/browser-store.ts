@@ -11,6 +11,12 @@ export const storeKeys = {
   bucketPending: "tourism.bucket.pending",
   activeTrip: "tourism.onboardedTrip",
   profile: "tourism.profile",
+  // Dated selections to buy. A signed-in cart is also kept on the server.
+  cart: "tourism.cart.v1",
+  // Whose cart the cache holds, and whether a change hasn't reached the
+  // server yet; same rules as the bucket.
+  cartOwner: "tourism.cart.owner",
+  cartPending: "tourism.cart.pending",
 } as const;
 
 export function subscribeToStore(fn: () => void) {

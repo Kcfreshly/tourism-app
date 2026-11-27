@@ -73,11 +73,11 @@ try {
   const cards = guest.locator(".experience.card");
   await cards
     .nth(0)
-    .getByRole("button", { name: /Add to bucket/ })
+    .getByRole("button", { name: /Save to Bucket/ })
     .click();
   await cards
     .nth(1)
-    .getByRole("button", { name: /Add to bucket/ })
+    .getByRole("button", { name: /Save to Bucket/ })
     .click();
   await expect(pill(guest)).toHaveText("2");
   await account(guest, true);
@@ -121,7 +121,7 @@ try {
   await other
     .locator(".experience.card")
     .first()
-    .getByRole("button", { name: /Remove from bucket/ })
+    .getByRole("button", { name: /Remove from Bucket/ })
     .click();
   await expect(pill(other)).toHaveText("1");
   await expect

@@ -1863,3 +1863,105 @@ main:has(.planner-page) {
     position: static;
   }
 }
+
+/* Transport summary card: informational, not a control. */
+div.assistance-card {
+  cursor: default;
+}
+div.assistance-card:hover {
+  border-color: var(--c-indigo);
+}
+.night-car {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line);
+}
+
+/* The day's driver times above the timeline, and bands beside the hours. */
+.day-transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 var(--space-3) var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--c-indigo-wash);
+  color: var(--c-ink-2);
+  font-size: var(--text-sm);
+}
+.day-transport > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.day-transport .icon {
+  color: var(--c-indigo);
+}
+.car-band {
+  position: absolute;
+  left: 64px;
+  width: 4px;
+  z-index: 1;
+  border-radius: var(--radius-pill);
+  background: var(--c-indigo);
+}
+.car-band[data-kind="night"] {
+  background: var(--c-ink-2);
+}
+
+/* Fixing the accommodation from the warnings list. */
+.issue-base form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.issue-base label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.issue-base input,
+.issue-base select {
+  width: 100%;
+  min-width: 0;
+}
+.issue-base button {
+  justify-self: start;
+}
+
+/* Ways back from Driver & guides: a link at the top, a bar at the end. */
+.services-workspace > .services-back,
+.services-workspace > .services-done {
+  grid-column: 1 / -1;
+}
+.services-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.services-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line);
+}
+.services-done p {
+  margin: 0;
+}
+
+/* Reminder to add a pickup address: shown until it's added. */
+.pickup-reminder {
+  border-color: var(--c-warning);
+  background: var(--c-warning-soft);
+}
+.pickup-reminder a {
+  font-weight: 600;
+}
+.pickup-flag a {
+  color: var(--c-warning);
+  font-weight: 600;
+}

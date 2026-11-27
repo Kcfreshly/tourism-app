@@ -10,9 +10,12 @@ import {
   defaultServices,
 } from "../src/modules/trips/domain/planner";
 import {
+  demoDateShift,
   eventDates,
   eventWhen,
   eventsInWindow,
+  sessionDates,
+  shiftSessionDates,
   upcomingEvents,
 } from "../src/modules/catalogue/domain/events";
 import type { Experience } from "../src/modules/catalogue/domain/experience";
@@ -112,5 +115,33 @@ describe("dated events", () => {
       now,
     );
     expect(wrongDay.blockers.map((b) => b.code)).toContain("SESSION");
+  });
+});
+
+describe("refreshing demo event dates", () => {
+  it("moves the earliest date to tomorrow or later in whole weeks", () => {
+    const dates = ["2026-11-10", "2026-11-14", "2026-12-27"];
+    expect(demoDateShift(dates, "2026-11-01")).toBe(0);
+    expect(demoDateShift(dates, "2026-11-09")).toBe(0);
+    expect(demoDateShift(dates, "2026-11-10")).toBe(7);
+    expect(demoDateShift(dates, "2026-11-21")).toBe(14);
+    expect(demoDateShift([], "2026-11-21")).toBe(0);
+  });
+  it("shifts only session dates and keeps each weekday", () => {
+    const record = {
+      id: "e",
+      sessions: [
+        { startTime: "19:00", dates: ["2026-11-14", "2026-11-15"] },
+        { startTime: "10:00" },
+      ],
+    };
+    const moved = shiftSessionDates(record, 14);
+    expect(moved.sessions[0].dates).toEqual(["2026-11-28", "2026-11-29"]);
+    expect(moved.sessions![1]).toEqual({ startTime: "10:00" });
+    expect(record.sessions[0].dates?.[0]).toBe("2026-11-14");
+    expect(new Date("2026-11-28").getUTCDay()).toBe(
+      new Date("2026-11-14").getUTCDay(),
+    );
+    expect(sessionDates([moved])).toEqual(["2026-11-28", "2026-11-29"]);
   });
 });

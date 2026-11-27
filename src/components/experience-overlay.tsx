@@ -1,4 +1,5 @@
 "use client";
+import ViewBeacon from "./view-beacon";
 import {
   createContext,
   useContext,
@@ -10,8 +11,16 @@ import {
 import { createPortal } from "react-dom";
 import PhotoCredit from "./photo-credit";
 import type { Experience } from "@/modules/catalogue/domain/experience";
+import Link from "next/link";
 import { BucketButton } from "./bucket";
+import AddToTrip from "./add-to-trip";
 import Icon from "./icons";
+import {
+  ageLabel,
+  arrivalLabel,
+  confirmationLabel,
+  listingDetails,
+} from "@/modules/catalogue/domain/listing-details";
 import {
   categoryShortLabels,
   displayName,
@@ -19,13 +28,16 @@ import {
   formatMoney,
   priceBasisLabel,
   storyFor,
+  wheelchairLabel,
   zoneLabel,
 } from "@/modules/catalogue/domain/experience-content";
+import { explorePath, withBack } from "@/modules/catalogue/domain/explore-link";
 import {
   eventDates,
   eventDay,
   eventTypeLabels,
 } from "@/modules/catalogue/domain/events";
+import { clockLabel } from "@/modules/catalogue/domain/schedule";
 const dayNames = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function openDays(days: number[]) {
   if (days.length === 7) return "Open daily";
@@ -98,7 +110,13 @@ function ActivityDialog({
     [failed, setFailed] = useState<string[]>([]);
   const photos = e.photos?.length ? e.photos : [e.imagePath],
     selectedPhoto = photos[photoIndex] ?? photos[0];
-  const story = storyFor(e.seedKey, e.categoryId);
+  const story = storyFor(e);
+  const details = listingDetails(e);
+  // Opened from Explore, the experience page links back to the same results.
+  const back =
+    window.location.pathname === explorePath
+      ? `${explorePath}${window.location.search}`
+      : undefined;
   useLayoutEffect(() => {
     const x = window.scrollX,
       y = window.scrollY,
@@ -141,7 +159,11 @@ function ActivityDialog({
   return createPortal(
     <dialog
       ref={ref}
-      onClose={onClose}
+      // React passes close events up its tree, so closing a dialog opened
+      // from inside this one (Add to trip) would otherwise close this too.
+      onClose={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
       className="experience-overlay reading-overlay"
       aria-label={displayName(e.name)}
       aria-modal="true"
@@ -224,7 +246,7 @@ function ActivityDialog({
                 failed.includes(selectedPhoto)
                   ? "Illustrated activity fallback"
                   : e.photos?.length
-                    ? displayName(e.name)
+                    ? e.photoAlts?.[photoIndex] || displayName(e.name)
                     : (e.inspirationPhoto?.title ??
                       "Category illustration; venue photos not supplied")
               }
@@ -307,10 +329,10 @@ function ActivityDialog({
             </div>
             <div>
               <dt>
-                <Icon name="users" size={16} /> Group size
+                <Icon name="users" size={16} /> Who it suits
               </dt>
               <dd>
-                {e.offer.minParty}–{e.offer.maxParty} adults
+                {ageLabel(details)} · up to {e.offer.maxParty}
               </dd>
             </div>
           </dl>
@@ -359,8 +381,9 @@ function ActivityDialog({
               <h3>When you can go</h3>
               <p>
                 {openDays(e.availabilityLocal.days)},{" "}
-                {e.availabilityLocal.opensAt}–{e.availabilityLocal.closesAt}{" "}
-                Lagos time. Up to {e.offer.capacityPerSlot}{" "}
+                {e.availabilityLocal.opensAt}–
+                {clockLabel(e.availabilityLocal.closesAt)} Lagos time. Up to{" "}
+                {e.offer.capacityPerSlot}{" "}
                 {e.offer.capacityUnit === "PERSON" ? "people" : "groups"} per
                 slot.
               </p>
@@ -386,7 +409,7 @@ function ActivityDialog({
                 <p>
                   {e.kind === "FULL_DAY"
                     ? "Takes up the main part of your day, so nothing else can overlap it."
-                    : `Pick your own start time and length. Your whole visit must finish by ${e.availabilityLocal.closesAt}.`}
+                    : `Pick your own start time and length. Your whole visit must finish by ${clockLabel(e.availabilityLocal.closesAt)}.`}
                 </p>
               )}
             </section>
@@ -418,9 +441,11 @@ function ActivityDialog({
           <section className="info-section">
             <h3>Good to know</h3>
             <ul className="plain-list">
-              <li>For adults {e.offer.minAge}+.</li>
+              <li>{ageLabel(details)}.</li>
+              <li>Getting there: {arrivalLabel(details).toLowerCase()}.</li>
+              <li>{confirmationLabel(details)}.</li>
               <li>Walking: {e.mobility.intensity.toLowerCase()}.</li>
-              <li>Wheelchair access: not confirmed.</li>
+              <li>{wheelchairLabel(e.mobility.wheelchairAccess)}</li>
               {e.offer.hostIncluded && <li>A local host joins you.</li>}
               {e.event && (
                 <li>
@@ -428,7 +453,7 @@ function ActivityDialog({
                   is confirmed.
                 </li>
               )}
-              <li>Meeting point shared once booked.</li>
+              <li>Run by {details.operator}.</li>
             </ul>
           </section>
           {e.videoUrl && (
@@ -437,8 +462,8 @@ function ActivityDialog({
           {e.inspirationPhoto && <PhotoCredit photo={e.inspirationPhoto} />}
           <p className="sample-note">
             <Icon name="info" size={16} />
-            Sample listing. Adding it to your bucket saves the idea only — no
-            time is assigned and nothing is booked.
+            Sample listing. Save keeps it in your saved activities; booking
+            starts when you choose a date.
           </p>
         </div>
       </div>
@@ -450,7 +475,7 @@ function ActivityDialog({
         <div className="overlay-actions">
           <a
             className="text-link"
-            href={`/experiences/${e.seedKey ?? e.id}`}
+            href={withBack(`/experiences/${e.seedKey ?? e.id}`, back, e)}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -458,7 +483,7 @@ function ActivityDialog({
             <Icon name="external" size={16} />
           </a>
           <BucketButton id={e.offer.id} />
-          {onAdd && (
+          {onAdd ? (
             <button
               onClick={() => {
                 ref.current?.close();
@@ -466,11 +491,32 @@ function ActivityDialog({
               }}
             >
               <Icon name="plus" size={18} />
-              Add to itinerary
+              Add to this trip
             </button>
+          ) : (
+            <>
+              <AddToTrip
+                offerId={e.offer.id}
+                title={displayName(e.name)}
+                onLeave={() => ref.current?.close()}
+              />
+              <Link
+                className="button"
+                href={withBack(
+                  `/experiences/${e.seedKey ?? e.id}?book=1`,
+                  back,
+                  e,
+                )}
+                onClick={() => ref.current?.close()}
+              >
+                Book this experience
+                <Icon name="arrowRight" size={16} />
+              </Link>
+            </>
           )}
         </div>
       </div>
+      <ViewBeacon productType="EXPERIENCE" productId={e.id} />
     </dialog>,
     document.body,
   );

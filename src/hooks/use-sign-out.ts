@@ -3,8 +3,9 @@ import { useState } from "react";
 import { authClient } from "@/components/auth-client";
 import { forgetTravellerState } from "./browser-store";
 import { flushBucketSync } from "./use-bucket-sync";
+import { flushCartSync } from "./use-cart-sync";
 
-// Saves any unsent bucket change, ends the app session and the account
+// Saves any unsent bucket or cart change, ends the app session and the account
 // session, then clears what this browser remembers about the traveller. Resolves false if sign-out failed,
 // in which case nothing is cleared.
 export function useSignOut() {
@@ -12,7 +13,7 @@ export function useSignOut() {
   async function signOut() {
     setSigningOut(true);
     try {
-      await flushBucketSync();
+      await Promise.all([flushBucketSync(), flushCartSync()]);
       const response = await fetch("/api/v1/session", { method: "DELETE" });
       if (!response.ok) return false;
       await authClient.signOut();

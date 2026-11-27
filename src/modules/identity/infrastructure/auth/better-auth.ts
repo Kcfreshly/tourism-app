@@ -8,7 +8,8 @@ import { allowedOrigins, assertDemo } from "../../../../config/environment";
 const globalAuth = globalThis as unknown as {
   tourismAuth?: ReturnType<typeof createAuth>;
 };
-function secret() {
+// Also signs the order links in confirmation emails.
+export function authSecret() {
   if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
   assertDemo();
   mkdirSync(".local", { recursive: true });
@@ -27,9 +28,9 @@ function secret() {
 }
 function createAuth() {
   return betterAuth({
-    appName: "Ọ̀nà — local demo",
+    appName: "Fastlife — local demo",
     baseURL: process.env.PUBLIC_APP_URL ?? "http://127.0.0.1:3000",
-    secret: secret(),
+    secret: authSecret(),
     trustedOrigins: allowedOrigins(),
     database: drizzleAdapter(db(), { provider: "pg", schema }),
     emailAndPassword: {
