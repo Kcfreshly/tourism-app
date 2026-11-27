@@ -1,14 +1,21 @@
 import type { StayView } from "../../domain/stay-offer";
+import type { TripArrangements } from "../../domain/checkout";
 
 // A paid trip as staff see it when sending stay offers.
 export type StayTripOrder = {
   orderId: string;
   reference: string;
+  tripId: string | null;
+  paidAt: string;
   contact: { name: string; phone: string; email: string };
   // First and last day of the trip's bookings and services.
   from: string;
   to: string;
   offers: StayView[];
+  // What the traveller asked for, when Fastlife books their stay, and when
+  // we promised to reply by.
+  request?: TripArrangements;
+  respondBy?: string;
 };
 
 // The order an offer belongs to, and who may approve it.

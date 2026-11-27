@@ -8,18 +8,50 @@ import {
 } from "../../domain/stay-offer";
 import type { CheckoutRepository } from "../ports/checkout-repository";
 import type { Notifier } from "../ports/notifier";
-import type { StayOfferRepository } from "../ports/stay-offer-repository";
+import type {
+  StayOfferRepository,
+  StayTripOrder,
+} from "../ports/stay-offer-repository";
+import { noTripDetails, type TripDetails } from "../ports/trip-details";
+import { stayRespondBy } from "../../domain/fulfilment";
 import type {
   PaymentStarter,
   StartedCheckout,
 } from "../services/payment-starter";
 
-// Staff: paid trips and the stays offered for them.
+// Staff: paid trips and the stays offered for them, with what the
+// traveller asked for. Trips where Fastlife books the stay carry the
+// 48-hour reply deadline (from payment) and come first while they still
+// need an offer.
 export class ListStayOrders {
-  constructor(private readonly stays: StayOfferRepository) {}
+  constructor(
+    private readonly stays: StayOfferRepository,
+    private readonly trips: TripDetails = noTripDetails,
+  ) {}
 
-  execute() {
-    return this.stays.tripOrders();
+  async execute(): Promise<StayTripOrder[]> {
+    const orders = await this.stays.tripOrders();
+    const trips = await this.trips.arrangements(
+      orders.flatMap((o) => (o.tripId ? [o.tripId] : [])),
+    );
+    const listed = orders.map((o) => {
+      const trip = o.tripId ? trips.get(o.tripId) : undefined;
+      return trip?.accommodationBy === "FASTLIFE"
+        ? {
+            ...o,
+            request: trip,
+            respondBy: stayRespondBy({ createdAt: o.paidAt }),
+          }
+        : o;
+    });
+    const waiting = (o: StayTripOrder) =>
+      !!o.request && !o.offers.some((x) => x.status !== "WITHDRAWN");
+    return [
+      ...listed
+        .filter(waiting)
+        .sort((a, b) => a.respondBy!.localeCompare(b.respondBy!)),
+      ...listed.filter((o) => !waiting(o)),
+    ];
   }
 }
 

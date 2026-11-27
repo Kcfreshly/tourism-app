@@ -6,6 +6,7 @@ import AdminPartners from "@/components/admin-partners";
 import AdminServiceRequests from "@/components/admin-service-requests";
 import PartnerBookings from "@/components/partner-bookings";
 import AdminStayOffers from "@/components/admin-stay-offers";
+import AdminHotels from "@/components/admin-hotels";
 import AdminTransportSettings from "@/components/admin-transport-settings";
 import AdminOverview from "@/components/admin-overview";
 import Link from "next/link";
@@ -49,6 +50,7 @@ export default async function Admin() {
         <a href="#services">Drivers &amp; guides</a>
         <a href="#partner-bookings">Partner bookings</a>
         <a href="#stays">Stays</a>
+        <a href="#hotels">Hotel list</a>
         <a href="#listings">Activities</a>
         <a href="#partners">Partners</a>
         <a href="#packages">Ready-made trips</a>
@@ -91,12 +93,28 @@ export default async function Admin() {
         <div className="admin-section-heading">
           <h2 id="admin-stays-heading">Stays</h2>
           <p className="muted">
-            Send up to three places to stay into a paid trip. The price you
-            enter is what the traveller pays, markup included. They approve one
-            and pay for it in the app; the others are released.
+            Stay requests from paid trips where we book the stay, with what the
+            traveller asked for. Reply within 48 hours of payment when they
+            asked us to recommend. Send up to three places to stay; the price
+            you enter is what the traveller pays, markup included. They approve
+            one and pay for it in the app; the others are released.
           </p>
         </div>
         <AdminStayOffers />
+      </section>
+      <section
+        id="hotels"
+        className="admin-section"
+        aria-labelledby="admin-hotels-heading"
+      >
+        <div className="admin-section-heading">
+          <h2 id="admin-hotels-heading">Hotel list</h2>
+          <p className="muted">
+            The places travellers search when they tell us where they’d like to
+            stay. Add other names people use, so their search finds it.
+          </p>
+        </div>
+        <AdminHotels />
       </section>
       <section id="listings" aria-labelledby="admin-listings-heading">
         <AdminCatalogue canDelete={isSuperAdmin(actor)} />

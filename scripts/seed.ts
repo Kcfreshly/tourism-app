@@ -6,7 +6,7 @@ import nightlife from "../src/data/nightlife.demo.json";
 import contract from "../tourism-v1-handoff/contracts/catalogue.schema.json";
 import { db } from "../src/database/client";
 import { sql } from "drizzle-orm";
-import { audit, catalogue, packages } from "../src/database/schema";
+import { audit, catalogue, hotels, packages } from "../src/database/schema";
 import { sqlRows } from "../src/database/sql-rows";
 import { demoPackages } from "../src/modules/catalogue/domain/packages";
 import { assertDemo } from "../src/config/environment";
@@ -79,7 +79,64 @@ for (const record of demoPackages)
       record,
     })
     .onConflictDoNothing({ target: packages.slug });
+// Fictional places to stay, so the plan form's search has something to
+// find. Only added while the hotel list is empty; staff replace them with
+// real, contracted places.
+const demoHotels = [
+  [
+    "Fictional Lagoon View Hotel",
+    ["Lagoon View"],
+    "VI",
+    "HOTEL",
+    "1 Fictional Close, Victoria Island",
+  ],
+  [
+    "Fictional Admiralty Suites",
+    ["Admiralty"],
+    "LEKKI",
+    "APARTMENT",
+    "12 Fictional Way, Lekki Phase 1",
+  ],
+  [
+    "Fictional Palm Guesthouse",
+    ["Palm House"],
+    "MAINLAND",
+    "GUESTHOUSE",
+    "7 Fictional Street, Ikeja GRA",
+  ],
+  [
+    "Fictional Coastline Resort",
+    ["Coastline"],
+    "LEKKI",
+    "RESORT",
+    "Fictional Coastal Road, Lekki",
+  ],
+  [
+    "Fictional Marina Business Hotel",
+    ["Marina"],
+    "VI",
+    "HOTEL",
+    "30 Fictional Avenue, Victoria Island",
+  ],
+] as const;
+const hotelCount = Number(
+  sqlRows(await db().execute(sql`select count(*)::int as count from hotels`))[0]
+    ?.count ?? 0,
+);
+if (!hotelCount)
+  await db()
+    .insert(hotels)
+    .values(
+      demoHotels.map(([name, aliases, zoneId, type, address]) => ({
+        id: randomUUID(),
+        name,
+        aliases: [...aliases],
+        zoneId,
+        type,
+        address,
+      })),
+    );
 console.log(
-  `${records.length} fictional catalogue seeds and ${demoPackages.length} ready-made trips ensured; existing edits preserved.`,
+  `${records.length} fictional catalogue seeds and ${demoPackages.length} ready-made trips ensured; existing edits preserved.${hotelCount ? "" : ` ${demoHotels.length} fictional demo hotels added.`}`,
 );
 process.exit(0);

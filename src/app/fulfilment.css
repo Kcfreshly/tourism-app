@@ -139,3 +139,91 @@
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
+
+/* ===== Plan form: stay preference ===== */
+.stay-fields {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  min-width: 0;
+}
+.stay-type {
+  display: grid;
+  gap: var(--space-2);
+}
+.stay-type > span,
+.stay-place-label {
+  font-weight: 600;
+}
+.stay-place {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.stay-chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--c-indigo-tint);
+  border-radius: var(--radius-md);
+  background: var(--c-indigo-wash);
+}
+.stay-chosen > span {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.stay-options {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-options button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.stay-options button:hover,
+.stay-options button:focus-visible {
+  border-color: var(--c-indigo);
+  background: var(--c-indigo-wash);
+}
+.stay-options span {
+  color: var(--c-ink-3);
+  font-size: var(--text-sm);
+}
+.stay-options strong {
+  overflow-wrap: anywhere;
+}
+.stay-options .stay-own {
+  border-style: dashed;
+}
+.stay-place-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ===== Staff: hotel list ===== */
+.admin-hotels {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.admin-hotels h3 {
+  margin: 0 0 var(--space-2);
+}

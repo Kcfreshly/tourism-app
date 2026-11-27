@@ -36,6 +36,13 @@ import {
   ListServiceQueue,
   UpdateServiceRequest,
 } from "@/modules/bookings/application/use-cases/service-requests";
+import { DrizzleHotelRepository } from "@/modules/trips/infrastructure/persistence/drizzle-hotel-repository";
+import {
+  ListHotels,
+  SaveHotel,
+  SearchHotels,
+} from "@/modules/trips/application/use-cases/hotels";
+import { createHotelControllers } from "@/modules/trips/presentation/http/controllers/hotel-controllers";
 import { DrizzleTripArrangements } from "@/modules/trips/infrastructure/persistence/drizzle-trip-arrangements";
 import { DrizzleServiceRequestRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-service-request-repository";
 import { DrizzleStayOfferRepository } from "@/modules/bookings/infrastructure/persistence/drizzle-stay-offer-repository";
@@ -453,6 +460,8 @@ const getOrder = new GetOrder(
 
 // Trips
 const selection = new OfferSelection(offers);
+// Fastlife's list of places to stay, searched from the plan form.
+const hotelRepository = new DrizzleHotelRepository(db);
 const proposals = new DrizzleProposalRepository(db);
 // What trip checkout reads: the traveller's own trip, freshly priced.
 // Which order paid for a trip: what makes it read-only.
@@ -648,7 +657,7 @@ export const api = {
   },
   adminStayOffers: createStayOfferControllers({
     guards,
-    list: new ListStayOrders(stayOffers),
+    list: new ListStayOrders(stayOffers, tripArrangements),
     send: new SendStayOfferToTrip(stayOffers, notifier),
     withdraw: new WithdrawStayOffer(stayOffers),
   }),
@@ -680,6 +689,12 @@ export const api = {
     ),
   }),
   intake: createIntakeController(guards, new SuggestProfile()),
+  hotels: createHotelControllers({
+    guards,
+    search: new SearchHotels(hotelRepository),
+    list: new ListHotels(hotelRepository),
+    save: new SaveHotel(hotelRepository),
+  }),
   trips: {
     list: createListTripsController(
       guards,

@@ -20,6 +20,7 @@ import { activateTrip } from "@/hooks/use-active-trip";
 import Icon from "./icons";
 import { TripEvents } from "./whats-on";
 import ArrivalFields, { arrivalSummary } from "./intake-arrival";
+import StayFields from "./intake-stay";
 
 type Saved = { id: string; version: number; profile: Profile };
 type Stage = "details" | "review" | "saved";
@@ -219,6 +220,15 @@ export default function Intake({
     }
     if (profile.startDate < lagosToday()) {
       setStatus(pastArrival);
+      return;
+    }
+    if (
+      profile.accommodationBy === "FASTLIFE" &&
+      profile.zoneId === "UNDECIDED"
+    ) {
+      setStatus(
+        "Choose the area you’d like to stay in, so we know where to look.",
+      );
       return;
     }
     recognition.current?.stop();
@@ -741,35 +751,42 @@ export default function Intake({
                     Accommodation
                     <select
                       value={profile.accommodationBy ?? "SELF"}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const by = e.target.value as Profile["accommodationBy"];
+                        update("accommodationBy", by);
+                        // Fastlife needs a type and a choice; "recommend"
+                        // until they say otherwise.
                         update(
-                          "accommodationBy",
-                          e.target.value as Profile["accommodationBy"],
-                        )
-                      }
+                          "stay",
+                          by === "FASTLIFE"
+                            ? (profile.stay ?? {
+                                type: "HOTEL",
+                                choice: { kind: "RECOMMEND" },
+                              })
+                            : undefined,
+                        );
+                      }}
                     >
                       <option value="SELF">I’ll book my own stay</option>
                       <option value="FASTLIFE">Book it for me</option>
                     </select>
                   </label>
-                  <label id="accommodation">
-                    {profile.accommodationBy === "FASTLIFE"
-                      ? "Stay preferences (optional)"
-                      : "Pickup address (optional for now)"}
-                    <input
-                      maxLength={300}
-                      placeholder={
-                        profile.accommodationBy === "FASTLIFE"
-                          ? "e.g. near the beach, budget per night"
-                          : "Hotel name, or street and area"
-                      }
-                      value={profile.accommodation}
-                      onChange={(e) => update("accommodation", e.target.value)}
-                    />
-                  </label>
+                  {profile.accommodationBy !== "FASTLIFE" && (
+                    <label id="accommodation">
+                      Pickup address (optional for now)
+                      <input
+                        maxLength={300}
+                        placeholder="Hotel name, or street and area"
+                        value={profile.accommodation}
+                        onChange={(e) =>
+                          update("accommodation", e.target.value)
+                        }
+                      />
+                    </label>
+                  )}
                   <label>
                     {profile.accommodationBy === "FASTLIFE"
-                      ? "Area you’d like to stay in"
+                      ? "Preferred area"
                       : "Area"}
                     <select
                       value={profile.zoneId}
@@ -820,9 +837,15 @@ export default function Intake({
                     </select>
                   </label>
                 </div>
+                {profile.accommodationBy === "FASTLIFE" && (
+                  <StayFields
+                    profile={profile}
+                    onChange={(stay) => update("stay", stay)}
+                  />
+                )}
                 <p className="form-hint">
                   {profile.accommodationBy === "FASTLIFE"
-                    ? "We’ll contact you to agree your stay; it isn’t priced in this preview. "
+                    ? "After you pay for your trip, we send you places to approve and pay for in the app. "
                     : "Your driver picks you up here. You can book without it and add it later; we’ll remind you before your first pickup. "}
                   {profile.transport === "OWN"
                     ? "You get yourselves between activities, so there’s no transport charge. Allow the travel times shown in your plan."

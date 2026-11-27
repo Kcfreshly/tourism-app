@@ -36,6 +36,7 @@ export class DrizzleStayOfferRepository implements StayOfferRepository {
         reference: orders.reference,
         tripId: orders.tripId,
         userId: orders.userId,
+        paidAt: orders.createdAt,
         name: checkouts.contactName,
         phone: checkouts.contactPhone,
         email: checkouts.contactEmail,
@@ -43,7 +44,8 @@ export class DrizzleStayOfferRepository implements StayOfferRepository {
       .from(orders)
       .innerJoin(checkouts, eq(checkouts.id, orders.checkoutId))
       .where(where);
-    return rows.map((r): StayOrder => ({
+    return rows.map((r): StayOrder & { paidAt: Date } => ({
+      paidAt: r.paidAt,
       orderId: r.orderId,
       reference: r.reference,
       tripId: r.tripId,
@@ -77,6 +79,8 @@ export class DrizzleStayOfferRepository implements StayOfferRepository {
         return {
           orderId: o.orderId,
           reference: o.reference,
+          tripId: o.tripId,
+          paidAt: o.paidAt.toISOString(),
           contact: o.contact,
           from: s?.from ?? "",
           to: s?.to ?? "",

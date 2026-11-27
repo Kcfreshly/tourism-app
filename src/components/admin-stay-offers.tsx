@@ -8,17 +8,103 @@ import {
   stayStatusLabel,
   type StayView,
 } from "@/modules/bookings/domain/stay-offer";
+import {
+  linkSources,
+  stayTypes,
+  type Profile,
+  type StayRequest,
+} from "@/modules/trips/domain/profile";
+import { zoneLabel } from "@/modules/catalogue/domain/experience-content";
 import { showToast } from "./toast";
 
 // Mirrors StayTripOrder from the API.
 type TripOrder = {
   orderId: string;
   reference: string;
+  paidAt: string;
   contact: { name: string; phone: string; email: string };
   from: string;
   to: string;
   offers: StayView[];
+  request?: Pick<Profile, "adults" | "zoneId" | "startDate" | "endDate"> & {
+    stay?: StayRequest;
+  };
+  respondBy?: string;
 };
+
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Lagos",
+  });
+
+// What the traveller asked for, as staff need it to find a place.
+function StayRequestFacts({ order }: { order: TripOrder }) {
+  const r = order.request!;
+  const stay = r.stay;
+  const choice = stay?.choice;
+  const overdue =
+    !!order.respondBy &&
+    new Date(order.respondBy) <= new Date() &&
+    !order.offers.some((x) => x.status !== "WITHDRAWN");
+  return (
+    <dl className="admin-service-facts">
+      <div>
+        <dt>Area</dt>
+        <dd>{r.zoneId === "UNDECIDED" ? "Not chosen" : zoneLabel(r.zoneId)}</dd>
+      </div>
+      <div>
+        <dt>Type</dt>
+        <dd>{stay ? stayTypes[stay.type] : "Not given"}</dd>
+      </div>
+      <div>
+        <dt>Budget per night</dt>
+        <dd>
+          {stay?.budgetPerNightMinor !== undefined
+            ? formatMoney(stay.budgetPerNightMinor)
+            : "Flexible"}
+        </dd>
+      </div>
+      <div>
+        <dt>Dates and guests</dt>
+        <dd>
+          {shortDay(r.startDate)} – {shortDay(r.endDate)} · {r.adults}{" "}
+          {r.adults === 1 ? "adult" : "adults"}
+        </dd>
+      </div>
+      <div data-missing={choice?.kind === "NAMED" || undefined}>
+        <dt>Their choice</dt>
+        <dd>
+          {!choice || choice.kind === "RECOMMEND" ? (
+            "No preference: recommend"
+          ) : choice.kind === "LISTED" ? (
+            `${choice.name} (on our list)`
+          ) : choice.kind === "NAMED" ? (
+            `${choice.name} (typed, unverified)`
+          ) : (
+            <a
+              href={choice.url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              {linkSources[choice.source]}
+            </a>
+          )}
+        </dd>
+      </div>
+      {order.respondBy && (
+        <div data-missing={overdue || undefined}>
+          <dt>{overdue ? "Reply overdue since" : "Reply by"}</dt>
+          <dd>{when(order.respondBy)}</dd>
+        </div>
+      )}
+    </dl>
+  );
+}
 
 async function call(method: "GET" | "POST" | "PATCH", body?: unknown) {
   const r = await fetch("/api/v1/admin/stay-offers", {
@@ -42,8 +128,15 @@ function SendOffer({
   order: TripOrder;
   onSent: () => void;
 }) {
-  const [propertyName, setName] = useState("");
-  const [area, setArea] = useState("");
+  const choice = order.request?.stay?.choice;
+  const [propertyName, setName] = useState(
+    choice?.kind === "LISTED" || choice?.kind === "NAMED" ? choice.name : "",
+  );
+  const [area, setArea] = useState(
+    order.request && order.request.zoneId !== "UNDECIDED"
+      ? zoneLabel(order.request.zoneId)
+      : "",
+  );
   const [address, setAddress] = useState("");
   const [room, setRoom] = useState("");
   const [checkIn, setCheckIn] = useState(order.from);
@@ -293,9 +386,12 @@ export default function AdminStayOffers() {
                   ? "Stay booked"
                   : open
                     ? `${open} offer${open === 1 ? "" : "s"} open`
-                    : "No stay yet"}
+                    : o.request
+                      ? "Stay requested"
+                      : "No stay yet"}
               </span>
             </div>
+            {o.request && <StayRequestFacts order={o} />}
             {o.offers.length > 0 && (
               <ul className="admin-stay-offers">
                 {o.offers.map((x) => (

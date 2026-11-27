@@ -1,4 +1,10 @@
-import { profileSchema, type Profile, categoryIds } from "./profile";
+import {
+  profileSchema,
+  readStayLink,
+  type Profile,
+  type StayRequest,
+  categoryIds,
+} from "./profile";
 const names: Record<string, string[]> = {
   nature: ["nature", "garden", "outdoors"],
   waterfront: ["beach", "waterfront"],
@@ -64,6 +70,7 @@ export function extractProfile(profile: Profile, message: string) {
     next.accommodationBy = "FASTLIFE";
   if (/full pace/.test(text)) next.pace = "FULL";
   readArrival(next, message);
+  readStay(next, message);
   const parsed = profileSchema.safeParse(next);
   if (!parsed.success)
     return {
@@ -137,4 +144,40 @@ function readArrival(next: Profile, message: string) {
   const bags = /\b(\d{1,2})\s*(?:bags|suitcases|cases)\b/i.exec(message);
   if (bags) pickup.bags = Math.min(30, Number(bags[1]));
   pickup.travellers = Math.min(pickup.travellers, next.adults);
+}
+
+// When Fastlife books the stay: the type of place, a budget per night, and
+// a place in mind ("hotel: Eko Hotel", a pasted link) or "recommend one".
+// A named place stays unverified until staff check it.
+function readStay(next: Profile, message: string) {
+  if (next.accommodationBy !== "FASTLIFE") return;
+  const text = message.toLowerCase();
+  const stay: StayRequest = next.stay ?? {
+    type: "HOTEL",
+    choice: { kind: "RECOMMEND" },
+  };
+  if (/\b(?:serviced apartment|short[- ]?let|airbnb|apartment)\b/.test(text))
+    stay.type = "APARTMENT";
+  else if (/\bguest ?house\b/.test(text)) stay.type = "GUESTHOUSE";
+  else if (/\bresort\b/.test(text)) stay.type = "RESORT";
+  else if (/\bhotel\b/.test(text)) stay.type = "HOTEL";
+  const perNight =
+    /(?:ngn|naira|₦)?\s*([\d,]{4,})\s*(?:naira|ngn)?\s*(?:a|per|\/)\s*night\b/i.exec(
+      message,
+    );
+  if (perNight)
+    stay.budgetPerNightMinor = Number(perNight[1].replaceAll(",", "")) * 100;
+  const url = /https:\/\/\S+/i.exec(message);
+  const link = url && readStayLink(url[0].replace(/[).,;]+$/, ""));
+  const named = /(?:hotel|stay at|staying at|place)\s*:\s*([^;\n.]+)/i.exec(
+    message,
+  );
+  if (link) stay.choice = { kind: "LINK", ...link };
+  else if (named && named[1].trim().length >= 2) {
+    stay.choice = { kind: "NAMED", name: named[1].trim().slice(0, 120) };
+    // The name was a preference, not a pickup address.
+    next.accommodation = "";
+  } else if (/\b(?:recommend|no preference|surprise us)\b/.test(text))
+    stay.choice = { kind: "RECOMMEND" };
+  next.stay = stay;
 }
