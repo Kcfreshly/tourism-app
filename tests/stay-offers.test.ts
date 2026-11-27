@@ -159,6 +159,7 @@ beforeEach(async () => {
       needsReview: async () => {},
       serviceUpdated: async () => {},
       bookingDecided: async () => {},
+      stayOffered: async () => {},
     },
     () => clock,
   );
@@ -213,6 +214,8 @@ const offer = (
   availableUntil: new Date(clock.getTime() + 24 * 3600000).toISOString(),
 });
 
+const quiet = { stayOffered: async () => {} };
+
 describe("stay offers", () => {
   it("describe what the traveller sees", () => {
     const o = {
@@ -230,7 +233,7 @@ describe("stay offers", () => {
 
   it("are approved and paid as a second payment on the trip's order", async () => {
     const trip = await paidTrip();
-    const send = new SendStayOfferToTrip(stays, () => clock);
+    const send = new SendStayOfferToTrip(stays, quiet, () => clock);
     const chosen = await send.execute(
       "staff-1",
       offer(trip.orderReference, "Lagoon Hotel"),
@@ -295,7 +298,7 @@ describe("stay offers", () => {
 
   it("books only one stay when two are paid at once", async () => {
     const trip = await paidTrip();
-    const send = new SendStayOfferToTrip(stays, () => clock);
+    const send = new SendStayOfferToTrip(stays, quiet, () => clock);
     const a = await send.execute(
       "staff-1",
       offer(trip.orderReference, "Lagoon Hotel"),
@@ -332,7 +335,7 @@ describe("stay offers", () => {
 
   it("refuses offers that lapsed, were withdrawn, or aren't yours", async () => {
     const trip = await paidTrip();
-    const send = new SendStayOfferToTrip(stays, () => clock);
+    const send = new SendStayOfferToTrip(stays, quiet, () => clock);
     const approve = new ApproveStay(stays, checkouts, starter, () => clock);
     const lapsing = await send.execute("staff-1", {
       ...offer(trip.orderReference, "Short hold"),
@@ -395,7 +398,7 @@ describe("stay offers", () => {
 
   it("keeps to three open offers and real trips", async () => {
     const trip = await paidTrip();
-    const send = new SendStayOfferToTrip(stays, () => clock);
+    const send = new SendStayOfferToTrip(stays, quiet, () => clock);
     for (const name of ["One", "Two", "Three"])
       await send.execute("staff-1", offer(trip.orderReference, name));
     expect(

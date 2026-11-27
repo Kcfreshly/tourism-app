@@ -65,6 +65,8 @@ import { OrderLinks } from "@/modules/bookings/application/services/order-links"
 import {
   SendBookingUpdate,
   SendOrderReceipt,
+  SendServiceUpdate,
+  SendStayOffered,
 } from "@/modules/bookings/application/use-cases/order-receipt";
 import {
   DecideBooking,
@@ -397,6 +399,8 @@ const notifier = new ReceiptNotifier(
   new LogNotifier(),
   new SendOrderReceipt(checkoutRepository, mailer, orderLinks),
   new SendBookingUpdate(mailer, orderLinks),
+  new SendServiceUpdate(checkoutRepository, mailer, orderLinks),
+  new SendStayOffered(checkoutRepository, mailer, orderLinks),
 );
 const confirmPayment = new ConfirmPayment(
   checkoutRepository,
@@ -440,7 +444,12 @@ const expireOverdue = {
   },
 };
 const listOrders = new ListOrders(checkoutRepository, expireOverdue);
-const getOrder = new GetOrder(checkoutRepository, expireOverdue, orderLinks);
+const getOrder = new GetOrder(
+  checkoutRepository,
+  expireOverdue,
+  orderLinks,
+  tripArrangements,
+);
 
 // Trips
 const selection = new OfferSelection(offers);
@@ -640,7 +649,7 @@ export const api = {
   adminStayOffers: createStayOfferControllers({
     guards,
     list: new ListStayOrders(stayOffers),
-    send: new SendStayOfferToTrip(stayOffers),
+    send: new SendStayOfferToTrip(stayOffers, notifier),
     withdraw: new WithdrawStayOffer(stayOffers),
   }),
   stayOffers: {

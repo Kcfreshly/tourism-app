@@ -3,7 +3,9 @@
 // yes, so the email says which parts are confirmed and which are waiting.
 import { formatMoney } from "@/modules/catalogue/domain/experience-content";
 import { clockLabel, shortDay } from "@/modules/catalogue/domain/schedule";
-import type { BookingView, OrderView } from "./checkout";
+import type { BookingView, OrderView, ServiceView } from "./checkout";
+import { assigneeLines } from "./service-request";
+import { nights, type StayView } from "./stay-offer";
 import type { PartnerBookingView } from "./partner-booking";
 import { serviceStatusLabel, serviceTitles } from "./trip-checkout";
 
@@ -191,4 +193,124 @@ ${body.map((l) => `<p style="margin:0 0 10px">${escape(l)}</p>`).join("\n")}
 <p style="margin:16px 0 0;font-size:13px;color:#6b6880">Fastlife</p>
 </div></body></html>`;
   return { to: b.guest.email, subject, text, html };
+}
+
+// A short update about one part of an order, with a link back to it.
+function updateEmail(m: {
+  to: string;
+  reference: string;
+  subject: string;
+  heading: string;
+  name: string;
+  paragraphs: string[];
+  card: { title: string; lines: string[] };
+  link: string;
+  button: string;
+}): Email {
+  const body = m.paragraphs.filter(Boolean);
+  const lines = m.card.lines.filter(Boolean);
+  const text = [
+    `Hi ${m.name},`,
+    "",
+    ...body,
+    "",
+    m.card.title,
+    ...lines.map((l) => `  ${l}`),
+    `  Reference: ${m.reference}`,
+    "",
+    `${m.button}: ${m.link}`,
+    "",
+    "Fastlife",
+  ].join("\n");
+  const html = `<!doctype html>
+<html><body style="margin:0;padding:24px;background:#f6f5f2;font-family:Arial,Helvetica,sans-serif;color:#1d1b2e">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px">
+<p style="margin:0 0 4px;font-size:13px;color:#6b6880">Order ${escape(m.reference)}</p>
+<h1 style="margin:0 0 12px;font-size:22px">${escape(m.heading)}</h1>
+<p style="margin:0 0 12px">Hi ${escape(m.name)},</p>
+${body.map((l) => `<p style="margin:0 0 10px">${escape(l)}</p>`).join("\n")}
+<div style="border:1px solid #e4e2ec;border-radius:10px;padding:12px 14px;margin:12px 0">
+<p style="margin:0 0 6px;font-weight:bold">${escape(m.card.title)}</p>
+${lines.map((l) => `<p style="margin:0 0 4px;font-size:14px">${escape(l)}</p>`).join("\n")}
+</div>
+<p style="margin:0 0 16px"><a href="${escape(m.link)}" style="display:inline-block;background:#3b2f8f;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">${escape(m.button)}</a></p>
+<p style="margin:16px 0 0;font-size:13px;color:#6b6880">Fastlife</p>
+</div></body></html>`;
+  return { to: m.to, subject: m.subject, text, html };
+}
+
+// Sent when staff match a driver or guide, or can't in time (refund due).
+// Null for changes the traveller needn't be emailed about.
+export function serviceUpdateEmail(
+  order: OrderView,
+  event: {
+    service: ServiceView["service"];
+    status: ServiceView["status"];
+    assignee: Record<string, string> | null;
+  },
+  link: string,
+): Email | null {
+  const s = order.services.find(
+    (x) => x.service === event.service && x.status === event.status,
+  );
+  if (!s || (event.status !== "MATCHED" && event.status !== "UNMATCHED"))
+    return null;
+  const title = serviceTitles[s.service];
+  const matched = event.status === "MATCHED";
+  const who = assigneeLines(s.service, event.assignee).map(
+    ([k, v]) => `${k}: ${v}`,
+  );
+  return updateEmail({
+    to: order.contact.email,
+    reference: order.reference,
+    subject: matched
+      ? `${title} matched: ${shortDay(s.date)} (${order.reference})`
+      : `${title} not matched: ${shortDay(s.date)} (${order.reference}), full refund`,
+    heading: matched
+      ? `Your ${title.toLowerCase()} is matched`
+      : "We couldn’t match you in time",
+    name: order.contact.name,
+    paragraphs: matched
+      ? ["Here’s who will meet you. Save their number."]
+      : [
+          `Sorry, we couldn’t find someone for your ${title.toLowerCase()} in time.`,
+          `You’ll get a full refund of ${formatMoney(s.totalMinor)} to the way you paid. Our team will contact you.`,
+        ],
+    card: {
+      title,
+      lines: [`${shortDay(s.date)} · ${s.label}`, ...(matched ? who : [])],
+    },
+    link,
+    button: "See your booking",
+  });
+}
+
+// Sent when staff send a place to stay for the traveller to approve.
+export function stayOfferedEmail(
+  order: Pick<OrderView, "reference" | "contact">,
+  offer: StayView,
+  link: string,
+): Email {
+  const n = nights(offer);
+  return updateEmail({
+    to: order.contact.email,
+    reference: order.reference,
+    subject: `Your stay is ready to approve: ${offer.propertyName} (${order.reference})`,
+    heading: "Your stay is ready to approve",
+    name: order.contact.name,
+    paragraphs: [
+      `We’ve found a place for your trip. Approve and pay for it in the app before ${lagosTime(offer.availableUntil)}, while it’s held for you.`,
+    ],
+    card: {
+      title: offer.propertyName,
+      lines: [
+        `${shortDay(offer.checkIn)} – ${shortDay(offer.checkOut)} · ${n} ${n === 1 ? "night" : "nights"} · ${offer.room}`,
+        `${offer.address} · ${offer.area}`,
+        `${formatMoney(offer.priceMinor)}, all in`,
+        offer.note,
+      ],
+    },
+    link,
+    button: "Approve and pay",
+  });
 }

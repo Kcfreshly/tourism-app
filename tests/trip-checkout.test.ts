@@ -188,6 +188,7 @@ beforeEach(async () => {
     needsReview: async () => {},
     serviceUpdated: async () => {},
     bookingDecided: async () => {},
+    stayOffered: async () => {},
   });
 });
 
@@ -342,6 +343,7 @@ describe("matching drivers and guides", () => {
       told.push(`${e.service} ${e.status}`);
     },
     bookingDecided: async () => {},
+    stayOffered: async () => {},
   };
   const update = new UpdateServiceRequest(services, notifier);
   const driver = {

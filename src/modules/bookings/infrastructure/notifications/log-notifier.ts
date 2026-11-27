@@ -34,6 +34,16 @@ export class LogNotifier implements Notifier {
     );
   }
 
+  async stayOffered(event: Parameters<Notifier["stayOffered"]>[0]) {
+    console.info(
+      JSON.stringify({
+        event: "STAY_OFFERED",
+        orderReference: event.orderReference,
+        offerId: event.offer.id,
+      }),
+    );
+  }
+
   async bookingDecided(event: Parameters<Notifier["bookingDecided"]>[0]) {
     console.info(
       JSON.stringify({

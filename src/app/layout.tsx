@@ -4,6 +4,7 @@ import "./globals.css";
 import "./planner.css";
 import "./overlays.css";
 import "./booking.css";
+import "./fulfilment.css";
 import { ExperienceOverlayProvider } from "@/components/experience-overlay";
 import SiteChrome, { BrandMark } from "@/components/site-chrome";
 import Toaster from "@/components/toast";

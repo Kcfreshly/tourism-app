@@ -7,6 +7,7 @@ import {
   type SendStayOffer,
 } from "../../domain/stay-offer";
 import type { CheckoutRepository } from "../ports/checkout-repository";
+import type { Notifier } from "../ports/notifier";
 import type { StayOfferRepository } from "../ports/stay-offer-repository";
 import type {
   PaymentStarter,
@@ -24,9 +25,11 @@ export class ListStayOrders {
 
 // Staff send a place to stay into a paid trip. Its price includes the
 // markup. At most three can be open at once, and none once one is booked.
+// The traveller is told it's ready to approve.
 export class SendStayOfferToTrip {
   constructor(
     private readonly stays: StayOfferRepository,
+    private readonly notifier: Pick<Notifier, "stayOffered">,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
@@ -59,7 +62,7 @@ export class SendStayOfferToTrip {
         "TOO_MANY_OFFERS",
         `A trip can have ${maxOpenStayOffers} open offers. Withdraw one first.`,
       );
-    return this.stays.create(
+    const offer = await this.stays.create(
       {
         id: crypto.randomUUID(),
         orderId: order.orderId,
@@ -75,6 +78,11 @@ export class SendStayOfferToTrip {
       },
       actorId,
     );
+    await this.notifier.stayOffered({
+      orderReference: order.reference,
+      offer,
+    });
+    return offer;
   }
 }
 

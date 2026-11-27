@@ -151,6 +151,7 @@ const notifier: Notifier = {
   },
   async serviceUpdated() {},
   async bookingDecided() {},
+  async stayOffered() {},
 };
 
 let gateway: FakeGateway;

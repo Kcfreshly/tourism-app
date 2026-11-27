@@ -1,19 +1,9 @@
-import type { Profile } from "../../../trips/domain/profile";
+import type { TripArrangements } from "../../domain/checkout";
 
-// What staff need from a paid trip's profile, read live so details added
-// after payment (flight number, landing time) show up: the airport pickup
-// and what to look for when Fastlife books the stay.
-export type TripArrangements = Pick<
-  Profile,
-  | "startDate"
-  | "endDate"
-  | "adults"
-  | "zoneId"
-  | "accommodationBy"
-  | "stay"
-  | "airportPickup"
->;
+export type { TripArrangements };
 
+// Paid trips' profiles by trip id, for the matching and stay queues and the
+// traveller's fulfilment tracker.
 export interface TripDetails {
   arrangements(tripIds: string[]): Promise<Map<string, TripArrangements>>;
 }

@@ -120,6 +120,7 @@ const notifier: Notifier = {
   bookingDecided: async (b) => {
     told.push(b);
   },
+  stayOffered: async () => {},
 };
 const start = new StartCheckout(
   pricing,

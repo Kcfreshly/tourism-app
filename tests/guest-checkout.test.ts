@@ -159,6 +159,7 @@ beforeEach(async () => {
     async needsReview() {},
     async serviceUpdated() {},
     async bookingDecided() {},
+    async stayOffered() {},
   });
 });
 
@@ -329,6 +330,7 @@ describe("confirmation email", () => {
           async needsReview() {},
           async serviceUpdated() {},
           async bookingDecided() {},
+          async stayOffered() {},
         },
         new SendOrderReceipt(checkouts, () => mailer, links),
         new SendBookingUpdate(() => mailer, links),

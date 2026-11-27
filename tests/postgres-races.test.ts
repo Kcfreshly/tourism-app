@@ -155,6 +155,7 @@ describe.skipIf(!url)("PostgreSQL: concurrent checkouts", () => {
       needsReview: async () => {},
       serviceUpdated: async () => {},
       bookingDecided: async () => {},
+      stayOffered: async () => {},
     });
   }
   async function reset() {

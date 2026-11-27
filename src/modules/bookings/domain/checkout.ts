@@ -1,3 +1,4 @@
+import type { Profile } from "../../trips/domain/profile";
 // Checkout: a priced cart with places held while the traveller pays, then an
 // order with one booking per line. See docs/PAYMENT_INTEGRATION_PLAN.md.
 import { z } from "zod";
@@ -183,4 +184,20 @@ export type OrderView = {
   services: ServiceView[];
   // Places to stay Fastlife offered for a paid trip, and the one booked.
   stays: StayView[];
+  // The paid trip's profile as it is now, when the order page needs it for
+  // the fulfilment tracker and the day view.
+  trip?: TripArrangements;
 };
+
+// What staff and the tracker need from a paid trip's profile, read live so
+// details added after payment (flight number, landing time) show up.
+export type TripArrangements = Pick<
+  Profile,
+  | "startDate"
+  | "endDate"
+  | "adults"
+  | "zoneId"
+  | "accommodationBy"
+  | "stay"
+  | "airportPickup"
+>;

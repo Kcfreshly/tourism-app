@@ -19,6 +19,10 @@ import {
   stayStatusLabel,
   type StayView,
 } from "@/modules/bookings/domain/stay-offer";
+import {
+  fulfilmentRows,
+  type FulfilmentRow,
+} from "@/modules/bookings/domain/fulfilment";
 import { ApproveStayButton } from "./payment-status";
 import Icon from "./icons";
 
@@ -207,6 +211,72 @@ function StayCard({
   );
 }
 
+const toneIcon = {
+  ok: "check",
+  wait: "clock",
+  act: "alert",
+  off: "info",
+} as const;
+
+// One row per thing we're arranging for a paid trip, with what the
+// traveller must act on first. "Approve and pay" works from here.
+export function FulfilmentTracker({
+  order,
+  paymentsEnabled = false,
+  now = new Date(),
+}: {
+  order: OrderView;
+  paymentsEnabled?: boolean;
+  now?: Date;
+}) {
+  const rows: FulfilmentRow[] = fulfilmentRows(order, now);
+  return (
+    <section className="fulfilment card" aria-labelledby="fulfilment-heading">
+      <h2 id="fulfilment-heading">What we’re arranging</h2>
+      <ol className="fulfilment-rows">
+        {rows.map((row) => (
+          <li key={row.key} className="fulfilment-row" data-tone={row.tone}>
+            <div className="fulfilment-row-head">
+              <h3>{row.title}</h3>
+              <span
+                className="status-chip"
+                data-tone={
+                  row.tone === "ok"
+                    ? "ok"
+                    : row.tone === "off"
+                      ? undefined
+                      : "wait"
+                }
+              >
+                <Icon name={toneIcon[row.tone]} size={14} />
+                {row.status}
+              </span>
+            </div>
+            {row.lines.filter(Boolean).length > 0 && (
+              <ul className="fulfilment-lines">
+                {row.lines.filter(Boolean).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
+            {row.refund && <p className="fulfilment-refund">{row.refund}</p>}
+            {row.approve?.map((offer) => (
+              <div key={offer.offerId} className="fulfilment-action">
+                <span>{offer.propertyName}</span>
+                <ApproveStayButton
+                  offerId={offer.offerId}
+                  priceMinor={offer.priceMinor}
+                  disabled={!paymentsEnabled}
+                />
+              </div>
+            ))}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export function OrderDetail({
   order,
   paymentsEnabled = false,
@@ -223,6 +293,13 @@ export function OrderDetail({
   );
   return (
     <div className="checkout-layout">
+      {order.tripId && (
+        <FulfilmentTracker
+          order={order}
+          paymentsEnabled={paymentsEnabled}
+          now={now}
+        />
+      )}
       <ol className="checkout-lines checkout-main">
         {order.bookings.map((b, i) => (
           <li key={b.id} className="checkout-line card">
